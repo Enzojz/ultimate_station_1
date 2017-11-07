@@ -1,0 +1,158 @@
+local paramsutil = require "paramsutil"
+local func = require "ustation/func"
+local coor = require "ustation/coor"
+local line = require "ustation/coorline"
+local arc = require "ustation/coorarc"
+local trackEdge = require "ustation/trackedge"
+local station = require "ustation/stationlib"
+local pipe = require "ustation/pipe"
+local ust = require "ustation"
+
+local dump = require "datadumper"
+
+local abs = math.abs
+local pi = math.pi
+local atan = math.atan
+local cos = math.cos
+local sin = math.sin
+
+local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
+local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+
+local platformSegments = {2, 4, 8, 12, 16, 20, 24}
+local trackNumberList = {2, 3, 4, 5, 6, 7, 8, 10, 12}
+
+local function params()
+    local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
+    return {
+        {
+            key = "nbTracks",
+            name = _("Number of tracks"),
+            values = func.map(trackNumberList, tostring),
+        },
+        {
+            key = "length",
+            name = _("Platform length") .. "(m)",
+            values = func.map(platformSegments, function(l) return _(tostring(l * station.segmentLength)) end),
+            defaultIndex = 2
+        },
+        paramsutil.makeTrackTypeParam(),
+        paramsutil.makeTrackCatenaryParam(),
+        {
+            key = "trackLayout",
+            name = _("Track Layout"),
+            values = func.map({1, 2, 3, 4}, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "sign",
+            name = sp,
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "radius",
+            name = _("Radius") .. "(m)",
+            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
+            defaultIndex = 0
+        },
+    }
+end
+
+local function defaultParams(param)
+    local function limiter(d, u)
+        return function(v) return v and v < u and v or d end
+    end
+    param.trackType = param.trackType or 0
+    param.catenary = param.catenary or 0
+    
+    func.forEach(
+        func.filter(params({}), function(p) return p.key ~= "tramTrack" end),
+        function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
+
+end
+
+local updateFn = function()
+    return function(params)
+        defaultParams(params)
+        
+        local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
+        local catenary = params.catenary == 1
+        local trackBuilder = trackEdge.builder(catenary, trackType)
+        
+        local nSeg = platformSegments[params.length + 1]
+        local length = nSeg * station.segmentLength
+        
+        local nbTracks = trackNumberList[params.nbTracks + 1]
+        local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
+        
+        local levels =
+            {
+                {
+                    mz = coor.transZ(0),
+                    mr = coor.I(),
+                    mdr = coor.I(),
+                    id = 1,
+                    nbTracks = nbTracks,
+                    baseX = 0,
+                    ignoreFst = ({true, false, true, false})[params.trackLayout + 1],
+                    ignoreLst = (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1],
+                }
+            }
+        
+        local xOffsets, uOffsets, xuIndex, xParity = station.buildCoors(nSeg)(levels, {}, {}, {}, {})
+        
+        local baseArc = arc.byOR(coor.xy(radius, 0), abs(radius))
+        
+        local trackArcs = pipe.new * xOffsets
+            * pipe.map(function(x) 
+                local ar = baseArc + x.x
+                local rad = length / ar.r * 0.25
+                return pipe.new
+                / ar:withLimits({
+                    inf = pi - rad * 2,
+                    mid = pi - rad,
+                    sup = pi
+                })
+                / ar:withLimits({
+                    inf = pi,
+                    mid = pi + rad,
+                    sup = pi + rad * 2
+                })
+            end)
+            * pipe.map(pipe.map(ust.generateArc))
+            * pipe.map(function(segs) return pipe.new * {
+                    edge = pipe.new * segs * pipe.map(pipe.range(1, 2)) * pipe.flatten(),
+                    snap = pipe.new * {}
+                }
+            end)
+            * (station.joinEdges)
+            * (station.mergeEdges)
+
+        return
+            pipe.new
+            * {
+                edgeLists = {pipe.new * {trackArcs} * station.prepareEdges * trackBuilder.normal()},
+                models = {
+                    station.newModel("asset/rock1_1.mdl", coor.I())
+                },
+                terrainAlignmentLists = {}
+            }
+    end
+end
+
+function data()
+    return {
+        type = "RAIL_STATION",
+        description = {
+            name = _("Ultimate Station"),
+            description = _("One or many tracks with fix radious and signaling spacing.")
+        },
+        availability = {
+            yearFrom = 1850
+        },
+        order = 27218,
+        params = params(),
+        updateFn = updateFn()
+    }
+end

@@ -9,34 +9,6 @@ local pi = math.pi
 local abs = math.abs
 
 tdp.infi = 1e8
-tdp.buildCoors = function(numTracks, groupSize, config)
-    config = config or {
-        trackWidth = station.trackWidth,
-        wallWidth = 0.5
-    }
-    local function builder(xOffsets, uOffsets, baseX, nbTracks)
-        local function caller(n)
-            return builder(
-                xOffsets + func.seqMap({1, n}, function(n) return baseX - 0.5 * config.trackWidth + n * config.trackWidth end),
-                uOffsets + {baseX + n * config.trackWidth + 0.5 * config.wallWidth},
-                baseX + n * config.trackWidth + config.wallWidth,
-                nbTracks - n)
-        end
-        if (nbTracks == 0) then
-            local offset = function(o) return o - baseX * config.wallWidth end
-            return
-                {
-                    tracks = xOffsets * pipe.map(offset),
-                    walls = uOffsets * pipe.map(offset)
-                }
-        elseif (nbTracks < groupSize) then
-            return caller(nbTracks)
-        else
-            return caller(groupSize)
-        end
-    end
-    return builder(pipe.new, pipe.new * {0.5 * config.wallWidth}, config.wallWidth, numTracks)
-end
 
 tdp.normalizeRad = function(rad)
     return (rad < pi * -0.5) and tdp.normalizeRad(rad + pi * 2) or rad
