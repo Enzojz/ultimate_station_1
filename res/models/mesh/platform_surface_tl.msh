@@ -11,9 +11,7 @@ function data() return
               uv0 = { count = 12, offset = 144 }, 
              }, 
           materials = 
-            { 
-              "street/new_medium_paving.mtl.mtl"
-             }
+            { "street/new_medium_paving.mtl" }
          }
        }, 
     vertexAttr = 

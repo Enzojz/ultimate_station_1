@@ -40,6 +40,10 @@ function arc.new(a, b, r, limits)
     return result
 end
 
+function arc.dR(dr)
+    return function(ar) return ar + dr end
+end
+
 function arc.byOR(o, r, limits) return arc.new(o.x, o.y, r, limits) end
 
 function arc.byXYR(x, y, r, limits) return arc.new(x, y, r, limits) end

@@ -3,18 +3,18 @@ local coor = require "ustation/coor"
 local arc = require "ustation/coorarc"
 local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
-local tdp = {}
+local ust = {}
 
 local pi = math.pi
 local abs = math.abs
 
-tdp.infi = 1e8
+ust.infi = 1e8
 
-tdp.normalizeRad = function(rad)
-    return (rad < pi * -0.5) and tdp.normalizeRad(rad + pi * 2) or rad
+ust.normalizeRad = function(rad)
+    return (rad < pi * -0.5) and ust.normalizeRad(rad + pi * 2) or rad
 end
 
-tdp.generateArc = function(arc)
+ust.generateArc = function(arc)
     local toXyz = function(pt) return coor.xyz(pt.x, pt.y, 0) end
     
     local extArc = arc:extendLimits(5)
@@ -39,7 +39,7 @@ tdp.generateArc = function(arc)
 end
 
 
-tdp.fArcs = function(offsets, rad, r)
+ust.fArcs = function(offsets, rad, r)
     return pipe.new
         * offsets
         * function(o) return r > 0 and o or o * pipe.map(pipe.neg()) * pipe.rev() end
@@ -53,7 +53,7 @@ tdp.fArcs = function(offsets, rad, r)
         * function(a) return r > 0 and a or a * pipe.rev() end
 end
 
-tdp.makeFn = function(model, mPlace, m, length)
+ust.makeFn = function(model, mPlace, m, length)
     m = m or coor.I()
     length = length or 5
     return function(obj)
@@ -65,19 +65,19 @@ tdp.makeFn = function(model, mPlace, m, length)
             end)
         end
         return {
-            makeModel(coordsGen(tdp.normalizeRad(obj.inf), tdp.normalizeRad(obj.mid))),
-            makeModel(coordsGen(tdp.normalizeRad(obj.mid), tdp.normalizeRad(obj.sup)))
+            makeModel(coordsGen(ust.normalizeRad(obj.inf), ust.normalizeRad(obj.mid))),
+            makeModel(coordsGen(ust.normalizeRad(obj.mid), ust.normalizeRad(obj.sup)))
         }
     end
 end
 
 local generatePolyArcEdge = function(group, from, to)
-    return pipe.from(tdp.normalizeRad(group[from]), tdp.normalizeRad(group[to]))
+    return pipe.from(ust.normalizeRad(group[from]), ust.normalizeRad(group[to]))
         * arc.coords(group, 5)
         * pipe.map(function(rad) return func.with(group:pt(rad), {z = 0, rad = rad}) end)
 end
 
-tdp.generatePolyArc = function(groups, from, to)
+ust.generatePolyArc = function(groups, from, to)
     local groupI, groupO = (function(ls) return ls[1], ls[#ls] end)(func.sort(groups, function(p, q) return p.r < q.r end))
     return function(extLon, extLat)
             
@@ -101,17 +101,17 @@ tdp.generatePolyArc = function(groups, from, to)
     end
 end
 
-function tdp.regularizeRad(rad)
+function ust.regularizeRad(rad)
     return rad > pi
-        and tdp.regularizeRad(rad - pi)
-        or (rad < -pi and tdp.regularizeRad(rad + pi) or rad)
+        and ust.regularizeRad(rad - pi)
+        or (rad < -pi and ust.regularizeRad(rad + pi) or rad)
 end
 
 
-function tdp.polyGen(slope)
+function ust.polyGen(slope)
     return function(wallHeight, refHeight, guidelines, wHeight, fr, to)
         local f = function(s) return s.g and
-            tdp.generatePolyArc(s.g, fr, to)(-0.2, 0)
+            ust.generatePolyArc(s.g, fr, to)(-0.2, 0)
             * pipe.map(pipe.map(s.fz))
             * station.projectPolys(coor.I())
             or {}
@@ -146,4 +146,4 @@ function tdp.polyGen(slope)
 end
 
 
-return tdp
+return ust

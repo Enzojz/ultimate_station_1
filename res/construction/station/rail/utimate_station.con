@@ -105,37 +105,87 @@ local updateFn = function()
         local baseArc = arc.byOR(coor.xy(radius, 0), abs(radius))
         
         local trackArcs = pipe.new * xOffsets
-            * pipe.map(function(x) 
+            * pipe.map(function(x)
                 local ar = baseArc + x.x
                 local rad = length / ar.r * 0.25
                 return pipe.new
-                / ar:withLimits({
-                    inf = pi - rad * 2,
-                    mid = pi - rad,
-                    sup = pi
-                })
-                / ar:withLimits({
-                    inf = pi,
-                    mid = pi + rad,
-                    sup = pi + rad * 2
-                })
+                    / ar:withLimits({
+                        inf = pi - rad * 2,
+                        mid = pi - rad,
+                        sup = pi
+                    })
+                    / ar:withLimits({
+                        inf = pi,
+                        mid = pi + rad,
+                        sup = pi + rad * 2
+                    })
             end)
+        
+        local trackEdges = trackArcs
             * pipe.map(pipe.map(ust.generateArc))
             * pipe.map(function(segs) return pipe.new * {
-                    edge = pipe.new * segs * pipe.map(pipe.range(1, 2)) * pipe.flatten(),
-                    snap = pipe.new * {}
-                }
+                edge = pipe.new * segs * pipe.map(pipe.range(1, 2)) * pipe.flatten(),
+                snap = pipe.new * {}
+            }
             end)
             * (station.joinEdges)
             * (station.mergeEdges)
-
+        
+        local xr = trackArcs
+            * pipe.map(pipe.map(arc.dR(2.5)))
+            / func.map(trackArcs[#trackArcs], arc.dR(-7.5))
+            * function(ls) return {ls * pipe.map(pipe.select(1)), ls * pipe.map(pipe.select(2))} end
+        
+        local xl = (pipe.new
+            / func.map(trackArcs[#trackArcs], arc.dR(7.5))
+            + trackArcs
+            * pipe.map(pipe.map(arc.dR(-2.5)))
+            )
+            * function(ls) return {ls * pipe.map(pipe.select(1)), ls * pipe.map(pipe.select(2))} end
+        
+        local function mPlace(guideline, rad1, rad2)
+            local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
+            local z = 0
+            local s = 0
+            local pt = guideline:pt(rad)
+            return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+        end
+        
+        
+        local m = pipe.new
+            * {
+                {xl[1], xr[1]},
+                {xl[2], xr[2]}
+            }
+            * pipe.map(function(ls)
+                return func.map2(ls[1], ls[2], function(l, r)
+                    local function makeModelL(seq, scale)
+                        return func.map2(func.range(seq, 1, #seq - 1), func.range(seq, 2, #seq), function(rad1, rad2)
+                            return station.newModel("platform_repeat.mdl", coor.flipX(), coor.scaleY(scale), mPlace(l, rad1, rad2))
+                        end)
+                    end
+                    
+                    local function makeModelR(seq, scale)
+                        return func.map2(func.range(seq, 1, #seq - 1), func.range(seq, 2, #seq), function(rad1, rad2)
+                            return station.newModel("platform_repeat.mdl", coor.scaleY(scale), mPlace(r, rad1, rad2))
+                        end)
+                    end
+                    
+                    local cl = makeModelL(arc.coords(l, 5)(ust.normalizeRad(l.inf), ust.normalizeRad(l.sup)))
+                    local cr = makeModelR(arc.coords(r, 5)(ust.normalizeRad(r.inf), ust.normalizeRad(r.sup)))
+                    
+                    return {cl, cr}
+                end)
+            end)
+            * pipe.flatten()
+            * pipe.flatten()
+            * pipe.flatten()
+        
         return
             pipe.new
             * {
-                edgeLists = {pipe.new * {trackArcs} * station.prepareEdges * trackBuilder.normal()},
-                models = {
-                    station.newModel("asset/rock1_1.mdl", coor.I())
-                },
+                edgeLists = {pipe.new * {trackEdges} * station.prepareEdges * trackBuilder.normal()},
+                models = m,
                 terrainAlignmentLists = {}
             }
     end
@@ -149,7 +199,8 @@ function data()
             description = _("One or many tracks with fix radious and signaling spacing.")
         },
         availability = {
-            yearFrom = 1850
+            yearFrom = 1850,
+            yearTo = 0,
         },
         order = 27218,
         params = params(),

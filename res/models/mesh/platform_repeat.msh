@@ -12,7 +12,7 @@ function data() return
              }, 
           materials = 
             { 
-              "station/train/passenger/trainstation_1990_borders_1.mtl.mtl"
+              "station/train/passenger/trainstation_1990_borders_3.mtl"
              }
          }
        }, 
