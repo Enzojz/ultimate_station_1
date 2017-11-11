@@ -33,6 +33,31 @@ stationlib.generateTrackGroups = function(xOffsets, length, extra)
 )
 end
 
+stationlib.rBuild = function(totalTracks, baseX, ignoreFst, ignoreLst)
+    local pW = stationlib.platformWidth
+    local tW = stationlib.trackWidth
+    local function build(nbTracks, baseX, xOffsets, uOffsets)
+        if (nbTracks == 0) then
+            return xOffsets, uOffsets
+        elseif ((nbTracks == 1 and ignoreLst) or (nbTracks == totalTracks and not ignoreFst)) then
+            return build(nbTracks - 1, baseX + pW + tW,
+                xOffsets / (baseX + 0.5 * tW + 0.5 * pW),
+                uOffsets / {-0.5 * pW, 0.5 * pW}
+        )
+        elseif (nbTracks == 1 and not ignoreLst) then
+            return build(nbTracks - 1, baseX + pW + 0.5 * tW,
+                xOffsets / baseX,
+                uOffsets / { baseX + 0.5 * tW, baseX + 0.5 * tW + pW}
+        )
+        else return build(nbTracks - 2, baseX + pW + tW + tW,
+            xOffsets / baseX / (baseX + tW + pW),
+            uOffsets / { baseX + 0.5 * tW, baseX + 0.5 * tW + pW}
+        )
+        end
+    end
+    return build(totalTracks, baseX, pipe.new, pipe.new)
+end
+
 stationlib.preBuild = function(totalTracks, baseX, ignoreFst, ignoreLst)
     local groupWidth = stationlib.trackWidth + stationlib.platformWidth
     local function build(nbTracks, baseX, xOffsets, uOffsets)
@@ -395,7 +420,7 @@ function stationlib.mergePoly(...)
                     type = "LESS",
                     faces = p.slot,
                     slopeLow = profile.slot or stationlib.infi,
-                    slopeHigh = profile.slot or  stationlib.infi,
+                    slopeHigh = profile.slot or stationlib.infi,
                 },
                 {
                     type = "GREATER",
