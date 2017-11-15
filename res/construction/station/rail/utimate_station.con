@@ -80,10 +80,18 @@ local arcPacker = function(baseArc, length)
         return pipe.new
             / ar:withLimits({
                 inf = pi - rad * 2,
+                sup = pi - rad
+            })
+            / ar:withLimits({
+                inf = pi - rad,
                 sup = pi
             })
             / ar:withLimits({
                 inf = pi,
+                sup = pi + rad
+            })
+            / ar:withLimits({
+                inf = pi + rad,
                 sup = pi + rad * 2
             })
     end
@@ -99,26 +107,25 @@ local generateEdges = function(arcPacker)
     end
 end
 
+local function mPlace(guideline, rad1, rad2)
+    local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
+    local z = 0
+    local s = 0
+    local pt = guideline:pt(rad)
+    return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
+end
+
 local generateModels = function(arcPacker)
     return function(edges, models, uOffsets)
-        local function mPlace(guideline, rad1, rad2)
-            local rad = rad2 and (rad1 + rad2) * 0.5 or rad1
-            local z = 0
-            local s = 0
-            local pt = guideline:pt(rad)
-            return coor.shearZoY(s) * coor.transZ(z) * coor.rotZ(rad) * coor.trans(func.with(pt, {z = 0}))
-        end
-        
         local platformL = pipe.new
             * arcPacker(uOffsets[1])
-            * pipe.map(function(l)
-                    
-                    local function makeModelL(seq, scale)
-                        return func.map2(func.range(seq, 1, #seq - 1), func.range(seq, 2, #seq), function(rad1, rad2)
-                            return station.newModel("platform_repeat.mdl", coor.scaleY(scale), mPlace(l, rad1, rad2))
-                        end)
-                    end
-                    return makeModelL(arc.coords(l, 5)(ust.normalizeRad(l.inf), ust.normalizeRad(l.sup)))
+            * func.map(function(l)
+                local function makeModelL(seq, scale)
+                    return func.map2(func.range(seq, 1, #seq - 1), func.range(seq, 2, #seq), function(rad1, rad2)
+                        return station.newModel("platform_repeat.mdl", coor.scaleY(scale), mPlace(l, rad1, rad2))
+                    end)
+                end
+                return makeModelL(arc.coords(l, 5)(ust.normalizeRad(l.inf), ust.normalizeRad(l.sup)))
             end)
         
         local platfromR = pipe.new
