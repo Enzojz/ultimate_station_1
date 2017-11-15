@@ -18,7 +18,6 @@ function arc.new(a, b, r, limits)
         o = coor.xy(a, b),
         r = abs(r),
         inf = limits and limits.inf or -0.5 * pi,
-        mid = limits and limits.mid or 0.5 * pi,
         sup = limits and limits.sup or 1.5 * pi,
         rad = arc.radByPt,
         length = arc.length,
@@ -57,9 +56,8 @@ end
 function arc.extendLimitsRad(arc, dInf, dSup)
     dSup = dSup or dInf
     return arc:withLimits({
-        inf = arc.inf + (arc.inf > arc.mid and dInf or -dInf),
-        mid = arc.mid,
-        sup = arc.sup + (arc.sup > arc.mid and dSup or -dSup)
+        inf = arc.inf + (arc.inf > arc.sup and dInf or -dInf),
+        sup = arc.sup + (arc.sup > arc.inf and dSup or -dSup)
     })
 end
 
@@ -76,14 +74,12 @@ function arc.extraRad(arc, dInf, dSup)
     dSup = dSup or dInf
     return {
         inf = arc:withLimits({
-            inf = arc.inf + (arc.inf > arc.mid and dInf or -dInf),
-            mid = arc.inf + 0.5 * (arc.inf > arc.mid and dInf or -dInf),
+            inf = arc.inf + (arc.inf > arc.sup and dInf or -dInf),
             sup = arc.inf
         }),
         sup = arc:withLimits({
             inf = arc.sup,
-            mid = arc.sup + 0.5 * (arc.sup > arc.mid and dSup or -dSup),
-            sup = arc.sup + (arc.sup > arc.mid and dSup or -dSup)
+            sup = arc.sup + (arc.sup > arc.inf and dSup or -dSup)
         })
     }
 end
@@ -96,7 +92,6 @@ end
 function arc.limits(a)
     return {
         inf = a.inf,
-        mid = a.mid,
         sup = a.sup
     }
 end
@@ -118,7 +113,7 @@ function arc.ptByPt(arc, pt)
 end
 
 function arc.tangent(arc, rad)
-    return coor.xyz(0, (arc.mid < arc.inf) and -1 or 1, 0) .. coor.rotZ(rad)
+    return coor.xyz(0, (arc.sup < arc.inf) and -1 or 1, 0) .. coor.rotZ(rad)
 end
 
 

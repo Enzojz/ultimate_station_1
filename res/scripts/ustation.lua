@@ -21,23 +21,36 @@ ust.generateArc = function(arc)
     
     local sup = toXyz(arc:pt(arc.sup))
     local inf = toXyz(arc:pt(arc.inf))
-    local mid = toXyz(arc:pt(arc.mid))
     
     local vecSup = arc:tangent(arc.sup)
     local vecInf = arc:tangent(arc.inf)
-    local vecMid = arc:tangent(arc.mid)
+    
+    local supExt = toXyz(extArc:pt(extArc.sup))
+    local infExt = toXyz(extArc:pt(extArc.inf))
+    
+    return
+        {inf, sup, vecInf, vecSup}
+end
+
+ust.generateArcExt = function(arc)
+    local toXyz = function(pt) return coor.xyz(pt.x, pt.y, 0) end
+    
+    local extArc = arc:extendLimits(5)
+    
+    local sup = toXyz(arc:pt(arc.sup))
+    local inf = toXyz(arc:pt(arc.inf))
+    
+    local vecSup = arc:tangent(arc.sup)
+    local vecInf = arc:tangent(arc.inf)
     
     local supExt = toXyz(extArc:pt(extArc.sup))
     local infExt = toXyz(extArc:pt(extArc.inf))
     
     return {
-        {inf, mid, vecInf, vecMid},
-        {mid, sup, vecMid, vecSup},
         {infExt, inf, extArc:tangent(extArc.inf), vecInf},
         {sup, supExt, vecSup, extArc:tangent(extArc.sup)},
     }
 end
-
 
 ust.fArcs = function(offsets, rad, r)
     return pipe.new
@@ -64,10 +77,7 @@ ust.makeFn = function(model, mPlace, m, length)
                 return station.newModel(model, m, coor.scaleY(scale), mPlace(obj, rad1, rad2))
             end)
         end
-        return {
-            makeModel(coordsGen(ust.normalizeRad(obj.inf), ust.normalizeRad(obj.mid))),
-            makeModel(coordsGen(ust.normalizeRad(obj.mid), ust.normalizeRad(obj.sup)))
-        }
+        return makeModel(coordsGen(ust.normalizeRad(obj.inf), ust.normalizeRad(obj.sup)))
     end
 end
 
@@ -85,7 +95,7 @@ ust.generatePolyArc = function(groups, from, to)
                 pipe.new
                 / (groupO + extLat):extendLimits(extLon)
                 / (groupI + (-extLat)):extendLimits(extLon)
-                * pipe.sort(function(p, q) return p:pt(p.mid).x < q:pt(p.mid).x end)
+                * pipe.sort(function(p, q) return p:pt(p.inf * 0.5 + p.sup * 0.5).x < q:pt(p.inf * 0.5 + p.sup * 0.5).x end)
             )
             return generatePolyArcEdge(groupR, from, to)
                 * function(ls) return ls * pipe.range(1, #ls - 1)
