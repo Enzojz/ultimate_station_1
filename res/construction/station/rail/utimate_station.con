@@ -117,29 +117,18 @@ end
 
 local generateModels = function(arcPacker)
     return function(edges, models, uOffsets)
-        local platformL = pipe.new
-            * arcPacker(uOffsets[1])
-            * func.map(function(l)
-                local function makeModelL(seq, scale)
-                    return func.map2(func.range(seq, 1, #seq - 1), func.range(seq, 2, #seq), function(rad1, rad2)
-                        return station.newModel("platform_repeat.mdl", coor.scaleY(scale), mPlace(l, rad1, rad2))
-                    end)
-                end
-                return makeModelL(arc.coords(l, 5)(ust.normalizeRad(l.inf), ust.normalizeRad(l.sup)))
+        local l, r = table.unpack(func.map(uOffsets, arcPacker))
+        return models
+            + pipe.new * func.map2(l, r, function(l, r)
+                local lcoords, lscale = arc.coords(l, 5)(ust.normalizeRad(l.inf), ust.normalizeRad(l.sup))
+                local rcoords, rscale = arc.coords(r, 5)(ust.normalizeRad(r.inf), ust.normalizeRad(r.sup))
+                return
+                    pipe.new * func.interlace(lcoords)
+                    * pipe.map(function(rad) return station.newModel("platform_repeat.mdl", coor.scaleY(lscale), mPlace(l, rad[1], rad[2])) end)
+                    + pipe.new * func.interlace(rcoords)
+                    * pipe.map(function(rad) return station.newModel("platform_repeat.mdl", coor.flipX(), coor.scaleY(rscale), mPlace(r, rad[1], rad[2])) end)
             end)
-        
-        local platfromR = pipe.new
-            * arcPacker(uOffsets[2])
-            * pipe.map(function(r)
-                local function makeModelR(seq, scale)
-                    return func.map2(func.range(seq, 1, #seq - 1), func.range(seq, 2, #seq), function(rad1, rad2)
-                        return station.newModel("platform_repeat.mdl", coor.flipX(), coor.scaleY(scale), mPlace(r, rad1, rad2))
-                    end)
-                end
-                return makeModelR(arc.coords(r, 5)(ust.normalizeRad(r.inf), ust.normalizeRad(r.sup)))
-            end)
-        
-        return models + (platformL + platfromR) * pipe.flatten()
+            * pipe.flatten()
     end
 end
 

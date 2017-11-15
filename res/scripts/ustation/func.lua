@@ -105,6 +105,10 @@ function func.seq(from, to)
     return result
 end
 
+function func.interlace(ls, name)
+    return func.pi.interlace(name)(ls)
+end
+
 function func.zip(ls1, ls2, name)
     return func.pi.zip(ls2, name)(ls1)
 end

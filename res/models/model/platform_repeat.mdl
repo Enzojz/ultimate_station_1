@@ -29,6 +29,10 @@ function data()
             }, 
         },
         metadata = {
+            terrainAlignmentProvider = {
+                terrainAlignmentLists = {
+                },
+            },
         },
         
     }
