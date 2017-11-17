@@ -62,6 +62,7 @@ local vecXyMeta = {
 local vecXyLength = function(self) return sqrt(self:length2()) end
 local vecXyLength2 = function(self) return self.x * self.x + self.y * self.y end
 local vecXyNormalized = function(self) return self / self:length() end
+local vecXyZ = function(self, z) return coor.xyz(self.x, self.y, z) end
 
 function coor.xy(x, y)
     local result = {
@@ -69,7 +70,8 @@ function coor.xy(x, y)
         y = y,
         length2 = vecXyLength2,
         length = vecXyLength,
-        normalized = vecXyNormalized
+        normalized = vecXyNormalized,
+        withZ = vecXyZ
     }
     setmetatable(result, vecXyMeta)
     return result
@@ -105,7 +107,7 @@ local vecXyzLength = function(self) return sqrt(self:length2()) end
 local vecXyzLength2 = function(self) return self.x * self.x + self.y * self.y + self.z * self.z end
 local vecXyzNormalized = function(self) return self / self:length() end
 local vecXyzToTuple = function(self) return {self.x, self.y, self.z} end
-
+local vecXyzDot = function(self, other) return self.x * other.x + self.y * other.y + self.z * other.z end
 function coor.xyz(x, y, z)
     local result = {
         x = x,
@@ -114,7 +116,8 @@ function coor.xyz(x, y, z)
         length = vecXyzLength,
         length2 = vecXyzLength2,
         normalized = vecXyzNormalized,
-        toTuple = vecXyzToTuple
+        toTuple = vecXyzToTuple,
+        dot = vecXyzDot
     }
     setmetatable(result, vecXyzMeta)
     return result
