@@ -11,6 +11,8 @@ local ust = require "ustation"
 local dump = require "datadumper"
 
 local abs = math.abs
+local ceil = math.ceil
+local floor = math.floor
 local pi = math.pi
 local atan = math.atan
 local cos = math.cos
@@ -72,36 +74,38 @@ local function defaultParams(param)
 
 end
 
-
-local arcPacker = function(baseArc, incr, length)
-    return function(x)
-        local ar = baseArc + incr(x)
-        local rad = length / ar.r * 0.25
+local arcPacker = function(radius, incr, length)
+    local baseCenter = coor.xy(radius, 0)
+    local initRad = radius > 0 and pi or 0
+    return function(x, dr)
+        dr = dr or 0
+        local ar = arc.byOR(baseCenter + coor.xy(radius > 0 and x or -x, 0), abs(radius + (radius > 0 and -dr or dr)))
+        local rad = (radius > 0 and 1 or -1) * length / ar.r * 0.25
         return pipe.new
             / ar:withLimits({
-                inf = pi - rad * 2,
-                sup = pi - rad
+                inf = initRad - rad * 2,
+                sup = initRad - rad
             })
             / ar:withLimits({
-                inf = pi - rad,
-                sup = pi
+                inf = initRad - rad,
+                sup = initRad
             })
             / ar:withLimits({
-                inf = pi,
-                sup = pi + rad
+                inf = initRad,
+                sup = initRad + rad
             })
             / ar:withLimits({
-                inf = pi + rad,
-                sup = pi + rad * 2
+                inf = initRad + rad,
+                sup = initRad + rad * 2
             })
     end
 end
 
 local generateEdges = function(arcPacker)
-    return function(edges, xOffset)
+    return function(edges, xOffset, xtOffset)
         return edges /
             {
-                edge = arcPacker(xOffset) * pipe.map(ust.generateArc),
+                edge = arcPacker(xOffset, xtOffset) * pipe.map(ust.generateArc),
                 snap = pipe.new * {}
             }
     end
@@ -138,33 +142,45 @@ local mShear = function(vec)
 end
 
 local generateModels = function(arcPacker)
-    return function(edges, models, uOffsets)
-        local l, r = table.unpack(func.map(uOffsets, arcPacker))
+    return function(edges, models, xOffsets, uOffsets)
+        local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker))
         return models
             + pipe.new * func.map2(l, r, function(l, r)
-                local lcoords, lscale = arc.coords(l, 5)(ust.normalizeRad(l.inf), ust.normalizeRad(l.sup))
-                local rcoords, rscale = arc.coords(r, 5 * r:length() / l:length())(ust.normalizeRad(r.inf), ust.normalizeRad(r.sup))
+                l = l:withLimits(
+                    {
+                        inf = ust.normalizeRad(l:rad((l:pt(l.inf) + r:pt(r.inf)) * 0.5)),
+                        sup = ust.normalizeRad(l:rad((l:pt(l.sup) + r:pt(r.sup)) * 0.5))
+                    }
+                )
+                r = r:withLimits(
+                    {
+                        inf = ust.normalizeRad(r:rad((l:pt(l.inf) + r:pt(r.inf)) * 0.5)),
+                        sup = ust.normalizeRad(r:rad((l:pt(l.sup) + r:pt(r.sup)) * 0.5))
+                    }
+                )
+                local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / 5)
+                local lscale = l:length() / (nSeg * 5)
+                local rscale = r:length() / (nSeg * 5)
+                local lcoords = abs(lscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return l.inf + n * ((l.sup - l.inf) / nSeg) end)
+                local rcoords = abs(rscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return r.inf + n * ((r.sup - r.inf) / nSeg) end)
                 return
                     pipe.new * func.interlace(lcoords)
                     * pipe.map(function(rad) return station.newModel("platform_repeat.mdl", coor.flipX(), coor.scaleY(lscale), mPlace(l, rad[1], rad[2])) end)
                     + pipe.new * func.interlace(rcoords)
-                    * pipe.map(function(rad) return station.newModel("platform_repeat.mdl", coor.scaleY(rscale * r:length() / l:length()), mPlace(r, rad[1], rad[2])) end)
-                    + pipe.new * func.map2(func.interlace(lcoords), func.interlace(rcoords), function(lc, rc)
-                        local rlt, rlb = table.unpack(lc)
-                        local rrt, rrb = table.unpack(rc)
-                        local lb = l:pt(rlb):withZ(0)
-                        local lt = l:pt(rlt):withZ(0)
-                        local rb = r:pt(rrb):withZ(0)
-                        local rt = r:pt(rrt):withZ(0)
+                    * pipe.map(function(rad) return station.newModel("platform_repeat.mdl", coor.scaleY(rscale), mPlace(r, rad[1], rad[2])) end)
+                    + pipe.new * func.map2(func.interlace(lcoords, {"i", "s"}), func.interlace(rcoords, {"i", "s"}), function(lc, rc)
+                        local lb = l:pt(lc.i):withZ(0)
+                        local lt = l:pt(lc.s):withZ(0)
+                        local rb = r:pt(rc.i):withZ(0)
+                        local rt = r:pt(rc.s):withZ(0)
                         local vecb = rb - lb
                         local vect = rt - lt
                         local vecl = (lt - lb) .. mRot(vect .. coor.flipX())
                         local vecr = (rt - rb) .. mRot(vecb .. coor.flipX())
                         return {
-                            station.newModel("platform_surface_br.mdl", coor.scale(coor.xyz(vecb:length() / 5, abs(vecr.y) / 5, 1)), mShear(vecr), mRot(vecb), coor.trans(rb)),
-                            station.newModel("platform_surface_tl.mdl", coor.scale(coor.xyz(vect:length() / 5, abs(vecl.y) / 5, 1)), mShear(vecl), mRot(vect), coor.trans(lt))
+                            station.newModel("platform_surface_br.mdl", coor.scale(coor.xyz(vecb:length() / 5, -vecr.y / 5, 1)), mShear(vecr), mRot(vecb), coor.trans(rb)),
+                            station.newModel("platform_surface_tl.mdl", coor.scale(coor.xyz(vect:length() / 5, -vecl.y / 5, 1)), mShear(vecl), mRot(vect), coor.trans(lt))
                         }
-                    
                     end) * pipe.flatten()
             end)
             * pipe.flatten()
@@ -176,37 +192,29 @@ local rBuild = function(totalTracks, baseX, arcPacker, ignoreFst, ignoreLst)
     local tW = station.trackWidth
     local generateEdges = generateEdges(arcPacker)
     local generateModels = generateModels(arcPacker)
-    local function build(nbTracks, baseX, edges, models, xOffsets, uOffsets)
+    local function build(nbTracks, baseX, incrX, edges, models)
         if (nbTracks == 0) then
-            return edges, models, xOffsets, uOffsets
-        elseif ((nbTracks == 1 and ignoreLst) or (nbTracks == totalTracks and not ignoreFst)) then
+            return edges, models
+        elseif (nbTracks == totalTracks and not ignoreFst) then
             edges = generateEdges(edges, baseX + 0.5 * tW + 0.5 * pW)
-            models = generateModels(edges, models, {baseX - 0.5 * pW, baseX + 0.5 * pW})
-            return build(nbTracks - 1, baseX + pW + tW,
-                edges, models,
-                xOffsets / (baseX + 0.5 * tW + 0.5 * pW),
-                uOffsets / {baseX - 0.5 * pW, baseX + 0.5 * pW}
-        )
+            models = generateModels(edges, models, {baseX + incrX + 0.5 * tW + 0.5 * pW, baseX + incrX + 0.5 * tW + 0.5 * pW}, {-0.5 * tW - pW, -0.5 * tW})
+            return build(nbTracks - 1, baseX + 0.5 * tW + 0.5 * pW, tW, edges, models)
+        elseif (nbTracks == 1 and ignoreLst) then
+            edges = generateEdges(edges, baseX + incrX + 0.5 * tW + 0.5 * pW)
+            models = generateModels(edges, models, {baseX, baseX + incrX + 0.5 * tW + 0.5 * pW}, {0.5 * tW, -0.5 * tW})
+            return build(nbTracks - 1, baseX, 1.5 * tW + 0.5 * pW, edges, models)
         elseif (nbTracks == 1 and not ignoreLst) then
-            edges = generateEdges(edges, baseX)
-            models = generateModels(edges, models, {baseX + 0.5 * tW, baseX + 0.5 * tW + pW})
-            return build(nbTracks - 1, baseX + pW + 0.5 * tW,
-                edges, models,
-                xOffsets / baseX,
-                uOffsets / {baseX + 0.5 * tW, baseX + 0.5 * tW + pW}
-        )
+            edges = generateEdges(edges, baseX, incrX)
+            models = generateModels(edges, models, {baseX, baseX + incrX}, {incrX + 0.5 * tW, 0.5 * tW + pW})
+            return build(nbTracks - 1, baseX, pW + 0.5 * tW, edges, models)
         else
-            edges = generateEdges(edges, baseX)
-            edges = generateEdges(edges, baseX + tW + pW)
-            models = generateModels(edges, models, {baseX + 0.5 * tW, baseX + 0.5 * tW + pW})
-            return build(nbTracks - 2, baseX + pW + tW + tW,
-                edges, models,
-                xOffsets / baseX / (baseX + tW + pW),
-                uOffsets / {baseX + 0.5 * tW, baseX + 0.5 * tW + pW}
-        )
+            edges = generateEdges(edges, baseX, incrX)
+            edges = generateEdges(edges, baseX + incrX + tW + pW)
+            models = generateModels(edges, models, {baseX, baseX + incrX + tW + pW}, {incrX + 0.5 * tW, -0.5 * tW})
+            return build(nbTracks - 2, baseX + incrX + tW + pW, tW, edges, models)
         end
     end
-    return build(totalTracks, baseX, pipe.new, pipe.new, pipe.new, pipe.new)
+    return build(totalTracks, baseX, 0, pipe.new, pipe.new)
 end
 
 
@@ -224,9 +232,7 @@ local updateFn = function()
         local nbTracks = trackNumberList[params.nbTracks + 1]
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         
-        local baseArc = arc.byOR(coor.xy(radius, 0), abs(radius))
-        local incr = function(x) return radius > 0 and -x or x end
-        local edge, models, xOffsets, uOffsets = rBuild(nbTracks, 0, arcPacker(baseArc, incr, length),
+        local edge, models = rBuild(nbTracks, 0, arcPacker(radius, incr, length),
             ({true, false, true, false})[params.trackLayout + 1],
             (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )
@@ -235,7 +241,7 @@ local updateFn = function()
             * {
                 edgeLists = {pipe.new * {edge * (station.mergeEdges)} * station.prepareEdges * trackBuilder.normal()},
                 models = models,
-                terrainAlignmentLists = {}
+            -- terrainAlignmentLists = {}
             }
     end
 end

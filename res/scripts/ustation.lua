@@ -11,7 +11,8 @@ local abs = math.abs
 ust.infi = 1e8
 
 ust.normalizeRad = function(rad)
-    return (rad < pi * -0.5) and ust.normalizeRad(rad + pi * 2) or rad
+    return (rad < pi * -0.5) and ust.normalizeRad(rad + pi * 2) or 
+    ((rad > pi + pi * 0.5) and ust.normalizeRad(rad - pi * 2) or rad)
 end
 
 ust.generateArc = function(arc)
