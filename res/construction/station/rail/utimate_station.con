@@ -22,7 +22,7 @@ local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55,
 local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 
 local platformSegments = {2, 4, 8, 12, 16, 20, 24}
-local trackNumberList = {2, 3, 4, 5, 6, 7, 8, 10, 12}
+local trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12}
 
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
@@ -141,68 +141,94 @@ local mShear = function(vec)
     }
 end
 
+local retriveBiLatCoords = function(l, r, length)
+    l = l:withLimits(
+        {
+            inf = ust.normalizeRad(l:rad((l:pt(l.inf) + r:pt(r.inf)) * 0.5)),
+            sup = ust.normalizeRad(l:rad((l:pt(l.sup) + r:pt(r.sup)) * 0.5))
+        }
+    )
+    r = r:withLimits(
+        {
+            inf = ust.normalizeRad(r:rad((l:pt(l.inf) + r:pt(r.inf)) * 0.5)),
+            sup = ust.normalizeRad(r:rad((l:pt(l.sup) + r:pt(r.sup)) * 0.5))
+        }
+    )
+    local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / length)
+    local lscale = l:length() / (nSeg * length)
+    local rscale = r:length() / (nSeg * length)
+    local lcoords = abs(lscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return l.inf + n * ((l.sup - l.inf) / nSeg) end)
+    local rcoords = abs(rscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return r.inf + n * ((r.sup - r.inf) / nSeg) end)
+    return lscale, rscale, lcoords, rcoords
+end
+
 local generateTerminals = function(arcPacker)
-    return function(edges, terminals, xOffsets, uOffsets)
+    return function(edges, terminals, terminalsGroup, xOffsets, uOffsets, enablers)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker))
-        return terminals
-            + pipe.new * func.map2(l, r, function(l, r)
-                l = l:withLimits(
-                    {
-                        inf = ust.normalizeRad(l:rad((l:pt(l.inf) + r:pt(r.inf)) * 0.5)),
-                        sup = ust.normalizeRad(l:rad((l:pt(l.sup) + r:pt(r.sup)) * 0.5))
-                    }
-                )
-                r = r:withLimits(
-                    {
-                        inf = ust.normalizeRad(r:rad((l:pt(l.inf) + r:pt(r.inf)) * 0.5)),
-                        sup = ust.normalizeRad(r:rad((l:pt(l.sup) + r:pt(r.sup)) * 0.5))
-                    }
-                )
-                local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / 10)
-                local lscale = l:length() / (nSeg * 10)
-                local rscale = r:length() / (nSeg * 10)
-                local lcoords = abs(lscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return l.inf + n * ((l.sup - l.inf) / nSeg) end)
-                local rcoords = abs(rscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return r.inf + n * ((r.sup - r.inf) / nSeg) end)
-                return
-                    pipe.new * func.map2(func.interlace(lcoords, {"i", "s"}), func.interlace(rcoords, {"i", "s"}), function(lc, rc)
-                        local lb = l:pt(lc.i):withZ(0)
-                        local lt = l:pt(lc.s):withZ(0)
-                        local rb = r:pt(rc.i):withZ(0)
-                        local rt = r:pt(rc.s):withZ(0)
+        local newTerminals =
+            pipe.new * func.map2(l, r, function(l, r)
+                local lscale, rscale, lcoords, rcoords = retriveBiLatCoords(l, r, 10)
+                return pipe.new
+                    * func.map2(func.interlace(lcoords, {"i", "s"}), func.interlace(rcoords, {"i", "s"}), function(lc, rc)
+                        local lb = l:pt(lc.i):withZ(1.2)
+                        local lt = l:pt(lc.s):withZ(1.2)
+                        local rb = r:pt(rc.i):withZ(1.2)
+                        local rt = r:pt(rc.s):withZ(1.2)
                         local vecl = (lt - lb)
                         local vecr = (rt - rb)
+                        local vectl = (lt - rt)
                         return {
-                            station.newModel("terminal_lane.mdl", coor.scaleX(vecl:length()), mRot(vecl), coor.trans(lb)),
-                            station.newModel("terminal_lane.mdl", coor.scaleX(vecr:length()), mRot(vecr), coor.trans(rb))
+                            l = station.newModel("terminal_lane.mdl", coor.scaleX(vecl:length()), mRot(vecl), coor.trans(lb)),
+                            r = station.newModel("terminal_lane.mdl", coor.scaleX(vecr:length()), mRot(vecr), coor.trans(rb)), 
+                            link = station.newModel("person_lane.mdl", coor.scaleX(vectl:length()), mRot(vectl), coor.trans(rt)),
                         }
-                    end) * pipe.flatten()
+                    end)
+                    * function(ls) return {
+                        l = ls * pipe.map(pipe.select("l")),
+                        r = ls * pipe.map(pipe.select("r")),
+                        link = ls * pipe.map(pipe.select("link"))
+                    }
+                    end
             end)
-            * pipe.flatten()
+            * function(ls)
+                return pipe.new
+                    / (enablers[1] and func.mapFlatten(ls, pipe.select("l")) or {})
+                    / (enablers[2] and func.mapFlatten(ls, pipe.select("r")) or {})
+                    / (enablers[1] and enablers[2] and func.mapFlatten(ls, pipe.select("link")) or {})
+            end
+        return terminals + newTerminals * pipe.flatten(),
+            terminalsGroup
+            + (
+            (enablers[1] and enablers[2]) and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
+                    vehicleNodeOverride = #edges * 8 - 12
+                },
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
+                    vehicleNodeOverride = #edges * 8 - 4
+                }
+            } or enablers[1] and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
+                    vehicleNodeOverride = #edges * 8 - 4
+                }
+            } or enablers[2] and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
+                    vehicleNodeOverride = #edges * 8 - 4
+                }
+            } or {}
+    )
     end
 end
 
 local generateModels = function(arcPacker)
-    return function(edges, models, xOffsets, uOffsets)
+    return function(models, xOffsets, uOffsets)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker))
         return models
             + pipe.new * func.map2(l, r, function(l, r)
-                l = l:withLimits(
-                    {
-                        inf = ust.normalizeRad(l:rad((l:pt(l.inf) + r:pt(r.inf)) * 0.5)),
-                        sup = ust.normalizeRad(l:rad((l:pt(l.sup) + r:pt(r.sup)) * 0.5))
-                    }
-                )
-                r = r:withLimits(
-                    {
-                        inf = ust.normalizeRad(r:rad((l:pt(l.inf) + r:pt(r.inf)) * 0.5)),
-                        sup = ust.normalizeRad(r:rad((l:pt(l.sup) + r:pt(r.sup)) * 0.5))
-                    }
-                )
-                local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / 5)
-                local lscale = l:length() / (nSeg * 5)
-                local rscale = r:length() / (nSeg * 5)
-                local lcoords = abs(lscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return l.inf + n * ((l.sup - l.inf) / nSeg) end)
-                local rcoords = abs(rscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return r.inf + n * ((r.sup - r.inf) / nSeg) end)
+                local lscale, rscale, lcoords, rcoords = retriveBiLatCoords(l, r, 5)
                 return
                     pipe.new * func.interlace(lcoords)
                     * pipe.map(function(rad) return station.newModel("platform_repeat.mdl", coor.flipX(), coor.scaleY(lscale), mPlace(l, rad[1], rad[2])) end)
@@ -233,33 +259,49 @@ local rBuild = function(totalTracks, baseX, arcPacker, ignoreFst, ignoreLst)
     local generateEdges = generateEdges(arcPacker)
     local generateModels = generateModels(arcPacker)
     local generateTerminals = generateTerminals(arcPacker)
-    local function build(nbTracks, baseX, incrX, edges, terminals, models)
+    local tOffset = function(po) return {po[1] + 1, po[2] - 1} end
+    local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models)
         if (nbTracks == 0) then
-            return edges, terminals, models
+            return edges, terminals, terminalsGroup, models
         elseif (nbTracks == totalTracks and not ignoreFst) then
-            edges = generateEdges(edges, baseX + 0.5 * tW + 0.5 * pW)
-            models = generateModels(edges, models, {baseX + incrX + 0.5 * tW + 0.5 * pW, baseX + incrX + 0.5 * tW + 0.5 * pW}, {-0.5 * tW - pW, -0.5 * tW})
-            terminals = generateTerminals(edges, terminals, {baseX + incrX + 0.5 * tW + 0.5 * pW, baseX + incrX + 0.5 * tW + 0.5 * pW}, {-0.5 * tW - pW, -0.5 * tW})
-            return build(nbTracks - 1, baseX + 0.5 * tW + 0.5 * pW, tW, edges, terminals, models)
+            local edgeBase = baseX + 0.5 * tW + 0.5 * pW
+            local edgeOffset = 0
+            local platformBase = {edgeBase, edgeBase}
+            local platformOffset = {-0.5 * tW - pW, -0.5 * tW}
+            edges = generateEdges(edges, edgeBase)
+            models = generateModels(models, platformBase, platformOffset)
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, platformBase, tOffset(platformOffset), {false, true})
+            return build(nbTracks - 1, edgeBase, tW, edges, terminals, terminalsGroup, models)
         elseif (nbTracks == 1 and ignoreLst) then
-            edges = generateEdges(edges, baseX + incrX + 0.5 * tW + 0.5 * pW)
-            models = generateModels(edges, models, {baseX, baseX + incrX + 0.5 * tW + 0.5 * pW}, {0.5 * tW, -0.5 * tW})
-            terminals = generateTerminals(edges, terminals, {baseX, baseX + incrX + 0.5 * tW + 0.5 * pW}, {0.5 * tW, -0.5 * tW})
-            return build(nbTracks - 1, baseX, 1.5 * tW + 0.5 * pW, edges, terminals, models)
+            local edgeBase = baseX + incrX + 0.5 * tW + 0.5 * pW
+            local edgeOffset = 0
+            local platformBase = {baseX, edgeBase}
+            local platformOffset = {0.5 * tW, -0.5 * tW}
+            local terminalOffset = {platformOffset[1] + 1, platformOffset[2] - 1}
+            edges = generateEdges(edges, edgeBase)
+            models = generateModels(models, platformBase, platformOffset)
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, platformBase, tOffset(platformOffset), {false, true})
+            return build(nbTracks - 1, baseX, 1.5 * tW + 0.5 * pW, edges, terminals, terminalsGroup, models)
         elseif (nbTracks == 1 and not ignoreLst) then
-            edges = generateEdges(edges, baseX, incrX)
-            models = generateModels(edges, models, {baseX, baseX + incrX}, {incrX + 0.5 * tW, 0.5 * tW + pW})
-            terminals = generateTerminals(edges, terminals, {baseX, baseX + incrX}, {incrX + 0.5 * tW, 0.5 * tW + pW})
-            return build(nbTracks - 1, baseX, pW + 0.5 * tW, edges, terminals, models)
+            local edgeBase = baseX
+            local edgeOffset = incrX
+            local platformBase = {baseX, baseX + incrX}
+            local platformOffset = {incrX + 0.5 * tW, 0.5 * tW + pW}
+            edges = generateEdges(edges, edgeBase, edgeOffset)
+            models = generateModels(models, platformBase, platformOffset)
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, platformBase, tOffset(platformOffset), {true, false})
+            return build(nbTracks - 1, baseX, pW + 0.5 * tW, edges, terminals, terminalsGroup, models)
         else
+            local platformBase = {baseX, baseX + incrX + tW + pW}
+            local platformOffset = {incrX + 0.5 * tW, -0.5 * tW}
             edges = generateEdges(edges, baseX, incrX)
             edges = generateEdges(edges, baseX + incrX + tW + pW)
-            models = generateModels(edges, models, {baseX, baseX + incrX + tW + pW}, {incrX + 0.5 * tW, -0.5 * tW})
-            terminals = generateTerminals(edges, terminals, {baseX, baseX + incrX + tW + pW}, {incrX + 0.5 * tW, -0.5 * tW})
-            return build(nbTracks - 2, baseX + incrX + tW + pW, tW, edges, terminals, models)
+            models = generateModels(models, platformBase, platformOffset)
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, platformBase, tOffset(platformOffset), {true, true})
+            return build(nbTracks - 2, baseX + incrX + tW + pW, tW, edges, terminals, terminalsGroup, models)
         end
     end
-    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new)
+    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new)
 end
 
 
@@ -277,15 +319,17 @@ local updateFn = function()
         local nbTracks = trackNumberList[params.nbTracks + 1]
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         
-        local edge, terminals, models = rBuild(nbTracks, 0, arcPacker(radius, incr, length),
+        local edge, terminals, terminalsGroup, models = rBuild(nbTracks, 0, arcPacker(radius, incr, length),
             ({true, false, true, false})[params.trackLayout + 1],
             (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )
+        dump.dump(terminalsGroup)
         return
             pipe.new
             * {
                 edgeLists = {pipe.new * {edge * (station.mergeEdges)} * station.prepareEdges * trackBuilder.normal()},
                 models = terminals + models,
+                terminalGroups = terminalsGroup
             -- terrainAlignmentLists = {}
             }
     end
