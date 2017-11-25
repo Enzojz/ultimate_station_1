@@ -164,12 +164,10 @@ local equalizeArcs = function(...)
 end
 
 local fitModel = function(w, h, size, fitTop, fitLeft)
-    local vecb = size.rb - size.lb
-    local vect = size.rt - size.lt
-    local vecl = (size.lt - size.lb) .. mRot(vect .. coor.flipX())
-    local vecr = (size.rt - size.rb) .. mRot(vecb .. coor.flipX())
-    return fitTop and coor.scale(coor.xyz(vect:length() / w, -vecl.y / h, 1)) * mShear(vecl) * mRot(vect) * coor.trans(fitLeft and size.lt or size.rt)
-        or coor.scale(coor.xyz(vecb:length() / w, -vecr.y / h, 1)) * mShear(vecr) * mRot(vecb) * coor.trans(fitLeft and size.lb or size.rb)
+    local vecBase = fitTop and size.rt - size.lt or size.rb - size.lb
+    local vecShear = (fitLeft and size.lt - size.lb or size.rt - size.rb) .. mRot(vecBase .. coor.flipY())
+    local anchor = fitLeft and (fitTop and size.lt or size.lb) or (fitTop and size.rt or size.rb)
+    return coor.scale(coor.xyz(vecBase:length() / w, vecShear.y / h, 1)) * mShear(vecShear) * mRot(vecBase) * coor.trans(anchor)
 end
 
 local generateTerminals = function(arcPacker)
@@ -256,8 +254,8 @@ local generateModels = function(arcPacker)
                             rt = ri:pt(rc.s):withZ(0)
                         }
                         return {
-                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY() * coor.flipX(), fitModel(3.4, 5, size, i ~= 1, i ~= 1)),
-                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY() * coor.flipX(), fitModel(3.4, 5, size, i == 1, i == 1))
+                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3.4, 5, size, i ~= 1, false)),
+                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3.4, 5, size, i == 1, true))
                         }
                     end) * pipe.flatten()
                     + pipe.new * pipe.mapn(platformEdge, il(lc), il(lci))
