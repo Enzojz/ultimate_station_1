@@ -120,6 +120,18 @@ function pipe.map2(ls2, fun)
     end
 end
 
+function pipe.mapn(...)
+    local ls = pipe.new * {...}
+    return function(fun)
+        local result = {}
+        for i = 1, #ls[1] do
+            params = ls * pipe.map(pipe.select(i)) 
+            result[i] = fun(table.unpack(params))
+        end
+        return result
+    end
+end
+
 
 function pipe.range(from, to)
     return function(ls)

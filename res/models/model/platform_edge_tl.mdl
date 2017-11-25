@@ -10,7 +10,7 @@ function data()
             {
                 children = {
                     {
-                        id = "platform_repeat.msh",
+                        id = "platform_edge_tl.msh",
                         transf = {
                             1, 0, 0, 0,
                             0, 1, 0, 0,

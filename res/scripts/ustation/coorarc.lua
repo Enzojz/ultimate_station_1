@@ -28,7 +28,8 @@ function arc.new(a, b, r, limits)
         extendLimits = arc.extendLimits,
         extraRad = arc.extraRad,
         extra = arc.extra,
-        tangent = arc.tangent
+        tangent = arc.tangent,
+        rev = arc.rev,
     }
     setmetatable(result, {
         __sub = arc.intersectionArc,
@@ -48,6 +49,13 @@ function arc.byOR(o, r, limits) return arc.new(o.x, o.y, r, limits) end
 function arc.byXYR(x, y, r, limits) return arc.new(x, y, r, limits) end
 
 function arc.byDR(ar, dr, limits) return arc.byOR(ar.o, dr + ar.r, limits) end
+
+function arc.rev(ar)
+    return ar:withLimits({
+        inf = ar.sup,
+        sup = ar.inf
+    })
+end
 
 function arc.withLimits(a, limits)
     return func.with(a, limits)
