@@ -247,13 +247,11 @@ local generateModels = function(arcPacker)
     local il = pipe.interlace({"i", "s"})
     return function(models, xOffsets, uOffsets)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
-        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * 0.75 end)))
+        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * 0.75 end)))ø
         local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.8, uOffsets[2] - 0.8}, arcPacker()))
         local lpi, rpi = table.unpack(func.map2(xOffsets, {uOffsets[1] + 1, uOffsets[2] - 1}, arcPacker(function(l) return l * 0.75 end)))
-        
-        local fn = pipe.mapn(func.seq(1, #l), l, r, li, ri)
         local newModels = pipe.new
-            + fn(function(i, _, _, li, ri)
+            + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, _, _, li, ri)
                 local lci, rci = table.unpack(retriveBiLatCoords(20)(equalizeArcs(li, ri)))
                 return pipe.new * pipe.mapn(func.seq(1, #lci - 1), il(lci), il(rci))
                     (function(i, lc, rc)
@@ -265,74 +263,46 @@ local generateModels = function(arcPacker)
                         return i % 2 == 0 and {station.newModel("platform_chair.mdl", mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))} or {}
                     end)
             end)
-            + fn(function(i, l, r, li, ri)
+            + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
                 local platformSurface = pipe.new * pipe.rep(#lci - 2)("platform_surface") / "platform_extremity" * (i == 1 and pipe.rev() or pipe.noop())
                 local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner" * (i == 1 and pipe.rev() or pipe.noop())
-                return
-                    pipe.new
-                    + pipe.mapn(platformSurface, il(lci), il(rci))
-                    (function(p, lc, rc)
-                        local size = assembleSize(li, ri, lc, rc, 0)
+                local flipM = i == 1 and coor.I() or coor.flipY()
+                return pipe.mapn(platformEdge, platformSurface, il(lc), il(lci), il(rci), il(rc))
+                    (function(e, s, lc, lic, ric, rc)
+                        local sizeL = assembleSize(l, li, lc, lic, 0)
+                        local sizeR = assembleSize(ri, r, ric, rc, 0)
+                        local sizeS = assembleSize(li, ri, lic, ric, 0)
                         return {
-                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3.4, 5, size, i ~= 1, false)),
-                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3.4, 5, size, i == 1, true)),
-                        }
-                    end)
-                    + pipe.mapn(platformEdge, il(lc), il(lci))
-                    (function(p, lc, rc)
-                        local size = assembleSize(l, li, lc, rc, 0)
-                        return {
-                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(0.8, 5, size, i ~= 1, false)),
-                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(0.8, 5, size, i == 1, true))
-                        }
-                    end)
-                    + pipe.mapn(platformEdge, il(rci), il(rc))
-                    (function(p, lc, rc)
-                        local size = assembleSize(ri, r, lc, rc, 0)
-                        return {
-                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), coor.flipX(), fitModel(0.8, 5, size, i ~= 1, true)),
-                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), coor.flipX(), fitModel(0.8, 5, size, i == 1, false))
+                            station.newModel(s .. "_br.mdl", flipM, fitModel(3.4, 5, sizeS, i ~= 1, false)),
+                            station.newModel(s .. "_tl.mdl", flipM, fitModel(3.4, 5, sizeS, i == 1, true)),
+                            station.newModel(e .. "_br.mdl", flipM, fitModel(0.8, 5, sizeL, i ~= 1, false)),
+                            station.newModel(e .. "_tl.mdl", flipM, fitModel(0.8, 5, sizeL, i == 1, true)),
+                            station.newModel(e .. "_br.mdl", flipM, coor.flipX(), fitModel(0.8, 5, sizeR, i ~= 1, true)),
+                            station.newModel(e .. "_tl.mdl", flipM, coor.flipX(), fitModel(0.8, 5, sizeR, i == 1, false))
                         }
                     end)
             end)
             + pipe.mapn(func.seq(1, #lp), lp, rp, lpi, rpi)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r, li, ri)))
-                local platformSurface = pipe.new * pipe.rep(#lci - 2)("platform_roof_top") / "platform_roof_extremity" * (i == 1 and pipe.rev() or pipe.noop())
-                local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_roof_edge") / "platform_roof_corner" * (i == 1 and pipe.rev() or pipe.noop())
-                return pipe.new
-                    + pipe.mapn(platformSurface, il(lci), il(rci))
-                    (function(p, lc, rc)
-                        local size = assembleSize(li, ri, lc, rc, 0)
+                local roofSurface = pipe.new * pipe.rep(#lci - 2)("platform_roof_top") / "platform_roof_extremity" * (i == 1 and pipe.rev() or pipe.noop())
+                local roofEdge = pipe.new * pipe.rep(#lci - 2)("platform_roof_edge") / "platform_roof_corner" * (i == 1 and pipe.rev() or pipe.noop())
+                local flipM = i == 1 and coor.I() or coor.flipY()
+                return pipe.new + pipe.mapn(roofEdge, roofSurface, il(lc), il(lci), il(rci), il(rc))
+                    (function(e, s, lc, lic, ric, rc)
+                        local sizeL = assembleSize(l, li, lc, lic, 0)
+                        local sizeR = assembleSize(ri, r, ric, rc, 0)
+                        local sizeS = assembleSize(li, ri, lic, ric, 0)
+                        local vecPo = ((sizeS.lb - sizeS.lt) + (sizeS.rb - sizeS.rt)) * 0.5
                         return {
-                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3, 10, size, i ~= 1, false)),
-                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3, 10, size, i == 1, true)),
+                            station.newModel(s .. "_br.mdl", flipM, fitModel(3, 10, sizeS, i ~= 1, false)),
+                            station.newModel(s .. "_tl.mdl", flipM, fitModel(3, 10, sizeS, i == 1, true)),
+                            station.newModel(e .. "_br.mdl", flipM, fitModel(1, 10, sizeL, i ~= 1, false)),
+                            station.newModel(e .. "_tl.mdl", flipM, fitModel(1, 10, sizeL, i == 1, true)),
+                            station.newModel(e .. "_br.mdl", flipM, coor.flipX(), fitModel(1, 10, sizeR, i ~= 1, true)),
+                            station.newModel(e .. "_tl.mdl", flipM, coor.flipX(), fitModel(1, 10, sizeR, i == 1, false)),
+                            station.newModel("platform_roof_pole.mdl", flipM, coor.flipY(), coor.xXY(), mRot(vecPo), coor.trans((sizeS.lb + sizeS.lt + sizeS.rb + sizeS.rt) * 0.25))
                         }
-                    end)
-                    + pipe.mapn(platformEdge, il(lc), il(lci))
-                    (function(p, lc, rc)
-                        local size = assembleSize(l, li, lc, rc, 0)
-                        return {
-                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(1, 10, size, i ~= 1, false)),
-                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(1, 10, size, i == 1, true))
-                        }
-                    end)
-                    + pipe.mapn(platformEdge, il(rci), il(rc))
-                    (function(p, lc, rc)
-                        local size = assembleSize(ri, r, lc, rc, 0)
-                        return {
-                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), coor.flipX(), fitModel(1, 10, size, i ~= 1, true)),
-                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), coor.flipX(), fitModel(1, 10, size, i == 1, false))
-                        }
-                    end)
-                    + pipe.mapn(func.seq(1, #lci - 1), il(lci), il(rci))
-                    (function(i, lc, rc)
-                        local lb = li:pt(lc.i):withZ(0)
-                        local lt = li:pt(lc.s):withZ(0)
-                        local rb = ri:pt(rc.i):withZ(0)
-                        local rt = ri:pt(rc.s):withZ(0)
-                        local vec = ((lb - lt) + (rb - rt)) * 0.5
-                        return {station.newModel("platform_roof_pole.mdl", coor.xXY(), mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))}
                     end)
             end)
         return models + newModels * pipe.flatten() * pipe.flatten()
