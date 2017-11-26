@@ -247,25 +247,14 @@ local generateModels = function(arcPacker)
     local il = pipe.interlace({"i", "s"})
     return function(models, xOffsets, uOffsets)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
-        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * 0.75 end)))ø
+        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * 0.75 end)))
         local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.8, uOffsets[2] - 0.8}, arcPacker()))
         local lpi, rpi = table.unpack(func.map2(xOffsets, {uOffsets[1] + 1, uOffsets[2] - 1}, arcPacker(function(l) return l * 0.75 end)))
         local newModels = pipe.new
-            + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, _, _, li, ri)
-                local lci, rci = table.unpack(retriveBiLatCoords(20)(equalizeArcs(li, ri)))
-                return pipe.new * pipe.mapn(func.seq(1, #lci - 1), il(lci), il(rci))
-                    (function(i, lc, rc)
-                        local lb = li:pt(lc.i):withZ(0)
-                        local lt = li:pt(lc.s):withZ(0)
-                        local rb = ri:pt(rc.i):withZ(0)
-                        local rt = ri:pt(rc.s):withZ(0)
-                        local vec = ((lb - lt) + (rb - rt)) * 0.5
-                        return i % 2 == 0 and {station.newModel("platform_chair.mdl", mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))} or {}
-                    end)
-            end)
             + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
-                local platformSurface = pipe.new * pipe.rep(#lci - 2)("platform_surface") / "platform_extremity" * (i == 1 and pipe.rev() or pipe.noop())
+                local platformSurface = (pipe.new * pipe.rep(3)("platform_surface") / "platform_stair"
+                    + pipe.new * pipe.rep(#lci - 6)("platform_surface") / "platform_extremity") * (i == 1 and pipe.rev() or pipe.noop())
                 local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner" * (i == 1 and pipe.rev() or pipe.noop())
                 local flipM = i == 1 and coor.I() or coor.flipY()
                 return pipe.mapn(platformEdge, platformSurface, il(lc), il(lci), il(rci), il(rc))
@@ -305,13 +294,25 @@ local generateModels = function(arcPacker)
                         }
                     end)
             end)
+            + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, _, _, li, ri)
+                local lci, rci = table.unpack(retriveBiLatCoords(20)(equalizeArcs(li, ri)))
+                return pipe.new * pipe.mapn(func.seq(1, #lci - 1), il(lci), il(rci))
+                    (function(j, lc, rc)
+                        local lb = li:pt(lc.i):withZ(0)
+                        local lt = li:pt(lc.s):withZ(0)
+                        local rb = ri:pt(rc.i):withZ(0)
+                        local rt = ri:pt(rc.s):withZ(0)
+                        local vec = ((lb - lt) + (rb - rt)) * 0.5
+                        return j % 2 == (i == 1 and 0 or 1) and {station.newModel("platform_chair.mdl", mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))} or {}
+                    end)
+            end)
         return models + newModels * pipe.flatten() * pipe.flatten()
     end
 end
 
 local rBuild = function(totalTracks, baseX, arcPacker, ignoreFst, ignoreLst)
-    local pW = station.platformWidth
-    local tW = station.trackWidth
+    local pW = 4
+    local tW = 5
     local generateEdges = generateEdges(arcPacker)
     local generateModels = generateModels(arcPacker)
     local generateTerminals = generateTerminals(arcPacker)
