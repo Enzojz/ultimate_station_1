@@ -140,11 +140,8 @@ local retriveBiLatCoords = function(length)
         local rst = pipe.new * {...}
         local lscale = l:length() / (nSeg * length)
         local lcoords = abs(lscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return l.inf + n * ((l.sup - l.inf) / nSeg) end)
-        return pipe.new / {scale = lscale, coords = lcoords} + func.map(rst, function(s)
-            return {
-                scale = s:length() / (nSeg * length),
-                coords = abs(lscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return s.inf + n * ((s.sup - s.inf) / nSeg) end)
-            }
+        return pipe.new / lcoords + func.map(rst, function(s)
+            return abs(lscale) < 1e-5 and {} or func.seqMap({0, nSeg}, function(n) return s.inf + n * ((s.sup - s.inf) / nSeg) end)
         end)
     end
 end
@@ -171,15 +168,16 @@ local fitModel = function(w, h, size, fitTop, fitLeft)
 end
 
 local generateTerminals = function(arcPacker)
+    local il = pipe.interlace({"i", "s"})
     return function(edges, terminals, terminalsGroup, xOffsets, uOffsets, enablers)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker))
         l = {l[1]:rev(), l[2]:rev()}
         r = {r[1]:rev(), r[2]:rev()}
         local newTerminals =
             pipe.new * func.map2(l, r, function(l, r)
-                local lrs, rrs = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r)))
+                local lc, rc = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r)))
                 return pipe.new
-                    * func.map2(func.interlace(lrs.coords, {"i", "s"}), func.interlace(rrs.coords, {"i", "s"}), function(lc, rc)
+                    * func.map2(il(lc), il(rc), function(lc, rc)
                         local lb = l:pt(lc.i):withZ(1.25)
                         local lt = l:pt(lc.s):withZ(1.25)
                         local rb = r:pt(rc.i):withZ(1.25)
@@ -239,9 +237,34 @@ local generateModels = function(arcPacker)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker))
         local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.8, uOffsets[2] - 0.8}, arcPacker))
         return models
-            + pipe.new
-            * pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
-                local lc, rc, lci, rci = table.unpack(func.map(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)), pipe.select("coords")))
+            + pipe.new * pipe.mapn(func.seq(1, #l), li, ri)(function(i, li, ri)
+                local lci, rci = table.unpack(retriveBiLatCoords(20)(equalizeArcs(li, ri)))
+                return pipe.new * pipe.mapn(func.seq(1, #lci - 1), il(lci), il(rci))
+                    (function(i, lc, rc)
+                        local lb = li:pt(lc.i):withZ(0)
+                        local lt = li:pt(lc.s):withZ(0)
+                        local rb = ri:pt(rc.i):withZ(0)
+                        local rt = ri:pt(rc.s):withZ(0)
+                        local vec = ((lb - lt) + (rb - rt)) * 0.5
+                        return i % 2 == 0 and {station.newModel("platform_chair.mdl", mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))} or {}
+                    end)
+            end)* pipe.flatten()
+            * pipe.flatten()
+            + pipe.new * pipe.mapn(func.seq(1, #l), li, ri)(function(i, li, ri)
+                local lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(li, ri)))
+                return pipe.new * pipe.mapn(func.seq(1, #lci - 1), il(lci), il(rci))
+                    (function(i, lc, rc)
+                        local lb = li:pt(lc.i):withZ(0)
+                        local lt = li:pt(lc.s):withZ(0)
+                        local rb = ri:pt(rc.i):withZ(0)
+                        local rt = ri:pt(rc.s):withZ(0)
+                        local vec = ((lb - lt) + (rb - rt)) * 0.5
+                        return station.newModel("platform_roof_pole.mdl", coor.xXY(), mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))
+                    end)
+            end)
+            * pipe.flatten()
+            + pipe.new * pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
+                local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
                 local platformSurface = pipe.new * pipe.rep(#lci - 2)("platform_surface") / "platform_extremity" * (i == 1 and pipe.rev() or pipe.noop())
                 local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner" * (i == 1 and pipe.rev() or pipe.noop())
                 return
@@ -253,9 +276,10 @@ local generateModels = function(arcPacker)
                             rb = ri:pt(rc.i):withZ(0),
                             rt = ri:pt(rc.s):withZ(0)
                         }
+                        
                         return {
                             station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3.4, 5, size, i ~= 1, false)),
-                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3.4, 5, size, i == 1, true))
+                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3.4, 5, size, i == 1, true)),
                         }
                     end) * pipe.flatten()
                     + pipe.new * pipe.mapn(platformEdge, il(lc), il(lci))
@@ -282,6 +306,53 @@ local generateModels = function(arcPacker)
                         return {
                             station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), coor.flipX(), fitModel(0.8, 5, size, i ~= 1, true)),
                             station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), coor.flipX(), fitModel(0.8, 5, size, i == 1, false))
+                        }
+                    end) * pipe.flatten()
+            end)
+            * pipe.flatten()
+            + pipe.new * pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
+                local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r, li, ri)))
+                local platformSurface = pipe.new * pipe.rep(#lci - 2)("platform_roof_top") / "platform_roof_extremity" * (i == 1 and pipe.rev() or pipe.noop())
+                local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_roof_edge") / "platform_roof_corner" * (i == 1 and pipe.rev() or pipe.noop())
+                return
+                    pipe.new * pipe.mapn(platformSurface, il(lci), il(rci))
+                    (function(p, lc, rc)
+                        local size = {
+                            lb = li:pt(lc.i):withZ(0),
+                            lt = li:pt(lc.s):withZ(0),
+                            rb = ri:pt(rc.i):withZ(0),
+                            rt = ri:pt(rc.s):withZ(0)
+                        }
+                        
+                        return {
+                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3, 10, size, i ~= 1, false)),
+                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(3, 10, size, i == 1, true)),
+                        }
+                    end) * pipe.flatten()
+                    + pipe.new * pipe.mapn(platformEdge, il(lc), il(lci))
+                    (function(p, lc, rc)
+                        local size = {
+                            lb = l:pt(lc.i):withZ(0),
+                            lt = l:pt(lc.s):withZ(0),
+                            rb = li:pt(rc.i):withZ(0),
+                            rt = li:pt(rc.s):withZ(0)
+                        }
+                        return {
+                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(1, 10, size, i ~= 1, false)),
+                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), fitModel(1, 10, size, i == 1, true))
+                        }
+                    end) * pipe.flatten()
+                    + pipe.new * pipe.mapn(platformEdge, il(rci), il(rc))
+                    (function(p, lc, rc)
+                        local size = {
+                            lb = ri:pt(lc.i):withZ(0),
+                            lt = ri:pt(lc.s):withZ(0),
+                            rb = r:pt(rc.i):withZ(0),
+                            rt = r:pt(rc.s):withZ(0)
+                        }
+                        return {
+                            station.newModel(p .. "_br.mdl", i == 1 and coor.I() or coor.flipY(), coor.flipX(), fitModel(1, 10, size, i ~= 1, true)),
+                            station.newModel(p .. "_tl.mdl", i == 1 and coor.I() or coor.flipY(), coor.flipX(), fitModel(1, 10, size, i == 1, false))
                         }
                     end) * pipe.flatten()
             end)
@@ -359,7 +430,6 @@ local updateFn = function()
             ({true, false, true, false})[params.trackLayout + 1],
             (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )
-
         return
             pipe.new
             * {

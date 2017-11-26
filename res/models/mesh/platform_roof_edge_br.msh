@@ -1,0 +1,30 @@
+function data() return 
+  { animations = {  }, matConfigs = { { 0 } }, 
+    subMeshes = 
+      { 
+        { 
+          indices = 
+            { 
+              normal = { count = 24, offset = 288 }, 
+              position = { count = 24, offset = 288 }, 
+              tangent = { count = 24, offset = 288 }, 
+              uv0 = { count = 24, offset = 288 }, 
+             }, 
+          materials = 
+            { 
+              "station/train/passenger/trainstation_1990_borders_1.mtl"
+             }
+         }
+       }, 
+    vertexAttr = 
+      { 
+        normal = 
+          { count = 72, numComp = 3, offset = 120 }, 
+        position = 
+          { count = 72, numComp = 3, offset = 0 }, 
+        tangent = 
+          { count = 96, numComp = 4, offset = 192 }, 
+        uv0 = 
+          { count = 48, numComp = 2, offset = 72 }, 
+       }
+   } end
