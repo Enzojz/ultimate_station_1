@@ -108,6 +108,11 @@ local vecXyzLength2 = function(self) return self.x * self.x + self.y * self.y + 
 local vecXyzNormalized = function(self) return self / self:length() end
 local vecXyzToTuple = function(self) return {self.x, self.y, self.z} end
 local vecXyzDot = function(self, other) return self.x * other.x + self.y * other.y + self.z * other.z end
+local vecXyzCross = function(self, other) return coor.xyz(
+    self.y * other.z - self.z * other.y,
+    self.z * other.x - self.x * other.z,
+    self.x * other.y - self.y * other.x)
+end
 function coor.xyz(x, y, z)
     local result = {
         x = x,
@@ -117,7 +122,8 @@ function coor.xyz(x, y, z)
         length2 = vecXyzLength2,
         normalized = vecXyzNormalized,
         toTuple = vecXyzToTuple,
-        dot = vecXyzDot
+        dot = vecXyzDot,
+        cross = vecXyzCross
     }
     setmetatable(result, vecXyzMeta)
     return result

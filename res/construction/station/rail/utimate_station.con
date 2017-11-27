@@ -173,7 +173,7 @@ end
 local generateTerminals = function(arcPacker)
     local il = pipe.interlace({"i", "s"})
     return function(edges, terminals, terminalsGroup, xOffsets, uOffsets, enablers)
-        local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
+        local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l - 3 end)))
         l = {l[1]:rev(), l[2]:rev()}
         r = {r[1]:rev(), r[2]:rev()}
         local newTerminals =
@@ -245,7 +245,8 @@ end
 
 local generateModels = function(arcPacker)
     local il = pipe.interlace({"i", "s"})
-    return function(models, xOffsets, uOffsets)
+    return function(xOffsets, uOffsets)
+        uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
         local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * 0.75 end)))
         local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.8, uOffsets[2] - 0.8}, arcPacker()))
@@ -306,7 +307,27 @@ local generateModels = function(arcPacker)
                         return j % 2 == (i == 1 and 0 or 1) and {station.newModel("platform_chair.mdl", mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))} or {}
                     end)
             end)
-        return models + newModels * pipe.flatten() * pipe.flatten()
+        return newModels * pipe.flatten() * pipe.flatten()
+    end
+end
+
+
+local generateTerrain = function(arcPacker)
+    local il = pipe.interlace({"i", "s"})
+    return function(xOffsets, uOffsets)
+        uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
+        local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l + 5 end)))
+        return pipe.new
+            * pipe.mapn(l, r)(function(l, r)
+                local lc, rc = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r)))
+                local flipM = i == 1 and coor.I() or coor.flipY()
+                return pipe.mapn(il(lc), il(rc))
+                    (function(lc, rc)
+                        local size = assembleSize(l, r, lc, rc, 0)
+                        return pipe.new / size.lt / size.lb / size.rb / size.rt * pipe.map(coor.vec2Tuple) * ((size.lb - size.lt):cross(size.rb - size.lb).z > 0 and pipe.noop() or pipe.rev())
+                    end)
+            end)
+            * pipe.flatten()
     end
 end
 
@@ -316,19 +337,24 @@ local rBuild = function(totalTracks, baseX, arcPacker, ignoreFst, ignoreLst)
     local generateEdges = generateEdges(arcPacker)
     local generateModels = generateModels(arcPacker)
     local generateTerminals = generateTerminals(arcPacker)
+    local generateTerrain = generateTerrain(arcPacker)
     local tOffset = function(po) return {po[1] + 1, po[2] - 1} end
-    local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models)
+    local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models, terrain)
         if (nbTracks == 0) then
-            return edges, terminals, terminalsGroup, models
+            return edges, terminals, terminalsGroup, models, terrain
         elseif (nbTracks == totalTracks and not ignoreFst) then
             local edgeBase = baseX + 0.5 * tW + 0.5 * pW
             local edgeOffset = 0
             local platformBase = {edgeBase, edgeBase}
             local platformOffset = {-0.5 * tW - pW, -0.5 * tW}
             edges = generateEdges(edges, false, edgeBase)
-            models = generateModels(models, platformBase, platformOffset)
             terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, platformBase, tOffset(platformOffset), {false, true})
-            return build(nbTracks - 1, edgeBase, tW, edges, terminals, terminalsGroup, models)
+            return build(nbTracks - 1, edgeBase, tW,
+                edges,
+                terminals,
+                terminalsGroup,
+                models + generateModels(platformBase, platformOffset),
+                terrain + generateTerrain(platformBase, platformOffset))
         elseif (nbTracks == 1 and ignoreLst) then
             local edgeBase = baseX + incrX + 0.5 * tW + 0.5 * pW
             local edgeOffset = 0
@@ -336,29 +362,41 @@ local rBuild = function(totalTracks, baseX, arcPacker, ignoreFst, ignoreLst)
             local platformOffset = {0.5 * tW, -0.5 * tW}
             local terminalOffset = {platformOffset[1] + 1, platformOffset[2] - 1}
             edges = generateEdges(edges, false, edgeBase)
-            models = generateModels(models, platformBase, platformOffset)
             terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, platformBase, tOffset(platformOffset), {false, true})
-            return build(nbTracks - 1, baseX, 1.5 * tW + 0.5 * pW, edges, terminals, terminalsGroup, models)
+            return build(nbTracks - 1, baseX, 1.5 * tW + 0.5 * pW,
+                edges,
+                terminals,
+                terminalsGroup,
+                models + generateModels(platformBase, platformOffset),
+                terrain + generateTerrain(platformBase, platformOffset))
         elseif (nbTracks == 1 and not ignoreLst) then
             local edgeBase = baseX
             local edgeOffset = incrX
             local platformBase = {baseX, baseX + incrX}
             local platformOffset = {incrX + 0.5 * tW, 0.5 * tW + pW}
             edges = generateEdges(edges, true, edgeBase, edgeOffset)
-            models = generateModels(models, platformBase, platformOffset)
             terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, platformBase, tOffset(platformOffset), {true, false})
-            return build(nbTracks - 1, baseX, pW + 0.5 * tW, edges, terminals, terminalsGroup, models)
+            return build(nbTracks - 1, baseX, pW + 0.5 * tW,
+                edges,
+                terminals,
+                terminalsGroup,
+                models + generateModels(platformBase, platformOffset),
+                terrain + generateTerrain(platformBase, platformOffset))
         else
             local platformBase = {baseX, baseX + incrX + tW + pW}
             local platformOffset = {incrX + 0.5 * tW, -0.5 * tW}
             edges = generateEdges(edges, true, baseX, incrX)
             edges = generateEdges(edges, false, baseX + incrX + tW + pW)
-            models = generateModels(models, platformBase, platformOffset)
             terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, platformBase, tOffset(platformOffset), {true, true})
-            return build(nbTracks - 2, baseX + incrX + tW + pW, tW, edges, terminals, terminalsGroup, models)
+            return build(nbTracks - 2, baseX + incrX + tW + pW, tW,
+                edges,
+                terminals,
+                terminalsGroup,
+                models + generateModels(platformBase, platformOffset),
+                terrain + generateTerrain(platformBase, platformOffset))
         end
     end
-    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new)
+    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new)
 end
 
 
@@ -376,7 +414,7 @@ local updateFn = function()
         local nbTracks = trackNumberList[params.nbTracks + 1]
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         
-        local edge, terminals, terminalsGroup, models = rBuild(nbTracks, 0, arcPacker(radius, incr, length),
+        local edge, terminals, terminalsGroup, models, terrain = rBuild(nbTracks, 0, arcPacker(radius, incr, length),
             ({true, false, true, false})[params.trackLayout + 1],
             (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )
@@ -386,10 +424,14 @@ local updateFn = function()
                 edgeLists = {pipe.new * {edge * (station.mergeEdges)} * station.prepareEdges * trackBuilder.normal()},
                 models = terminals + models,
                 terminalGroups = terminalsGroup,
-                terrainAlignmentLists = {{
-                    type = "EQUAL",
-                    faces = {}
-                }}
+                terrainAlignmentLists = {
+                    {
+                        type = "EQUAL",
+                        faces = terrain,
+                        slopeLow = 0.75,
+                        slopeHigh = 2.5
+                    }
+                }
             }
     end
 end
