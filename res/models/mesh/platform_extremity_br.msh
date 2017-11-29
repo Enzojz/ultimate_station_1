@@ -1,14 +1,14 @@
 function data() return 
-  { animations = {  }, matConfigs = { { 0, 0 } }, 
+  { animations = {  }, matConfigs = { { 0, 0, 0 } }, 
     subMeshes = 
       { 
         { 
           indices = 
             { 
-              normal = { count = 96, offset = 1584 }, 
-              position = { count = 96, offset = 1584 }, 
-              tangent = { count = 96, offset = 1584 }, 
-              uv0 = { count = 96, offset = 1584 }, 
+              normal = { count = 72, offset = 1584 }, 
+              position = { count = 72, offset = 1584 }, 
+              tangent = { count = 72, offset = 1584 }, 
+              uv0 = { count = 72, offset = 1584 }, 
              }, 
           materials = 
             { 
@@ -18,13 +18,22 @@ function data() return
         { 
           indices = 
             { 
-              normal = { count = 36, offset = 1680 }, 
-              position = { count = 36, offset = 1680 }, 
-              tangent = { count = 36, offset = 1680 }, 
-              uv0 = { count = 36, offset = 1680 }, 
+              normal = { count = 36, offset = 1656 }, 
+              position = { count = 36, offset = 1656 }, 
+              tangent = { count = 36, offset = 1656 }, 
+              uv0 = { count = 36, offset = 1656 }, 
              }, 
-          materials = 
-            { "street/new_medium_paving.mtl" }
+          materials = { "ust/asphalt.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = { count = 24, offset = 1692 }, 
+              position = { count = 24, offset = 1692 }, 
+              tangent = { count = 24, offset = 1692 }, 
+              uv0 = { count = 24, offset = 1692 }, 
+             }, 
+          materials = { "ust/concrete.mtl" }
          }
        }, 
     vertexAttr = 

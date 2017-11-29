@@ -10,8 +10,7 @@ function data() return
               tangent = { count = 12, offset = 144 }, 
               uv0 = { count = 12, offset = 144 }, 
              }, 
-          materials = 
-            { "street/new_medium_paving.mtl" }
+          materials = { "ust/asphalt.mtl" }
          }
        }, 
     vertexAttr = 

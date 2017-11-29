@@ -1,0 +1,89 @@
+function data()
+    return {
+        params = {
+            fade_out_range = {
+                fadeOutEndDist = 20000,
+                fadeOutStartDist = 10000,
+                
+            },
+            map_albedo = {
+                compressionAllowed = true,
+                fileName = "streets/new_medium_paving_albedo.dds",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+                
+            },
+            map_metal_gloss_ao = {
+                compressionAllowed = true,
+                fileName = "streets/new_medium_paving_metall_gloss_ao.dds",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+                
+            },
+            map_normal = {
+                compressionAllowed = true,
+                fileName = "streets/new_medium_paving_normal.dds",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+                
+            },
+            two_sided = {
+                twoSided = true,
+            },
+            map_op_1 = {
+                compressionAllowed = true,
+                fileName = "models/industry/overlay_textures/small_03.tga",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+            },
+            operation_1 = {
+                op = "OVERLAY",
+                mode = "WORLD_XY",
+                scale = { 1.0/200, 1.0/200 },
+                opacity = 0.10
+            },
+            map_op_2 = {
+                compressionAllowed = true,
+                fileName = "streets/new_overlay.tga",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+            },
+            operation_2 = {
+                op = "OVERLAY",
+                mode = "WORLD_XY",
+                scale = { 1.0/200, 1.0/200, },
+                opacity = 0.40
+            },
+            props = {
+                coeffs = {
+                    1.0, 1.0, 0.42, 20.0, 
+                },
+            },
+            polygon_offset = {
+                factor = -2.0,
+                units = -2.0
+            },
+        },
+        type = "PHYSICAL_NRML_MAP_OP",	
+    }
+    end

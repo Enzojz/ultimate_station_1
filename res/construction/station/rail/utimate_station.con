@@ -268,8 +268,8 @@ local generateModels = function(arcPacker)
                             station.newModel(s .. "_tl.mdl", flipM, fitModel(3.4, 5, sizeS, i == 1, true)),
                             station.newModel(e .. "_br.mdl", flipM, fitModel(0.8, 5, sizeL, i ~= 1, false)),
                             station.newModel(e .. "_tl.mdl", flipM, fitModel(0.8, 5, sizeL, i == 1, true)),
-                            station.newModel(e .. "_br.mdl", flipM, coor.flipX(), fitModel(0.8, 5, sizeR, i ~= 1, true)),
-                            station.newModel(e .. "_tl.mdl", flipM, coor.flipX(), fitModel(0.8, 5, sizeR, i == 1, false))
+                            station.newModel(e .. "_bl.mdl", flipM, fitModel(0.8, 5, sizeR, i ~= 1, true)),
+                            station.newModel(e .. "_tr.mdl", flipM, fitModel(0.8, 5, sizeR, i == 1, false))
                         }
                     end)
             end)

@@ -14,8 +14,7 @@ function data() return
               uv0 = 
                 { count = 132, offset = 17424 }, 
              }, 
-          materials = 
-            { "street/new_medium_paving.mtl" }
+          materials = { "ust/asphalt.mtl" }
          }, 
         { 
           indices = 
