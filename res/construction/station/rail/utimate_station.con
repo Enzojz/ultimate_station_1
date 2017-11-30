@@ -174,13 +174,17 @@ local generateTerminals = function(arcPacker)
     local il = pipe.interlace({"i", "s"})
     return function(edges, terminals, terminalsGroup, xOffsets, uOffsets, enablers)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l - 3 end)))
-        l = {l[1]:rev(), l[2]:rev()}
-        r = {r[1]:rev(), r[2]:rev()}
+        local ls, rs = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
+        l = {l[1]:rev(), l[2]}
+        r = {r[1]:rev(), r[2]}
+        ls = {ls[1]:rev(), ls[2]}
+        rs = {rs[1]:rev(), rs[2]}
         local newTerminals =
-            pipe.new * func.map2(l, r, function(l, r)
-                local lc, rc = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r)))
+            pipe.new * pipe.mapn(l, r, ls, rs)(function(l, r, ls, rs)
+                local lcs, rcs = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r)))
+                local lscs, rscs = table.unpack(retriveBiLatCoords(5)(equalizeArcs(ls, rs)))
                 return pipe.new
-                    * func.map2(il(lc), il(rc), function(lc, rc)
+                    * func.map2(il(lcs), il(rcs), function(lc, rc)
                         local lb = l:pt(lc.i):withZ(1.4 + 0.53)
                         local lt = l:pt(lc.s):withZ(1.4 + 0.53)
                         local rb = r:pt(rc.i):withZ(1.4 + 0.53)
@@ -194,11 +198,25 @@ local generateTerminals = function(arcPacker)
                             link = station.newModel("standard_lane.mdl", coor.scaleX(vectl:length()), mRot(vectl), coor.trans((rt + rb) * 0.5)),
                         }
                     end)
-                    * function(ls) return {
-                        l = ls * pipe.map(pipe.select("l")),
-                        r = ls * pipe.map(pipe.select("r")),
-                        link = ls * pipe.map(pipe.select("link"))
-                    }
+                    * function(res)
+                        local scl = l:pt(lcs[3]):withZ(1.4 + 0.53)
+                        local scr = r:pt(rcs[3]):withZ(1.4 + 0.53)
+                        local dc = ((ls:pt(lscs[5]) + rs:pt(rscs[5])) * 0.5):withZ(1.4 + 0.53)
+                        return {
+                            l = res * pipe.map(pipe.select("l")),
+                            r = res * pipe.map(pipe.select("r")),
+                            link = res * pipe.map(pipe.select("link")),
+                            stairs = pipe.new 
+                            / station.newModel("person_lane.mdl", coor.scaleX((dc - scl):length()), mRot(dc - scl), coor.trans(scl))
+                            / station.newModel("person_lane.mdl", coor.scaleX((dc - scr):length()), mRot(dc - scr), coor.trans(scr))
+                            + func.map2(il(func.range(lscs, 1, 4)), il(func.range(rscs, 1, 4)), function(lc, rc)
+                                local b = ((l:pt(lc.i) + r:pt(rc.i)) * 0.5):withZ(1.4 + 0.53 - 2.5)
+                                local t = ((l:pt(lc.s) + r:pt(rc.s)) * 0.5):withZ(1.4 + 0.53 - 2.5)
+                                local vec = t - b
+                                return station.newModel("person_lane.mdl", coor.scaleX(vec:length()), mRot(vec), coor.trans(b))
+                            end)
+                        
+                        }
                     end
             end)
             * function(ls)
@@ -206,6 +224,7 @@ local generateTerminals = function(arcPacker)
                     / (enablers[1] and func.mapFlatten(ls, pipe.select("l")) or {})
                     / (enablers[2] and func.mapFlatten(ls, pipe.select("r")) or {})
                     / (enablers[1] and enablers[2] and func.mapFlatten(ls, pipe.select("link")) or {})
+                    / func.mapFlatten(ls, pipe.select("stairs"))
             end
         return terminals + newTerminals * pipe.flatten(),
             terminalsGroup
@@ -342,7 +361,7 @@ local rBuild = function(totalTracks, baseX, arcPacker, ignoreFst, ignoreLst)
     local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models, terrain)
         if (nbTracks == 0) then
             return edges, terminals, terminalsGroup, models, terrain
-        elseif (nbTracks == totalTracks and not ignoreFst) then
+        elseif (nbTracks == totalTracks and (not ignoreFst or totalTracks == 1)) then
             local edgeBase = baseX + 0.5 * tW + 0.5 * pW
             local edgeOffset = 0
             local platformBase = {edgeBase, edgeBase}

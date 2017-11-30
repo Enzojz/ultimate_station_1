@@ -1,8 +1,10 @@
+local laneutil = require "laneutil"
+local h = 1.93
 function data()
     return {
         collider = {
             params = {
-                
+            
             },
             type = "MESH",
         },
@@ -15,22 +17,32 @@ function data()
                             1, 0, 0, 0,
                             0, 1, 0, 0,
                             0, 0, 1, 0,
-                            0, 0, 0, 1 
+                            0, 0, 0, 1
                         },
                         type = "MESH",
-                    }, 
+                    },
                 },
                 matConfigs = {
-                    { 0, }, 
+                    {0, },
                 },
                 static = false,
                 visibleFrom = 0,
                 visibleTo = 5000,
-            }, 
+            },
         },
         metadata = {
+            transportNetworkProvider = {
+                laneLists = {
+                    {
+                        transportModes = {"PERSON"},
+                        nodes = laneutil.makeLanes({
+                            {{1.7, -2.5, h - 1}, {1.7, 0, h - 2.5}, {0.0, 2.5, -1.5}, {0.0, 2.5, -1.5}, 2.4}
+                        })
+                    }
+                },
+                terminals = {}
+            }
         },
-        
-    }
-    end
     
+    }
+end
