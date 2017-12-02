@@ -137,7 +137,7 @@ local mRotZ = function(vec)
         0,   1,  0, 0,
         -sx, 0, cx, 0,
         0,   0,  0, 1
-    }
+    } * (cx < 0 and coor.flipX() or coor.I())
 end
 
 
@@ -208,7 +208,7 @@ local generateTerminals = function(arcPacker)
         local lc, rc, c = bitLatCoords(l, r, 10)
         local lsc, rsc, sc = bitLatCoords(ls, rs, 5)
         
-        local newPtCon = ((lsc[sc] + rsc[sc]) * 0.5):withZ(1.4 + 0.53 - 2.5)
+        local newPtCon = ((lsc[sc] + rsc[sc]) * 0.5):withZ(1.4 + 0.53 - 3.5)
         
         local newTerminals = pipe.new *
             pipe.mapn(il(lc), il(rc))(function(lc, rc)
@@ -233,8 +233,8 @@ local generateTerminals = function(arcPacker)
                     / stairs(lc[c - 2], rc[c - 2], (lsc[sc - 4] + rsc[sc - 4]) * 0.5)
                     / stairs(lc[c + 2], rc[c + 2], (lsc[sc + 4] + rsc[sc + 4]) * 0.5)
                     / func.map2(il(func.range(lsc, sc - 3, sc + 3)), il(func.range(rsc, sc - 3, sc + 3)), function(lc, rc)
-                        local b = ((lc.i + rc.i) * 0.5):withZ(1.4 + 0.53 - 2.5)
-                        local t = ((lc.s + rc.s) * 0.5):withZ(1.4 + 0.53 - 2.5)
+                        local b = ((lc.i + rc.i) * 0.5):withZ(1.4 + 0.53 - 3.5)
+                        local t = ((lc.s + rc.s) * 0.5):withZ(1.4 + 0.53 - 3.5)
                         local vec = t - b
                         return station.newModel("person_lane.mdl", coor.scaleX(vec:length()), mRot(vec), coor.trans(b))
                     end)
