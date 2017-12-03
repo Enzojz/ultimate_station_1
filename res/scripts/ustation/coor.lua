@@ -162,6 +162,29 @@ local function mul(m1, m2)
     }
 end
 
+function coor.minor(m)
+    local seq = func.seq(1, #m)
+    return function(row, col)
+        local seqL = func.filter(seq, function(l) return l ~= row end)
+        local seqC = func.filter(seq, function(c) return c ~= col end)
+        return func.map(seqL, function(l)
+            return func.map(seqC, function(c) return m[l][c] end)
+        end)
+    end
+end
+
+function coor.det(m)
+    if #m == 2 then
+        return m[1][1] * m[2][2] - m[1][2] * m[2][1]
+    else if #m == 1 then
+        return m[1][1]
+    else
+        local mi = coor.minor(m)
+        return func.fold(func.seq(1, #m), 0, function(r, c) return r + (c % 2 == 1 and 1 or -1) * m[1][c] * coor.det(mi(1, c)) end)
+    end
+    end
+end
+
 function coor.apply(vec, trans)
     local applyVal = function(col)
         return vec.x * trans[0 + col] + vec.y * trans[4 + col] + vec.z * trans[8 + col] + trans[12 + col]

@@ -191,62 +191,25 @@ local equalizeArcs = function(...)
 )
 end
 
-local minor = function(m)
-    local seq = func.seq(1, #m)
-    return function(row, col)
-        local seqL = func.filter(seq, function(l) return l ~= row end)
-        local seqC = func.filter(seq, function(c) return c ~= col end)
-        return func.map(seqL, function(l)
-            return func.map(seqC, function(c) return m[l][c] end)
-        end)
-    end
-end
-
-local function det(m)
-    if #m == 2 then
-        return m[1][1] * m[2][2] - m[1][2] * m[2][1]
-    else if #m == 1 then
-        return m[1][1]
-    else
-        local mi = minor(m)
-        local seq = func.seq(1, #m)
-        return func.fold(seq, 0, function(r, c) return r + (c % 2 == 1 and 1 or -1) * m[1][c] * det(mi(1, c)) end)
-    end
-    end
-end
-
 local fitModel = function(w, h, d, size, fitTop, fitLeft)
-    local tri = {
+    local b = {
         coor.xyz(0, 0, d),
         coor.xyz(fitLeft and w or -w, 0, d),
         coor.xyz(0, fitTop and -h or h, d),
+        coor.xyz(0, 0, 0)
     }
     
-    local tro = fitTop and
+    local d = fitTop and
         {
             fitLeft and size.lt or size.rt,
             fitLeft and size.rt or size.lt,
             fitLeft and size.lb or size.rb,
+            func.with(fitLeft and size.lt or size.rt, {z = 0})
         } or {
             fitLeft and size.lb or size.rb,
             fitLeft and size.rb or size.lb,
             fitLeft and size.lt or size.rt,
-        }
-    
-    local b = pipe.new *
-        {
-            tri[1],
-            tri[2],
-            tri[3],
-            coor.xyz(0, 0, 0)
-        }
-    
-    local d = pipe.new *
-        {
-            tro[1],
-            tro[2],
-            tro[3],
-            func.with(tro[1], {z = 0})
+            func.with(fitLeft and size.lb or size.rb, {z = 0})
         }
     
     local mX = {
@@ -263,14 +226,15 @@ local fitModel = function(w, h, d, size, fitTop, fitLeft)
         d[4].x, d[4].y, d[4].z, 1
     }
     
-    local dX = det(mX)
+    local dX = coor.det(mX)
     
-    local miX = minor(mX)
-    local mXI = func.flatten(func.seqMap({1, 4}, function(l)
-        return func.seqMap({1, 4}, function(c)
-            return ((l + c) % 2 == 0 and 1 or -1) * det(miX(c, l)) / dX
+    local miX = coor.minor(mX)
+    local mXI = func.mapFlatten(func.seq(1, 4),
+        function(l)
+            return func.seqMap({1, 4}, function(c)
+                return ((l + c) % 2 == 0 and 1 or -1) * coor.det(miX(c, l)) / dX
+            end)
         end)
-    end))
     
     return coor.I() * mXI * mU
 end
