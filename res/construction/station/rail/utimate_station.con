@@ -81,7 +81,7 @@ local arcPacker = function(radius, incr, length)
         local l = lengthOverride and lengthOverride(length) or length
         return function(x, dr)
             dr = dr or 0
-            local ar = arc.byOR(baseCenter + coor.xy(radius > 0 and x or -x, 0), abs(radius + (radius > 0 and -dr or dr)))
+            local ar = arc.byOR(baseCenter + coor.xy(x, 0), abs(radius -dr))
             local rad = (radius > 0 and 1 or -1) * l / ar.r * 0.25
             return pipe.new
                 / ar:withLimits({
