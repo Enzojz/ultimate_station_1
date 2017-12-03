@@ -20,6 +20,7 @@ local sin = math.sin
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250, 1380}
 
 local platformSegments = {2, 4, 8, 12, 16, 20, 24}
 local trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12}
@@ -58,6 +59,12 @@ local function params()
             values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
             defaultIndex = 0
         },
+        {
+            key = "hPlatform",
+            name = _("Platform Height") .. "(mm)",
+            values = func.map(hPlatformList, tostring),
+            defaultIndex = 3
+        }
     }
 end
 
@@ -81,7 +88,7 @@ local arcPacker = function(radius, incr, length)
         local l = lengthOverride and lengthOverride(length) or length
         return function(x, dr)
             dr = dr or 0
-            local ar = arc.byOR(baseCenter + coor.xy(x, 0), abs(radius -dr))
+            local ar = arc.byOR(baseCenter + coor.xy(x, 0), abs(radius - dr))
             local rad = (radius > 0 and 1 or -1) * l / ar.r * 0.25
             return pipe.new
                 / ar:withLimits({
@@ -133,10 +140,10 @@ local mRotZ = function(vec)
     local sx = nv.z
     local cx = nv.x
     return coor.I() * {
-        cx,  0, sx, 0,
-        0,   1,  0, 0,
+        cx, 0, sx, 0,
+        0, 1, 0, 0,
         -sx, 0, cx, 0,
-        0,   0,  0, 1
+        0, 0, 0, 1
     } * (cx < 0 and coor.flipX() or coor.I())
 end
 
@@ -190,16 +197,17 @@ local bitLatCoords = function(l, r, length)
         #lcs1
 end
 
-local stairs = function(tl, tr, p)
+local stairs = function(tl, tr, p, tZ)
     local scl = tl:withZ(1.4 + 0.53)
     local scr = tr:withZ(1.4 + 0.53)
     local dc = p:withZ(1.4 + 0.53)
     return pipe.new
-        / station.newModel("person_lane.mdl", coor.scaleX((dc - scl):length()), mRot(dc - scl), coor.trans(scl))
-        / station.newModel("person_lane.mdl", coor.scaleX((dc - scr):length()), mRot(dc - scr), coor.trans(scr))
+        / station.newModel("person_lane.mdl", coor.scaleX((dc - scl):length()), mRot(dc - scl), coor.trans(scl), tZ)
+        / station.newModel("person_lane.mdl", coor.scaleX((dc - scr):length()), mRot(dc - scr), coor.trans(scr), tZ)
 end
 
-local generateTerminals = function(arcPacker)
+local generateTerminals = function(arcPacker, hPlatform)
+    local tZ = coor.transZ(hPlatform - 1.4)
     local il = pipe.interlace({"i", "s"})
     return function(edges, terminals, terminalsGroup, xOffsets, uOffsets, enablers, ptCon)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l - 3 end)))
@@ -208,7 +216,7 @@ local generateTerminals = function(arcPacker)
         local lc, rc, c = bitLatCoords(l, r, 10)
         local lsc, rsc, sc = bitLatCoords(ls, rs, 5)
         
-        local newPtCon = ((lsc[sc] + rsc[sc]) * 0.5):withZ(1.4 + 0.53 - 3.5)
+        local newPtCon = ((lsc[sc] + rsc[sc]) * 0.5):withZ(1.4 + 0.53 - 3.5 + hPlatform - 1.4)
         
         local newTerminals = pipe.new *
             pipe.mapn(il(lc), il(rc))(function(lc, rc)
@@ -220,9 +228,9 @@ local generateTerminals = function(arcPacker)
                 local vecr = (rb - rt)
                 local vectl = (lt + lb) * 0.5 - (rt + rb) * 0.5
                 return {
-                    l = station.newModel("terminal_lane.mdl", coor.scaleX(vecl:length()), mRot(vecl), coor.trans(lb)),
-                    r = station.newModel("terminal_lane.mdl", coor.scaleX(vecr:length()), mRot(vecr), coor.trans(rt)),
-                    link = station.newModel("standard_lane.mdl", coor.scaleX(vectl:length()), mRot(vectl), coor.trans((rt + rb) * 0.5))
+                    l = station.newModel("terminal_lane.mdl", coor.scaleX(vecl:length()), mRot(vecl), coor.trans(lb), tZ),
+                    r = station.newModel("terminal_lane.mdl", coor.scaleX(vecr:length()), mRot(vecr), coor.trans(rt), tZ),
+                    link = station.newModel("standard_lane.mdl", coor.scaleX(vectl:length()), mRot(vectl), coor.trans((rt + rb) * 0.5), tZ)
                 }
             end)
             * function(ls)
@@ -230,13 +238,13 @@ local generateTerminals = function(arcPacker)
                     / (enablers[1] and func.map(ls, pipe.select("l")) or {})
                     / (enablers[2] and func.map(ls, pipe.select("r")) or {})
                     / (enablers[1] and enablers[2] and func.map(ls, pipe.select("link")) or {})
-                    / stairs(lc[c - 2], rc[c - 2], (lsc[sc - 4] + rsc[sc - 4]) * 0.5)
-                    / stairs(lc[c + 2], rc[c + 2], (lsc[sc + 4] + rsc[sc + 4]) * 0.5)
+                    / stairs(lc[c - 2], rc[c - 2], (lsc[sc - 4] + rsc[sc - 4]) * 0.5, tZ)
+                    / stairs(lc[c + 2], rc[c + 2], (lsc[sc + 4] + rsc[sc + 4]) * 0.5, tZ)
                     / func.map2(il(func.range(lsc, sc - 3, sc + 3)), il(func.range(rsc, sc - 3, sc + 3)), function(lc, rc)
                         local b = ((lc.i + rc.i) * 0.5):withZ(1.4 + 0.53 - 3.5)
                         local t = ((lc.s + rc.s) * 0.5):withZ(1.4 + 0.53 - 3.5)
                         local vec = t - b
-                        return station.newModel("person_lane.mdl", coor.scaleX(vec:length()), mRot(vec), coor.trans(b))
+                        return station.newModel("person_lane.mdl", coor.scaleX(vec:length()), mRot(vec), coor.trans(b), tZ)
                     end)
                     /
                     {
@@ -282,8 +290,9 @@ local assembleSize = function(l, r, lc, rc, z)
     }
 end
 
-local generateModels = function(arcPacker)
+local generateModels = function(arcPacker, hPlatform)
     local il = pipe.interlace({"i", "s"})
+    local tZ = coor.transZ(hPlatform - 1.4)
     return function(xOffsets, uOffsets)
         uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
@@ -303,12 +312,12 @@ local generateModels = function(arcPacker)
                         local sizeR = assembleSize(ri, r, ric, rc, 0)
                         local sizeS = assembleSize(li, ri, lic, ric, 0)
                         return {
-                            station.newModel(s .. "_br.mdl", flipM, fitModel(3.4, 5, sizeS, i ~= 1, false)),
-                            station.newModel(s .. "_tl.mdl", flipM, fitModel(3.4, 5, sizeS, i == 1, true)),
-                            station.newModel(e .. "_br.mdl", flipM, fitModel(0.8, 5, sizeL, i ~= 1, false)),
-                            station.newModel(e .. "_tl.mdl", flipM, fitModel(0.8, 5, sizeL, i == 1, true)),
-                            station.newModel(e .. "_bl.mdl", flipM, fitModel(0.8, 5, sizeR, i ~= 1, true)),
-                            station.newModel(e .. "_tr.mdl", flipM, fitModel(0.8, 5, sizeR, i == 1, false))
+                            station.newModel(s .. "_br.mdl", tZ, flipM, fitModel(3.4, 5, sizeS, i ~= 1, false)),
+                            station.newModel(s .. "_tl.mdl", tZ, flipM, fitModel(3.4, 5, sizeS, i == 1, true)),
+                            station.newModel(e .. "_br.mdl", tZ, flipM, fitModel(0.8, 5, sizeL, i ~= 1, false)),
+                            station.newModel(e .. "_tl.mdl", tZ, flipM, fitModel(0.8, 5, sizeL, i == 1, true)),
+                            station.newModel(e .. "_bl.mdl", tZ, flipM, fitModel(0.8, 5, sizeR, i ~= 1, true)),
+                            station.newModel(e .. "_tr.mdl", tZ, flipM, fitModel(0.8, 5, sizeR, i == 1, false))
                         }
                     end)
             end)
@@ -324,13 +333,13 @@ local generateModels = function(arcPacker)
                         local sizeS = assembleSize(li, ri, lic, ric, 0)
                         local vecPo = ((sizeS.lb - sizeS.lt) + (sizeS.rb - sizeS.rt)) * 0.5
                         return {
-                            station.newModel(s .. "_br.mdl", flipM, fitModel(3, 10, sizeS, i ~= 1, false)),
-                            station.newModel(s .. "_tl.mdl", flipM, fitModel(3, 10, sizeS, i == 1, true)),
-                            station.newModel(e .. "_br.mdl", flipM, fitModel(1, 10, sizeL, i ~= 1, false)),
-                            station.newModel(e .. "_tl.mdl", flipM, fitModel(1, 10, sizeL, i == 1, true)),
-                            station.newModel(e .. "_br.mdl", flipM, coor.flipX(), fitModel(1, 10, sizeR, i ~= 1, true)),
-                            station.newModel(e .. "_tl.mdl", flipM, coor.flipX(), fitModel(1, 10, sizeR, i == 1, false)),
-                            station.newModel("platform_roof_pole.mdl", flipM, coor.flipY(), coor.xXY(), mRot(vecPo), coor.trans((sizeS.lb + sizeS.lt + sizeS.rb + sizeS.rt) * 0.25))
+                            station.newModel(s .. "_br.mdl", tZ, flipM, fitModel(3, 10, sizeS, i ~= 1, false)),
+                            station.newModel(s .. "_tl.mdl", tZ, flipM, fitModel(3, 10, sizeS, i == 1, true)),
+                            station.newModel(e .. "_br.mdl", tZ, flipM, fitModel(1, 10, sizeL, i ~= 1, false)),
+                            station.newModel(e .. "_tl.mdl", tZ, flipM, fitModel(1, 10, sizeL, i == 1, true)),
+                            station.newModel(e .. "_br.mdl", tZ, flipM, coor.flipX(), fitModel(1, 10, sizeR, i ~= 1, true)),
+                            station.newModel(e .. "_tl.mdl", tZ, flipM, coor.flipX(), fitModel(1, 10, sizeR, i == 1, false)),
+                            station.newModel("platform_roof_pole.mdl", tZ, flipM, coor.flipY(), coor.xXY(), mRot(vecPo), coor.trans((sizeS.lb + sizeS.lt + sizeS.rb + sizeS.rt) * 0.25))
                         }
                     end)
             end)
@@ -343,7 +352,7 @@ local generateModels = function(arcPacker)
                         local rb = rc.i:withZ(0)
                         local rt = rc.s:withZ(0)
                         local vec = ((lb - lt) + (rb - rt)) * 0.5
-                        return j % 2 == (i == 1 and 0 or 1) and {station.newModel("platform_chair.mdl", mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))} or {}
+                        return j % 2 == (i == 1 and 0 or 1) and {station.newModel("platform_chair.mdl", tZ, mRot(vec), coor.trans((lb + lt + rb + rt) * 0.25))} or {}
                     end)
             end)
         return newModels * pipe.flatten() * pipe.flatten()
@@ -370,12 +379,12 @@ local generateTerrain = function(arcPacker)
     end
 end
 
-local rBuild = function(totalTracks, baseX, arcPacker, ignoreFst, ignoreLst)
+local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, ignoreFst, ignoreLst)
     local pW = 4
     local tW = 5
     local generateEdges = generateEdges(arcPacker)
-    local generateModels = generateModels(arcPacker)
-    local generateTerminals = generateTerminals(arcPacker)
+    local generateModels = generateModels(arcPacker, hPlatform)
+    local generateTerminals = generateTerminals(arcPacker, hPlatform)
     local generateTerrain = generateTerrain(arcPacker)
     local tOffset = function(po) return {po[1] + 1, po[2] - 1} end
     local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models, terrain, ptCon)
@@ -450,6 +459,7 @@ local updateFn = function()
         local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
+        local hPlatform = hPlatformList[params.hPlatform + 1] * 0.001
         
         local nSeg = platformSegments[params.length + 1]
         local length = nSeg * station.segmentLength
@@ -457,7 +467,7 @@ local updateFn = function()
         local nbTracks = trackNumberList[params.nbTracks + 1]
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         
-        local edge, terminals, terminalsGroup, models, terrain = rBuild(nbTracks, 0, arcPacker(radius, incr, length),
+        local edge, terminals, terminalsGroup, models, terrain = rBuild(nbTracks, 0, arcPacker(radius, incr, length), hPlatform,
             ({true, false, true, false})[params.trackLayout + 1],
             (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )
