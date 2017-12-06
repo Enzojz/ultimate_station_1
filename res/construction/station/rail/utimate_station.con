@@ -328,8 +328,11 @@ local generateModels = function(arcPacker, hPlatform)
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
-                local platformSurface = (pipe.new * pipe.rep(3)("platform_surface") / "platform_stair"
-                    + pipe.new * pipe.rep(#lci - 6)("platform_surface") / "platform_extremity")
+                local platformSurface = pipe.new
+                    * pipe.rep(#lci - 2)("platform_surface")
+                    * pipe.with({[4] = "platform_stair"})
+                    / "platform_extremity"
+
                 local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
                 return pipe.mapn(platformEdge, platformSurface, il(lc), il(lci), il(rci), il(rc))
                     (function(e, s, lc, lic, ric, rc)
@@ -346,7 +349,7 @@ local generateModels = function(arcPacker, hPlatform)
                         }
                     end)
             end)
-            + pipe.mapn(func.seq(1, #lp), lp, rp, lpi, rpi)(function(i, l, r, li, ri)
+            + pipe.mapn(lp, rp, lpi, rpi)(function(l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r, li, ri)))
                 local roofSurface = pipe.new * pipe.rep(#lci - 2)("platform_roof_top") / "platform_roof_extremity"
                 local roofEdge = pipe.new * pipe.rep(#lci - 2)("platform_roof_edge") / "platform_roof_corner"
@@ -367,12 +370,12 @@ local generateModels = function(arcPacker, hPlatform)
                         }
                     end)
             end)
-            + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, _, _, li, ri)
+            + pipe.mapn(li, ri)(function(li, ri)
                 local lci, rci = table.unpack(retriveBiLatCoords(20)(equalizeArcs(li, ri)))
                 return pipe.new * pipe.mapn(func.seq(1, #lci - 1), il(lci), il(rci))
                     (function(j, lc, rc)
                         local vec = (lc.i - lc.s):avg(rc.i - rc.s)
-                        return j % 2 == (i == 1 and 0 or 1) and {station.newModel("platform_chair.mdl", mRot(vec:normalized()), coor.trans(lc.i:avg(lc.s, rc.i, rc.s)))} or {}
+                        return j % 2 == 1 and {station.newModel("platform_chair.mdl", mRot(vec:normalized()), coor.trans(lc.i:avg(lc.s, rc.i, rc.s)))} or {}
                     end)
             end)
         return newModels * pipe.flatten() * pipe.flatten()
