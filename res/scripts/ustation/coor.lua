@@ -63,6 +63,10 @@ local vecXyLength = function(self) return sqrt(self:length2()) end
 local vecXyLength2 = function(self) return self.x * self.x + self.y * self.y end
 local vecXyNormalized = function(self) return self / self:length() end
 local vecXyZ = function(self, z) return coor.xyz(self.x, self.y, z) end
+local vecXyzAvg = function(self, ...)
+    local pts = {...}
+    return func.fold(pts, self, function(l, r) return l + r end) / (#pts + 1)
+end
 
 function coor.xy(x, y)
     local result = {
@@ -71,7 +75,8 @@ function coor.xy(x, y)
         length2 = vecXyLength2,
         length = vecXyLength,
         normalized = vecXyNormalized,
-        withZ = vecXyZ
+        withZ = vecXyZ,
+        avg = vecXyAvg
     }
     setmetatable(result, vecXyMeta)
     return result
@@ -113,6 +118,11 @@ local vecXyzCross = function(self, other) return coor.xyz(
     self.z * other.x - self.x * other.z,
     self.x * other.y - self.y * other.x)
 end
+local vecXyzAvg = function(self, ...)
+    local pts = {...}
+    return func.fold(pts, self, function(l, r) return l + r end) / (#pts + 1)
+end
+
 function coor.xyz(x, y, z)
     local result = {
         x = x,
@@ -124,7 +134,8 @@ function coor.xyz(x, y, z)
         toTuple = vecXyzToTuple,
         dot = vecXyzDot,
         cross = vecXyzCross,
-        withZ = function(self, z) return coor.xyz(self.x, self.y, z) end
+        withZ = function(self, z) return coor.xyz(self.x, self.y, z) end,
+        avg = vecXyzAvg
     }
     setmetatable(result, vecXyzMeta)
     return result
