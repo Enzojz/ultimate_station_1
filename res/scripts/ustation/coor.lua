@@ -123,7 +123,8 @@ function coor.xyz(x, y, z)
         normalized = vecXyzNormalized,
         toTuple = vecXyzToTuple,
         dot = vecXyzDot,
-        cross = vecXyzCross
+        cross = vecXyzCross,
+        withZ = function(self, z) return coor.xyz(self.x, self.y, z) end
     }
     setmetatable(result, vecXyzMeta)
     return result

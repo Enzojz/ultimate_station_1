@@ -13,9 +13,9 @@ local ceil = math.ceil
 local floor = math.floor
 
 -- The circle in form of (x - a)² + (y - b)² = r²
-function arc.new(a, b, r, limits)
+function arc.new(o, r, limits)
     local result = {
-        o = coor.xy(a, b),
+        o = o,
         r = abs(r),
         inf = limits and limits.inf or -0.5 * pi,
         sup = limits and limits.sup or 1.5 * pi,
@@ -30,6 +30,7 @@ function arc.new(a, b, r, limits)
         extra = arc.extra,
         tangent = arc.tangent,
         rev = arc.rev,
+        slope = 0,
     }
     setmetatable(result, {
         __sub = arc.intersectionArc,
@@ -44,16 +45,17 @@ function arc.dR(dr)
     return function(ar) return ar + dr end
 end
 
-function arc.byOR(o, r, limits) return arc.new(o.x, o.y, r, limits) end
+function arc.byOR(o, r, limits) return arc.new(o, r, limits) end
 
-function arc.byXYR(x, y, r, limits) return arc.new(x, y, r, limits) end
+function arc.byXYR(x, y, r, limits) return arc.new(coor.xyz(x, y, 0), r, limits) end
 
 function arc.byDR(ar, dr, limits) return arc.byOR(ar.o, dr + ar.r, limits) end
 
 function arc.rev(ar)
     return ar:withLimits({
         inf = ar.sup,
-        sup = ar.inf
+        sup = ar.inf,
+        slope = -ar.slope
     })
 end
 
@@ -65,7 +67,7 @@ function arc.extendLimitsRad(arc, dInf, dSup)
     dSup = dSup or dInf
     return arc:withLimits({
         inf = arc.inf + (arc.inf > arc.sup and dInf or -dInf),
-        sup = arc.sup + (arc.sup > arc.inf and dSup or -dSup)
+        sup = arc.sup + (arc.sup > arc.inf and dSup or -dSup),
     })
 end
 
@@ -106,9 +108,11 @@ end
 
 function arc.ptByRad(arc, rad)
     return
-        coor.xy(
-            arc.o.x + arc.r * cos(rad),
-            arc.o.y + arc.r * sin(rad))
+        coor.xyz(
+            cos(rad),
+            sin(rad),
+            arc.slope * (arc.sup > arc.inf and rad - arc.inf or arc.inf - rad)
+        ) * arc.r + arc.o
 end
 
 function arc.radByPt(arc, pt)
@@ -121,7 +125,7 @@ function arc.ptByPt(arc, pt)
 end
 
 function arc.tangent(arc, rad)
-    return coor.xyz(0, (arc.sup < arc.inf) and -1 or 1, 0) .. coor.rotZ(rad)
+    return (coor.xyz(0, (arc.sup < arc.inf) and -1 or 1, arc.slope) .. coor.rotZ(rad)):normalized()
 end
 
 
