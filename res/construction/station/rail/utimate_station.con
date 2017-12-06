@@ -23,6 +23,7 @@ local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55,
 local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250, 1380}
 local wPlatformList = {4, 5, 6, 7, 8}
+local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
 
 local platformSegments = {2, 4, 8, 12, 16, 20, 24}
 local trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12}
@@ -64,15 +65,21 @@ local function params()
         },
         {
             key = "hPlatform",
-            name = _("Platform Height") .. "(mm)",
+            name = sp .. "\n" .. _("Platform") .. "\n" .. _("Height") .. "(mm)",
             values = func.map(hPlatformList, tostring),
             defaultIndex = 3
         },
         {
             key = "wPlatform",
-            name = _("Platform Width") .. "(m)",
+            name = _("Width") .. "(m)",
             values = func.map(wPlatformList, tostring),
             defaultIndex = 1
+        },
+        {
+            key = "roofLength",
+            name = _("Roof length") .. "(%)",
+            values = func.map(roofLengthList, tostring),
+            defaultIndex = 3
         },
         {
             key = "slopeSign",
@@ -225,7 +232,7 @@ local generateEdges = function(arcPacker)
         local arcs = arcPacker(xOffset, xtOffset)
         return edges /
             {
-                edge = arcs * pipe.map(ust.generateArc) + (arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end),
+                edge = arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc) + (arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end),
                 snap = pipe.new / {false, false} / {false, false} / {false, true} / {false, true}
             }
     end
@@ -246,15 +253,13 @@ local generateTerminals = function(arcPacker, hPlatform)
         local newTerminals = pipe.new *
             pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
-                    l = station.newModel("terminal_lane.mdl", mRot(lc.s - lc.i), coor.trans(lc.i)),
-                    r = station.newModel("terminal_lane.mdl", mRot(rc.i - rc.s), coor.trans(rc.s)),
+                    l = station.newModel("terminal_lane.mdl", mRot(lc.i - lc.s), coor.trans(lc.s)),
+                    r = station.newModel("terminal_lane.mdl", mRot(rc.s - rc.i), coor.trans(rc.i)),
                     link = station.newModel("standard_lane.mdl", mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
                 }
             end)
             * function(ls)
-                local stairs = function(t, p)
-                    return station.newModel("person_lane.mdl", mRot(p - t), coor.trans(t))
-                end
+                local stairs = function(t, p) return station.newModel("person_lane.mdl", mRot(p - t), coor.trans(t)) end
                 return pipe.new
                     / (enablers[1] and func.map(ls, pipe.select("l")) or {})
                     / (enablers[2] and func.map(ls, pipe.select("r")) or {})
@@ -276,7 +281,6 @@ local generateTerminals = function(arcPacker, hPlatform)
                     / {station.newModel("person_lane.mdl", mRot((newPtCon - ptCon)), coor.trans(ptCon))}
             end
         
-        
         return terminals + newTerminals * pipe.flatten(),
             terminalsGroup
             + (
@@ -287,17 +291,17 @@ local generateTerminals = function(arcPacker, hPlatform)
                 },
                 {
                     terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
-                    vehicleNodeOverride = #edges * 8 - 8
+                    vehicleNodeOverride = #edges * 8 - 7
                 }
             } or enablers[1] and {
                 {
                     terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 8
+                    vehicleNodeOverride = #edges * 8 - 7
                 }
             } or enablers[2] and {
                 {
                     terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 8
+                    vehicleNodeOverride = #edges * 8 - 7
                 }
             } or {}
             ),
@@ -314,7 +318,7 @@ local assembleSize = function(l, r, lc, rc)
     }
 end
 
-local generateModels = function(arcPacker, hPlatform)
+local generateModels = function(arcPacker, hPlatform, roofLength)
     local il = pipe.interlace({"s", "i"})
     local tZ = coor.transZ(hPlatform - 1.4)
     local platformZ = hPlatform + 0.53
@@ -322,9 +326,9 @@ local generateModels = function(arcPacker, hPlatform)
     return function(xOffsets, uOffsets)
         uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
-        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * 0.75 end)))
         local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.8, uOffsets[2] - 0.8}, arcPacker()))
-        local lpi, rpi = table.unpack(func.map2(xOffsets, {uOffsets[1] + 1, uOffsets[2] - 1}, arcPacker(function(l) return l * 0.75 end)))
+        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * roofLength end)))
+        local lpi, rpi = table.unpack(func.map2(xOffsets, {uOffsets[1] + 1, uOffsets[2] - 1}, arcPacker(function(l) return l * roofLength end)))
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
@@ -332,7 +336,7 @@ local generateModels = function(arcPacker, hPlatform)
                     * pipe.rep(#lci - 2)("platform_surface")
                     * pipe.with({[4] = "platform_stair"})
                     / "platform_extremity"
-
+                
                 local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
                 return pipe.mapn(platformEdge, platformSurface, il(lc), il(lci), il(rci), il(rc))
                     (function(e, s, lc, lic, ric, rc)
@@ -349,16 +353,29 @@ local generateModels = function(arcPacker, hPlatform)
                         }
                     end)
             end)
-            + pipe.mapn(lp, rp, lpi, rpi)(function(l, r, li, ri)
+            + pipe.mapn(func.seq(1, #lp), l, r)(function(i, l, r)
+                local lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r)))
+                return pipe.mapn(func.seq(2, #lci - 1), func.range(lci, 2, #lci -1), func.range(rci, 2, #rci -1))
+                    (function(j, lc, rc)
+                        return
+                            (j == 3 or (j % 3 == 0 and (j - 3) % 6 == 0)) and {}
+                            or {
+                                station.newModel(j % 3 ~= 0 and "platform_chair.mdl" or "platform_trash.mdl",
+                                    quat.byVec(coor.xyz(0, i == 1 and 1 or -1, 0), l:tangent(l:rad(lc))):mRot(),
+                                    coor.trans(lc:avg(rc)))
+                            }
+                    end)
+            end)
+            + (roofLength == 0 and {} or pipe.mapn(func.seq(1, #lp), lp, rp, lpi, rpi)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r, li, ri)))
                 local roofSurface = pipe.new * pipe.rep(#lci - 2)("platform_roof_top") / "platform_roof_extremity"
                 local roofEdge = pipe.new * pipe.rep(#lci - 2)("platform_roof_edge") / "platform_roof_corner"
-                return pipe.new + pipe.mapn(roofEdge, roofSurface, il(lc), il(lci), il(rci), il(rc))
+                return pipe.mapn(roofEdge, roofSurface, il(lc), il(lci), il(rci), il(rc))
                     (function(e, s, lc, lic, ric, rc)
                         local sizeL = assembleSize(l, li, lc, lic)
                         local sizeR = assembleSize(ri, r, ric, rc)
                         local sizeS = assembleSize(li, ri, lic, ric)
-                        local vecPo = (sizeS.lb - sizeS.lt):avg(sizeS.rb - sizeS.rt)
+                        local vecPo = lc.i:avg(rc.i) - lc.s:avg(rc.s)
                         return {
                             station.newModel(s .. "_br.mdl", tZ, fitModel(3, 10, platformZ, sizeS, false, false)),
                             station.newModel(s .. "_tl.mdl", tZ, fitModel(3, 10, platformZ, sizeS, true, true)),
@@ -366,22 +383,16 @@ local generateModels = function(arcPacker, hPlatform)
                             station.newModel(e .. "_tl.mdl", tZ, fitModel(1, 10, platformZ, sizeL, true, true)),
                             station.newModel(e .. "_br.mdl", tZ, coor.flipX(), fitModel(1, 10, platformZ, sizeR, false, true)),
                             station.newModel(e .. "_tl.mdl", tZ, coor.flipX(), fitModel(1, 10, platformZ, sizeR, true, false)),
-                            station.newModel("platform_roof_pole.mdl", tZ, coor.flipY(), coor.xXY(), mRot(vecPo:normalized()), coor.trans(sizeS.lb:avg(sizeS.lt, sizeS.rb, sizeS.rt)), coor.transZ(-platformZ))
+                            station.newModel("platform_roof_pole.mdl", tZ, coor.flipY(),
+                                coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, i == 1 and 5 or -5, 0), (vecPo)):mRot(),
+                                coor.trans(lc.i:avg(rc.i, lc.s, rc.s)), coor.transZ(-platformZ))
                         }
                     end)
             end)
-            + pipe.mapn(li, ri)(function(li, ri)
-                local lci, rci = table.unpack(retriveBiLatCoords(20)(equalizeArcs(li, ri)))
-                return pipe.new * pipe.mapn(func.seq(1, #lci - 1), il(lci), il(rci))
-                    (function(j, lc, rc)
-                        local vec = (lc.i - lc.s):avg(rc.i - rc.s)
-                        return j % 2 == 1 and {station.newModel("platform_chair.mdl", mRot(vec:normalized()), coor.trans(lc.i:avg(lc.s, rc.i, rc.s)))} or {}
-                    end)
-            end)
+        )
         return newModels * pipe.flatten() * pipe.flatten()
     end
 end
-
 
 local generateTerrain = function(arcPacker)
     local il = pipe.interlace({"i", "s"})
@@ -391,22 +402,23 @@ local generateTerrain = function(arcPacker)
         return pipe.new
             * pipe.mapn(l, r)(function(l, r)
                 local lc, rc = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r)))
-                local flipM = i == 1 and coor.I() or coor.flipY()
                 return pipe.mapn(il(lc), il(rc))
                     (function(lc, rc)
                         local size = assembleSize(l, r, lc, rc, 0)
-                        return pipe.new / size.lt / size.lb / size.rb / size.rt * pipe.map(coor.vec2Tuple) * ((size.lb - size.lt):cross(size.rb - size.lb).z > 0 and pipe.noop() or pipe.rev())
+                        return pipe.new / size.lt / size.lb / size.rb / size.rt
+                            * pipe.map(coor.vec2Tuple)
+                            * ((size.lb - size.lt):cross(size.rb - size.lb).z > 0 and pipe.noop() or pipe.rev())
                     end)
             end)
             * pipe.flatten()
     end
 end
 
-local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, wPlatform, ignoreFst, ignoreLst)
+local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, wPlatform, roofLength, ignoreFst, ignoreLst)
     local pW = wPlatform
     local tW = 5
     local generateEdges = generateEdges(arcPacker()())
-    local generateModels = generateModels(arcPacker, hPlatform)
+    local generateModels = generateModels(arcPacker, hPlatform, roofLength)
     local generateTerminals = generateTerminals(arcPacker, hPlatform)
     local generateTerrain = generateTerrain(arcPacker())
     local tOffset = function(po) return {po[1] + 1, po[2] - 1} end
@@ -484,6 +496,7 @@ local updateFn = function()
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local hPlatform = hPlatformList[params.hPlatform + 1] * 0.001
         local wPlatform = wPlatformList[params.wPlatform + 1]
+        local roofLength = roofLengthList[params.roofLength + 1] * 0.01
         
         local nSeg = platformSegments[params.length + 1]
         local length = nSeg * station.segmentLength
@@ -492,7 +505,7 @@ local updateFn = function()
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         local slope = slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
         
-        local edge, terminals, terminalsGroup, models, terrain = rBuild(nbTracks, 0, arcPacker(radius, incr, length, slope), hPlatform, wPlatform,
+        local edge, terminals, terminalsGroup, models, terrain = rBuild(nbTracks, 0, arcPacker(radius, incr, length, slope), hPlatform, wPlatform, roofLength,
             ({true, false, true, false})[params.trackLayout + 1],
             (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )

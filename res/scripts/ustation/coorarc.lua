@@ -55,7 +55,8 @@ function arc.rev(ar)
     return ar:withLimits({
         inf = ar.sup,
         sup = ar.inf,
-        slope = -ar.slope
+        slope = -ar.slope,
+        o = ar.o:withZ(ar:pt(ar.sup).z)
     })
 end
 
