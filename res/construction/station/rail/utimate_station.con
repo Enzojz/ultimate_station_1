@@ -248,7 +248,10 @@ local generateTerminals = function(arcPacker, hPlatform)
         local lc, rc, c = bitLatCoords(l, r, 10)
         local lsc, rsc, sc = bitLatCoords(ls, rs, 5)
         
-        local newPtCon = lsc[sc]:avg(rsc[sc]) + coor.xyz(0, 0, -3.5)
+        local newPtCon = pipe.new
+            / (lsc[sc]:avg(rsc[sc]) + coor.xyz(0, 0, -3.5))
+            / (lsc[sc + 3 + floor(sc * 0.5)]:avg(rsc[sc + 3 + floor(sc * 0.5)]) + coor.xyz(0, 0, -3.5))
+            / (lsc[sc - 3 - floor(sc * 0.5)]:avg(rsc[sc - 3 - floor(sc * 0.5)]) + coor.xyz(0, 0, -3.5))
         
         local newTerminals = pipe.new *
             pipe.mapn(il(lc), il(rc))(function(lc, rc)
@@ -278,7 +281,15 @@ local generateTerminals = function(arcPacker, hPlatform)
                         local vec = t - b
                         return station.newModel("person_lane.mdl", mRot(vec), coor.trans(b), coor.transZ(-3.5))
                     end)
-                    / {station.newModel("person_lane.mdl", mRot((newPtCon - ptCon)), coor.trans(ptCon))}
+                    / {
+                        stairs(lc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
+                        stairs(rc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
+                        stairs(lc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)])),
+                        stairs(rc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)]))
+                    }
+                    / pipe.mapn(ptCon, newPtCon)(function(pt, nPt)
+                           return station.newModel("person_lane.mdl", mRot((nPt - pt)), coor.trans(pt))
+                    end)
             end
         
         return terminals + newTerminals * pipe.flatten(),
@@ -334,7 +345,7 @@ local generateModels = function(arcPacker, hPlatform, roofLength)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
                 local platformSurface = pipe.new
                     * pipe.rep(#lci - 2)("platform_surface")
-                    * pipe.with({[4] = "platform_stair"})
+                    * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
                 
                 local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
@@ -355,10 +366,10 @@ local generateModels = function(arcPacker, hPlatform, roofLength)
             end)
             + pipe.mapn(func.seq(1, #lp), l, r)(function(i, l, r)
                 local lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r)))
-                return pipe.mapn(func.seq(2, #lci - 1), func.range(lci, 2, #lci -1), func.range(rci, 2, #rci -1))
+                return pipe.mapn(func.seq(2, #lci - 1), func.range(lci, 2, #lci - 1), func.range(rci, 2, #rci - 1))
                     (function(j, lc, rc)
                         return
-                            (j == 3 or (j % 3 == 0 and (j - 3) % 6 == 0)) and {}
+                        (j == 3 or (j % 3 == 0 and (j - 3) % 6 == 0) or (j - 3) % (floor(#lci * 0.5)) == 0) and {}
                             or {
                                 station.newModel(j % 3 ~= 0 and "platform_chair.mdl" or "platform_trash.mdl",
                                     quat.byVec(coor.xyz(0, i == 1 and 1 or -1, 0), l:tangent(l:rad(lc))):mRot(),
@@ -483,7 +494,7 @@ local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, wPlatform, roo
                 ptCon)
         end
     end
-    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, coor.xyz(0, 0, 0))
+    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new / coor.xyz(0, 0, 0))
 end
 
 
