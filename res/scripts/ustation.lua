@@ -162,7 +162,7 @@ ust.fitModel2D = function(w, h, _, size, fitTop, fitLeft)
                 return ((l + c) % 2 == 0 and 1 or -1) * coor.det(miX(c, l)) / dX
             end)
         end)
-
+    
     local function mul(m1, m2)
         local m = function(line, col)
             local l = (line - 1) * 3
@@ -174,13 +174,13 @@ ust.fitModel2D = function(w, h, _, size, fitTop, fitLeft)
             m(3, 1), m(3, 2), m(3, 3),
         }
     end
-
+    
     local mXi = mul(mXI, mU)
-
+    
     return coor.I() * {
         mXi[1], mXi[2], 0, mXi[3],
         mXi[4], mXi[5], 0, mXi[6],
-        0,      0,      1, 0,
+        0, 0, 1, 0,
         mXi[7], mXi[8], 0, mXi[9]
     }
 end
@@ -231,6 +231,9 @@ ust.fitModel = function(w, h, d, size, fitTop, fitLeft)
     return coor.I() * mXI * mU
 end
 
+
+ust.unitLane = function(f, t) return station.newModel("person_lane.mdl", ust.mRot(t - f), coor.trans(f)) end
+
 ust.generateEdges = function(arcPacker)
     return function(edges, isLeft, xOffset, xtOffset)
         local arcs = arcPacker(xOffset, xtOffset)
@@ -266,35 +269,34 @@ ust.generateTerminals = function(arcPacker, hPlatform)
                 }
             end)
             * function(ls)
-                local stairs = function(t, p) return station.newModel("person_lane.mdl", ust.mRot(p - t), coor.trans(t)) end
                 return pipe.new
-                    / (enablers[1] and func.map(ls, pipe.select("l")) or {})
-                    / (enablers[2] and func.map(ls, pipe.select("r")) or {})
-                    / (enablers[1] and enablers[2] and func.map(ls, pipe.select("link")) or {})
-                    / {
-                        stairs(lc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
-                        stairs(rc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
-                        stairs(lc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
-                        stairs(rc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
-                        stairs(lc[c - 3]:avg(rc[c - 3], rc[c - 2], lc[c - 2]), lsc[sc - 4]:avg(rsc[sc - 4])),
-                        stairs(lc[c + 3]:avg(rc[c + 3], rc[c + 2], lc[c + 2]), lsc[sc + 4]:avg(rsc[sc + 4]))
-                    }
-                    / func.map2(il(func.range(lsc, sc - 3, sc + 3)), il(func.range(rsc, sc - 3, sc + 3)), function(lc, rc)
-                        local b = lc.i:avg(rc.i)
-                        local t = lc.s:avg(rc.s)
-                        local vec = t - b
-                        return station.newModel("person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
-                    end)
-                    / {
-                        stairs(lc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
-                        stairs(rc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
-                        stairs(lc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)])),
-                        stairs(rc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)]))
-                    }
-                    / pipe.mapn(ptCon, newPtCon)(function(pt, nPt)
-                           return station.newModel("person_lane.mdl", ust.mRot((nPt - pt)), coor.trans(pt))
-                    end)
-            end
+                / (enablers[1] and func.map(ls, pipe.select("l")) or {})
+                / (enablers[2] and func.map(ls, pipe.select("r")) or {})
+                / (enablers[1] and enablers[2] and func.map(ls, pipe.select("link")) or {})
+                / {
+                    ust.unitLane(lc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
+                    ust.unitLane(rc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
+                    ust.unitLane(lc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
+                    ust.unitLane(rc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
+                    ust.unitLane(lc[c - 3]:avg(rc[c - 3], rc[c - 2], lc[c - 2]), lsc[sc - 4]:avg(rsc[sc - 4])),
+                    ust.unitLane(lc[c + 3]:avg(rc[c + 3], rc[c + 2], lc[c + 2]), lsc[sc + 4]:avg(rsc[sc + 4]))
+                }
+                / func.map2(il(func.range(lsc, sc - 3, sc + 3)), il(func.range(rsc, sc - 3, sc + 3)), function(lc, rc)
+                    local b = lc.i:avg(rc.i)
+                    local t = lc.s:avg(rc.s)
+                    local vec = t - b
+                    return station.newModel("person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
+                end)
+                / {
+                    ust.unitLane(lc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
+                    ust.unitLane(rc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
+                    ust.unitLane(lc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)])),
+                    ust.unitLane(rc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)]))
+                }
+                / pipe.mapn(ptCon, newPtCon)(function(pt, nPt)
+                       return station.newModel("person_lane.mdl", ust.mRot((nPt - pt)), coor.trans(pt))
+                end)
+        end
         
         return terminals + newTerminals * pipe.flatten(),
             terminalsGroup
@@ -319,7 +321,8 @@ ust.generateTerminals = function(arcPacker, hPlatform)
                     vehicleNodeOverride = #edges * 8 - 7
                 }
             } or {}
-            ),
+            )
+            ,
             newPtCon
     end
 end
@@ -329,7 +332,8 @@ ust.generateModels = function(arcPacker, fitModel, hPlatform, roofLength)
     local tZ = coor.transZ(hPlatform - 1.4)
     local platformZ = hPlatform + 0.53
     local arcPacker = arcPacker(platformZ)
-    return function(xOffsets, uOffsets)
+    return function(xOffsets, uOffsets, noEquipement)
+        noEquipement = noEquipement or false
         uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
         local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.8, uOffsets[2] - 0.8}, arcPacker()))
@@ -340,7 +344,7 @@ ust.generateModels = function(arcPacker, fitModel, hPlatform, roofLength)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
                 local platformSurface = pipe.new
                     * pipe.rep(#lci - 2)("platform_surface")
-                    * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and "platform_stair" or "platform_surface" end)
+                    * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
                 
                 local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
@@ -359,7 +363,7 @@ ust.generateModels = function(arcPacker, fitModel, hPlatform, roofLength)
                         }
                     end)
             end)
-            + pipe.mapn(func.seq(1, #lp), l, r)(function(i, l, r)
+            + (noEquipement and {} or pipe.mapn(func.seq(1, #lp), l, r)(function(i, l, r)
                 local lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r)))
                 return pipe.mapn(func.seq(2, #lci - 1), func.range(lci, 2, #lci - 1), func.range(rci, 2, #rci - 1))
                     (function(j, lc, rc)
@@ -371,7 +375,7 @@ ust.generateModels = function(arcPacker, fitModel, hPlatform, roofLength)
                                     coor.trans(lc:avg(rc)))
                             }
                     end)
-            end)
+            end))
             + (roofLength == 0 and {} or pipe.mapn(func.seq(1, #lp), lp, rp, lpi, rpi)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r, li, ri)))
                 local roofSurface = pipe.new * pipe.rep(#lci - 2)("platform_roof_top") / "platform_roof_extremity"

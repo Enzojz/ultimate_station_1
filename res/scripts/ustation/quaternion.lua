@@ -28,9 +28,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 local laneutil = require "laneutil"
 local func = require "ustation/func"
 local coor = require "ustation/coor"
-local q = {}
-
-local dump = require "datadumper"
+local quaternion = {}
 
 local sin = math.sin
 local cos = math.cos
@@ -39,7 +37,7 @@ local rad = math.rad
 
 local qLength = function(self) return sqrt(self:length2()) end
 local qLength2 = function(self) return self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w end
-local qNormalized = function(self) return self / self:length() end
+local qNormalized = function(self) return self:length2() == 0 and self or (self / self:length()) end
 local qMRot = function(q)
     return coor.I() * {
         1 - 2 * q.y * q.y - 2 * q.z * q.z,     2 * q.x * q.y + 2 * q.w * q.z,     2 * q.x * q.z - 2 * q.w * q.y,     0,
@@ -49,26 +47,43 @@ local qMRot = function(q)
     }
 end
 
+local qConj = function(qu)
+    return quaternion.wxyz(qu.w, -qu.x, -qu.y, -qu.z)
+end
+
+local qInv = function(q)
+    return q:conj() / q:length2()
+end
+
+local qCross = function(p, q)
+    return quaternion.wxyz(
+        p.w * q.w - p.x * q.x - p.y * q.y - p.z * q.z,
+        p.w * q.x + p.x * q.w + p.y * q.z - p.z * q.y,
+        p.w * q.y + p.y * q.w + p.z * q.x - p.x * q.z,
+        p.w * q.z + p.z * q.w + p.x * q.y - p.y * q.x
+    )
+end
+
 local qMeta = {
     __add = function(lhs, rhs)
-        return q.wxyz(lhs.w + rhs.w, lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z)
+        return quaternion.wxyz(lhs.w + rhs.w, lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z)
     end
     ,
     __sub = function(lhs, rhs)
-        return q.wxyz(lhs.w - rhs.w, lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z)
+        return quaternion.wxyz(lhs.w - rhs.w, lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z)
     end,
     __mul = function(lhs, rhs)
-        return q.wxyz(lhs.w * rhs, lhs.x * rhs, lhs.y * rhs, lhs.z * rhs)
+        return quaternion.wxyz(lhs.w * rhs, lhs.x * rhs, lhs.y * rhs, lhs.z * rhs)
     end,
     __div = function(lhs, rhs)
-        return q.wxyz(lhs.w / rhs, lhs.x / rhs, lhs.y / rhs, lhs.z / rhs)
+        return quaternion.wxyz(lhs.w / rhs, lhs.x / rhs, lhs.y / rhs, lhs.z / rhs)
     end,
     __unm = function(lhs)
-        return q.wxyz(-lhs.w, -lhs.x, -lhs.y, -lhs.z)
+        return quaternion.wxyz(-lhs.w, -lhs.x, -lhs.y, -lhs.z)
     end
 }
 
-function q.wxyz(w, x, y, z)
+function quaternion.wxyz(w, x, y, z)
     local result = {
         w = w,
         x = x,
@@ -77,19 +92,22 @@ function q.wxyz(w, x, y, z)
         length = qLength,
         length2 = qLength2,
         normalized = qNormalized,
-        mRot = qMRot
+        mRot = qMRot,
+        inv = qInv,
+        conj = qConj,
+        cross = qCross
     }
     setmetatable(result, qMeta)
     return result
 end
 
-function q.xyzw(pt, w)
-    return q.wxyz(w, pt.x, pt.y, pt.z)
+function quaternion.xyzw(pt, w)
+    return quaternion.wxyz(w, pt.x, pt.y, pt.z)
 end
 
-function q.byVec(vec1, vec2)
+function quaternion.byVec(vec1, vec2)
     local cr = vec1:cross(vec2)
-    return q.xyzw(cr, sqrt(vec1:length2() * vec2:length2()) + vec1:dot(vec2)):normalized()
+    return quaternion.xyzw(cr, sqrt(vec1:length2() * vec2:length2()) + vec1:dot(vec2)):normalized()
 end
 
-return q
+return quaternion

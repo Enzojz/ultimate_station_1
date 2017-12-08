@@ -22,6 +22,14 @@ local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250,
 local wPlatformList = {4, 5, 6, 7, 8}
 local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
 
+local buildingList = {
+    "main_building_size1.mdl",
+    "main_building_size2.mdl",
+    "main_building_size3.mdl",
+    "main_building_size4.mdl",
+    "main_building_size5.mdl",
+}
+
 local platformSegments = {2, 4, 8, 12, 16, 20, 24}
 local trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12}
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
@@ -90,6 +98,12 @@ local function params()
             values = func.map(slopeList, tostring),
             defaultIndex = 0
         },
+        {
+            key = "entrySize",
+            name = _("Entry"),
+            values = {"XS", "S", "M", "L", "XL"},
+            defaultIndex = 1
+        }
     
     }
 end
@@ -107,6 +121,7 @@ local function defaultParams(param)
 
 end
 
+
 local rBuild = function(totalTracks, baseX, arcPacker, fitModel, hPlatform, wPlatform, roofLength, ignoreFst, ignoreLst)
     local pW = wPlatform
     local tW = 5
@@ -115,9 +130,20 @@ local rBuild = function(totalTracks, baseX, arcPacker, fitModel, hPlatform, wPla
     local generateTerminals = ust.generateTerminals(arcPacker, hPlatform)
     local generateTerrain = ust.generateTerrain(arcPacker())
     local tOffset = function(po) return {po[1] + 1, po[2] - 1} end
+
+    local buildEntryPath = function()
+        return {
+            ust.unitLane(coor.xyz(-5, 0, 0), coor.xyz(baseX + 0.5 * pW - 1, 0, hPlatform + 0.53)),
+            ust.unitLane(coor.xyz(-1, 0, hPlatform - 3.5 + 0.53), coor.xyz(-5, 0, 0)),
+            ust.unitLane(coor.xyz(-5, 0, 0), coor.xyz(-10, 2.5, 0)),
+            ust.unitLane(coor.xyz(-5, 0, 0), coor.xyz(-10, -2.5, 0)),
+        }
+    end
+    
+
     local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models, terrain, ptCon)
         if (nbTracks == 0) then
-            return edges, terminals, terminalsGroup, models, terrain
+            return edges, terminals, terminalsGroup, models + buildEntryPath(), terrain
         elseif (nbTracks == totalTracks and (not ignoreFst or totalTracks == 1)) then
             local edgeBase = baseX + 0.5 * tW + 0.5 * pW
             local edgeOffset = 0
@@ -129,7 +155,7 @@ local rBuild = function(totalTracks, baseX, arcPacker, fitModel, hPlatform, wPla
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(platformBase, platformOffset),
+                models + generateModels(platformBase, platformOffset, true),
                 terrain + generateTerrain(platformBase, platformOffset),
                 ptCon)
         elseif (nbTracks == 1 and ignoreLst) then
@@ -176,9 +202,12 @@ local rBuild = function(totalTracks, baseX, arcPacker, fitModel, hPlatform, wPla
                 ptCon)
         end
     end
-    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new / coor.xyz(0, 0, 0))
+    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new / coor.xyz(-1, 0, hPlatform - 3.5 + 0.53))
 end
 
+local buildEntry = function(model, slope, hPlatform)
+    return station.newModel(model, coor.xXY(), coor.transX(-6.5), coor.transZ(hPlatform - 0.25), coor.rotX(atan(-slope)))
+end
 
 local updateFn = function()
     return function(params)
@@ -190,6 +219,7 @@ local updateFn = function()
         local hPlatform = hPlatformList[params.hPlatform + 1] * 0.001
         local wPlatform = wPlatformList[params.wPlatform + 1]
         local roofLength = roofLengthList[params.roofLength + 1] * 0.01
+        local mainBuilding = buildingList[params.entrySize + 1]
         
         local nSeg = platformSegments[params.length + 1]
         local length = nSeg * station.segmentLength
@@ -206,11 +236,12 @@ local updateFn = function()
                 ({true, false, true, false})[params.trackLayout + 1],
                 (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )
+
         return
             pipe.new
             * {
                 edgeLists = {pipe.new * {edge * (station.mergeEdges)} * station.prepareEdges * trackBuilder.normal()},
-                models = terminals + models,
+                models = terminals + models + {buildEntry(mainBuilding, slope, hPlatform)},
                 terminalGroups = terminalsGroup,
                 terrainAlignmentLists = {
                     {

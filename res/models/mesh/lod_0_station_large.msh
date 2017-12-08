@@ -1,0 +1,136 @@
+function data() return 
+  { animations = {  }, 
+    matConfigs = 
+      { { 0, 0, 0, 0, 0, 0, 0, 0, 0 } }, 
+    subMeshes = 
+      { 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 1296, offset = 190368 }, 
+              position = 
+                { count = 1296, offset = 190368 }, 
+              tangent = 
+                { count = 1296, offset = 190368 }, 
+              uv0 = 
+                { count = 1296, offset = 190368 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_borders_1.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 1584, offset = 191664 }, 
+              position = 
+                { count = 1584, offset = 191664 }, 
+              tangent = 
+                { count = 1584, offset = 191664 }, 
+              uv0 = 
+                { count = 1584, offset = 191664 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_borders_2.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 1920, offset = 193248 }, 
+              position = 
+                { count = 1920, offset = 193248 }, 
+              tangent = 
+                { count = 1920, offset = 193248 }, 
+              uv0 = 
+                { count = 1920, offset = 193248 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_doors_and_windows_1.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 360, offset = 195168 }, 
+              position = 
+                { count = 360, offset = 195168 }, 
+              tangent = 
+                { count = 360, offset = 195168 }, 
+              uv0 = 
+                { count = 360, offset = 195168 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_floor_1.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 576, offset = 195528 }, 
+              position = 
+                { count = 576, offset = 195528 }, 
+              tangent = 
+                { count = 576, offset = 195528 }, 
+              uv0 = 
+                { count = 576, offset = 195528 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_roof_1.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 432, offset = 196104 }, 
+              position = 
+                { count = 432, offset = 196104 }, 
+              tangent = 
+                { count = 432, offset = 196104 }, 
+              uv0 = 
+                { count = 432, offset = 196104 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_roof_2.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 4272, offset = 196536 }, 
+              position = 
+                { count = 4272, offset = 196536 }, 
+              tangent = 
+                { count = 4272, offset = 196536 }, 
+              uv0 = 
+                { count = 4272, offset = 196536 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_wall_1.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 4560, offset = 200808 }, 
+              position = 
+                { count = 4560, offset = 200808 }, 
+              tangent = 
+                { count = 4560, offset = 200808 }, 
+              uv0 = 
+                { count = 4560, offset = 200808 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_wall_2.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = 
+                { count = 864, offset = 205368 }, 
+              position = 
+                { count = 864, offset = 205368 }, 
+              tangent = 
+                { count = 864, offset = 205368 }, 
+              uv0 = 
+                { count = 864, offset = 205368 }, 
+             }, materials = { "station/train/passenger/trainstation_1990_window_1.mtl" }
+         }
+       }, 
+    vertexAttr = 
+      { 
+        normal = 
+          { count = 47592, numComp = 3, offset = 79320 }, 
+        position = 
+          { count = 47592, numComp = 3, offset = 0 }, 
+        tangent = 
+          { count = 63456, numComp = 4, offset = 126912 }, 
+        uv0 = 
+          { count = 31728, numComp = 2, offset = 47592 }, 
+       }
+   } end
