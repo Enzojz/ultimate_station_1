@@ -34,42 +34,44 @@ local buildingParamsList =
     function(slope)
         local mRo = coor.rotX(atan(-slope))
         return
-    {
-    function(refZ, xOffset)
-        local bZ = 0.8
-        return {
-            entry = {
-                coor.xyz(-8 + xOffset, 1.5, refZ - bZ) .. mRo,
-                coor.xyz(-8 + xOffset, -1.5, refZ - bZ) .. mRo
-            },
-            platform = {
-                coor.xyz(5 + xOffset, 1.5, refZ) .. mRo,
-                coor.xyz(5 + xOffset, -1.5, refZ) .. mRo
-            },
-            pass = {
-                coor.xyz(1 + xOffset, 0, refZ - bZ) .. mRo
+            {
+                function(refZ, xOffset)
+                    local bZ = 0.8
+                    return {
+                        entry = {
+                            coor.xyz(-8 + xOffset, 1.5, refZ - bZ) .. mRo,
+                            coor.xyz(-8 + xOffset, -1.5, refZ - bZ) .. mRo
+                        },
+                        platform = {
+                            coor.xyz(5 + xOffset, 1.5, refZ) .. mRo,
+                            coor.xyz(5 + xOffset, -1.5, refZ) .. mRo
+                        },
+                        pass = {
+                            coor.xyz(1 + xOffset, 0, refZ - bZ) .. mRo
+                        },
+                        street = coor.xyz(-12 + xOffset + 2, 0, 0)
+                    }
+                end,
+                
+                function(refZ, xOffset)
+                    local bZ = 0.8
+                    return {
+                        entry = {
+                            coor.xyz(-8 + xOffset, 1.5, refZ - bZ) .. mRo,
+                            coor.xyz(-8 + xOffset, -1.5, refZ - bZ) .. mRo
+                        },
+                        platform = {
+                            coor.xyz(5 + xOffset, 1.5, refZ) .. mRo,
+                            coor.xyz(5 + xOffset, -1.5, refZ) .. mRo
+                        },
+                        pass = {
+                            coor.xyz(1 + xOffset, 0, refZ - bZ) .. mRo
+                        },
+                        street = coor.xyz(-8 + xOffset + 2, 0, 0)
+                    }
+                end
             }
-        }
-    end,
-    
-    function(refZ, xOffset)
-        local bZ = 0.8
-        return {
-            entry = {
-                coor.xyz(-8 + xOffset, 1.5, refZ - bZ) .. mRo,
-                coor.xyz(-8 + xOffset, -1.5, refZ - bZ) .. mRo
-            },
-            platform = {
-                coor.xyz(5 + xOffset, 1.5, refZ) .. mRo,
-                coor.xyz(5 + xOffset, -1.5, refZ) .. mRo
-            },
-            pass = {
-                coor.xyz(1 + xOffset, 0, refZ - bZ) .. mRo
-            }
-        }
     end
-}
-end
 
 local platformSegments = {2, 4, 8, 12, 16, 20, 24}
 local trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12}
@@ -163,7 +165,7 @@ local function defaultParams(param)
 end
 
 
-local rBuild = function(totalTracks, baseX, arcPacker, fitModel, hPlatform, wPlatform, roofLength, buildingParams, ignoreFst, ignoreLst)
+local rBuild = function(totalTracks, baseX, arcPacker, fitModel, hPlatform, wPlatform, roofLength, buildingParams, slope, ignoreFst, ignoreLst)
     local pW = wPlatform
     local tW = 5
     local generateEdges = ust.generateEdges(arcPacker()())
@@ -173,20 +175,53 @@ local rBuild = function(totalTracks, baseX, arcPacker, fitModel, hPlatform, wPla
     local tOffset = function(po) return {po[1] + 1, po[2] - 1} end
     
     local bP = buildingParams(hPlatform + 0.53, -6.5)
-
+    
     local buildEntryPath = function()
         local refZ = hPlatform + 0.53
         local xOffset = -6.5
-        return 
+        return
             pipe.new * func.map(bP.platform, function(p) return ust.unitLane(p, coor.xyz(baseX + 0.5 * pW - 1, 0, refZ)) end)
             + func.map(bP.entry, function(p) return ust.unitLane(p, coor.xyz(-10 + xOffset, p.y > 0 and 4.5 or -4.5, 0)) end)
             + func.map(bP.pass, function(p) return ust.unitLane(p, coor.xyz(-1, 0, refZ - 3.5)) end)
     end
     
+    local buildAccessRoad = function()
+        return
+            {
+                edge = pipe.new / {bP.street, bP.street + coor.xyz(-20, 0, 0), coor.xyz(-1, 0, 0), coor.xyz(-1, 0, 0)},
+                snap = pipe.new / {false, true}
+            }
+    end
+    
+    local buildFace = function()
+        local z = hPlatform - 0.8 + 0.53
+        local mRot = coor.rotX(atan(-slope))
+        local xMin = bP.street.x
+        local xMax = baseX - 0.5 * pW
+        local yMin = -9
+        local yMax = 9
+        return
+            pipe.new
+            / {
+                coor.xyz(bP.entry[1].x, yMin, z) .. mRot,
+                coor.xyz(xMax, yMin, z) .. mRot,
+                coor.xyz(xMax, yMax, z) .. mRot,
+                coor.xyz(bP.entry[1].x, yMax, z) .. mRot
+            }
+            /
+            {
+                coor.xyz(bP.street.x, yMin, 0),
+                coor.xyz(bP.entry[1].x, yMin, z) .. mRot,
+                coor.xyz(bP.entry[1].x, yMax, z) .. mRot,
+                coor.xyz(bP.street.x, yMax, 0)
+            }
+            * pipe.map(pipe.map(coor.vec2Tuple))
+    end
+    
     
     local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models, terrain, ptCon)
         if (nbTracks == 0) then
-            return edges, terminals, terminalsGroup, models + buildEntryPath(), terrain
+            return edges, buildAccessRoad(), terminals, terminalsGroup, models + buildEntryPath(), terrain + buildFace()
         elseif (nbTracks == totalTracks and (not ignoreFst or totalTracks == 1)) then
             local edgeBase = baseX + 0.5 * tW + 0.5 * pW
             local edgeOffset = 0
@@ -249,7 +284,7 @@ local rBuild = function(totalTracks, baseX, arcPacker, fitModel, hPlatform, wPla
 end
 
 local buildEntry = function(model, slope, hPlatform)
-    return station.newModel(model, coor.xXY(), coor.transX(-6.5), coor.transZ(hPlatform - 0.25), coor.rotX(atan(-slope)))
+    return station.newModel(model, coor.rotZ(-pi * 0.5), coor.transX(-6.5), coor.transZ(hPlatform - 0.25), coor.rotX(atan(-slope)))
 end
 
 local updateFn = function()
@@ -271,57 +306,29 @@ local updateFn = function()
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         local slope = slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
         
-        local edge, terminals, terminalsGroup, models, terrain =
+        local edge, streetEdge, terminals, terminalsGroup, models, terrain =
             rBuild(nbTracks, 0,
                 ust.arcPacker(radius, incr, length, slope),
                 slope == 0 and ust.fitModel2D or ust.fitModel,
-                hPlatform, wPlatform, roofLength, buildingParamsList(slope)[params.entrySize + 1],
+                hPlatform, wPlatform, roofLength, buildingParamsList(slope)[params.entrySize + 1], slope,
                 ({true, false, true, false})[params.trackLayout + 1],
                 (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )
-        
-        local buildAccessRoad = function(isDirX)
-            return
-                {
-                    type = "STREET",
-                    params =
-                    {
-                        type = "station_new_small.lua",
-                        tramTrackType = "NO"
-                    },
-                    edges = coor.make({
-                        {{-27, 0, 0}, {-16.5, 0, 0}, {5, 0, 0}, {5, 0, 0}}
-                    }),
-                    snapNodes = {0}
-                }
-        end
-        
-        local buildFace = function()
-            local z = hPlatform - 0.8 + 0.53
-            local xMin = -16.5
-            local xMax = 0
-            local yMin = -9
-            local yMax = 9
-            return func.map({
-                coor.xyz(xMin, yMin, z),
-                coor.xyz(xMax, yMin, z),
-                coor.xyz(xMax, yMax, z),
-                coor.xyz(xMin, yMax, z)
-            }, function(p) return (p .. coor.rotX(atan(-slope))):toTuple() end)
-        end
-        local buildGround = function()
-            local f = buildFace()
-            return {
-                {face = f, modes = {{type = "FILL", key = "town_concrete"}}},
-                {face = f, modes = {{type = "STROKE_OUTER", key = "town_concrete_border"}}}
-            }
-        end
-        
-        
         return
             pipe.new
             * {
-                edgeLists = {pipe.new * {edge * (station.mergeEdges)} * station.prepareEdges * trackBuilder.normal(), buildAccessRoad()},
+                edgeLists = pipe.new
+                / (pipe.new * dump.dump({edge * station.mergeEdges}) * station.prepareEdges * trackBuilder.normal())
+                / (pipe.new * dump.dump({pipe.new * streetEdge}) * station.prepareEdges * pipe.with(
+                    {
+                        type = "STREET",
+                        params =
+                        {
+                            type = "station_new_small.lua",
+                            tramTrackType = "NO"
+                        }
+                    }
+                )) * dump.dump,
                 models = terminals + models + {buildEntry(mainBuilding, slope, hPlatform)},
                 terminalGroups = terminalsGroup,
                 terrainAlignmentLists = {
@@ -330,15 +337,12 @@ local updateFn = function()
                         faces = terrain,
                         slopeLow = 0.75,
                         slopeHigh = 2.5
-                    },
-                    {
-                        type = "EQUAL",
-                        faces = {buildFace()},
-                        slopeLow = 0.75,
-                        slopeHigh = 2.5
-                    },
+                    }
                 },
-                groundFaces = buildGround()
+                groundFaces = terrain * pipe.map(function(f) return {
+                    {face = f, modes = {{type = "FILL", key = "industry_gravel_small_01"}}},
+                    {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
+                } end) * pipe.flatten()
             }
     end
 end
