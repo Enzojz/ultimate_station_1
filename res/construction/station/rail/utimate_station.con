@@ -3,6 +3,7 @@ local func = require "ustation/func"
 local coor = require "ustation/coor"
 local trackEdge = require "ustation/trackedge"
 local station = require "ustation/stationlib"
+local quat = require "ustation/quaternion"
 local pipe = require "ustation/pipe"
 local ust = require "ustation"
 
@@ -27,6 +28,10 @@ local buildingList = {
     "main_building_size2.mdl",
     "main_building_size4.mdl",
     "main_building_size5.mdl",
+}
+
+local fencesLengthList = {
+    2, 2.5, 2
 }
 
 local bZ = 0.8
@@ -166,8 +171,25 @@ local function params()
             name = _("Entry"),
             values = {"S", "M", "L", "XL"},
             defaultIndex = 1
+        },
+        {
+            key = "fencesPos",
+            name = _("Fences"),
+            values = {"None", "A", "B", "A+B"},
+            defaultIndex = 0
+        },
+        {
+            key = "fencesStyle",
+            name = _("Fences Style"),
+            values = {"A", "B", "C"},
+            defaultIndex = 0
+        },
+        {
+            key = "fencesColor",
+            name = _("Fences Color"),
+            values = {"White", "Green", "Yellow"},
+            defaultIndex = 0
         }
-    
     }
 end
 
@@ -185,57 +207,84 @@ local function defaultParams(param)
 end
 
 
-local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, wPlatform, roofLength, bP, slope, ignoreFst, ignoreLst)
-    local pW = wPlatform
+local generateFences = function(arcPacker, fitModel, config)
+    local il = pipe.interlace({"s", "i"})
+    local platformZ = config.hPlatform + 0.53
+    local arcPacker = arcPacker(platformZ)
+    return function(xOffsets, uOffsets, isLeft)
+        uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
+        local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.2, uOffsets[2] - 0.2}, arcPacker(function(l) return l - 0.3 end)))
+        local newModels = pipe.new
+            + pipe.mapn(func.seq(1, #li), li, ri)(function(i, li, ri)
+                local lc, rc = table.unpack(ust.retriveBiLatCoords(config.fencesLength)(ust.equalizeArcs(li, ri)))
+                local c = isLeft and lc or rc
+                return {
+                    func.map(il(c), function(ic)
+                        local vec = ic.i - ic.s
+                        return station.newModel(config.fencesModel[1], coor.scaleX(vec:length() / config.fencesLength), quat.byVec(coor.xyz(config.fencesLength, 0, 0), vec):mRot(), coor.trans(ic.s:avg(ic.i)))
+                    end),
+                    func.map(c, function(ic)
+                        return station.newModel(config.fencesModel[2], coor.rotZ(0.5 * pi), coor.rotZ(li:rad(ic)), coor.trans(ic))
+                    end)
+                }
+            end)
+        return newModels * pipe.flatten() * pipe.flatten()
+    end
+end
+
+
+local rBuild = function(totalTracks, baseX, arcPacker, config, ignoreFst, ignoreLst)
+    local pW = config.wPlatform
     local tW = 5
     local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
     local generateEdges = ust.generateEdges(arcPacker()())
-    local generateModels = ust.generateModels(arcPacker, fitModel, hPlatform, roofLength)
-    local generateTerminals = ust.generateTerminals(arcPacker, hPlatform)
+    local generateModels = ust.generateModels(arcPacker, fitModel, config)
+    local generateFences = generateFences(arcPacker, fitModel, config)
+    local generateTerminals = ust.generateTerminals(arcPacker, config)
     local generateTerrain = ust.generateTerrain(arcPacker())
     local tOffset = function(po) return {po[1] + 1, po[2] - 1} end
-    local refZ = hPlatform + 0.53
+    local refZ = config.hPlatform + 0.53
     
     local buildEntryPath = function()
         local xOffset = -6.5
         local mX = coor.trans(coor.xyz(xOffset, 0, refZ))
-        local mRo = coor.rotX(atan(-slope))
+        local mRo = coor.rotX(atan(-config.slope))
         local m = mX * mRo
         return
-            pipe.new * func.map(bP.platform, function(p) return ust.unitLane(p .. m, coor.xyz(baseX + 0.5 * pW - 1, 0, refZ)) end)
-            + func.map(bP.entry, function(p) return ust.unitLane(p .. m, coor.xyz(-10 + xOffset, p.y > 0 and 4.5 or -4.5, 0)) end)
-            + func.map(bP.pass, function(p) return ust.unitLane(p .. m, coor.xyz(-1, 0, refZ - 3.5)) end)
+            pipe.new * func.map(config.buildingParams.platform, function(p) return ust.unitLane(p .. m, coor.xyz(baseX + 0.5 * pW - 1, 0, refZ)) end)
+            + func.map(config.buildingParams.entry, function(p) return ust.unitLane(p .. m, coor.xyz(-10 + xOffset, p.y > 0 and 4.5 or -4.5, 0)) end)
+            + func.map(config.buildingParams.pass, function(p) return ust.unitLane(p .. m, coor.xyz(-1, 0, refZ - 3.5)) end)
     end
     
     local buildAccessRoad = function()
         local pO = coor.xyz(-6.5, 0, 0)
         return {
-            edge = pipe.new / {bP.street + pO, bP.street + pO + coor.xyz(-20, 0, 0), coor.xyz(-1, 0, 0), coor.xyz(-1, 0, 0)},
+            edge = pipe.new / {config.buildingParams.street + pO, config.buildingParams.street + pO + coor.xyz(-20, 0, 0), coor.xyz(-1, 0, 0), coor.xyz(-1, 0, 0)},
             snap = pipe.new / {false, true}
         }
     end
     
     local buildFace = function()
         local z = refZ - 0.8
-        local mRot = coor.rotX(atan(-slope))
+        local mRot = coor.rotX(atan(-config.slope))
         local mX = coor.transX(-6.5)
-        local xMin = bP.street.x
+        local xMin = config.buildingParams.street.x
         local xMax = baseX - 0.5 * pW
-        local yMin = -bP.halfWidth
-        local yMax = bP.halfWidth
+        local yMin = -config.buildingParams.halfWidth
+        local yMax = config.buildingParams.halfWidth
         return pipe.new
             / {
-                coor.xyz(bP.entry[1].x, yMin, z) .. mX * mRot,
+                coor.xyz(config.buildingParams.entry[1].x, yMin, z) .. mX * mRot,
                 coor.xyz(xMax, yMin, z) .. mRot,
                 coor.xyz(xMax, yMax, z) .. mRot,
-                coor.xyz(bP.entry[1].x, yMax, z) .. mX * mRot
+                coor.xyz(config.buildingParams.entry[1].x, yMax, z) .. mX * mRot
             }
             /
             {
-                coor.xyz(bP.street.x, yMin, 0) .. mX,
-                coor.xyz(bP.entry[1].x, yMin, z) .. mX * mRot,
-                coor.xyz(bP.entry[1].x, yMax, z) .. mX * mRot,
-                coor.xyz(bP.street.x, yMax, 0) .. mX
+                coor.xyz(config.buildingParams.street.x, yMin, 0) .. mX,
+                coor.xyz(config.buildingParams.entry[1].x, yMin, z) .. mX * mRot,
+                coor.xyz(config.buildingParams.entry[1].x, yMax, z) .. mX * mRot,
+                coor.xyz(config.buildingParams.street.x, yMax, 0) .. mX
             }
             * pipe.map(pipe.map(coor.vec2Tuple))
     end
@@ -243,7 +292,9 @@ local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, wPlatform, roo
     
     local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models, terrain, ptCon)
         if (nbTracks == 0) then
-            return edges, buildAccessRoad(), terminals, terminalsGroup, models + buildEntryPath(), terrain + buildFace()
+            return edges, buildAccessRoad(), terminals, terminalsGroup, 
+            models + buildEntryPath() + {station.newModel(config.entryModel, coor.rotZ(-pi * 0.5), coor.transX(-6.5), coor.transZ(config.hPlatform - 0.25), coor.rotX(atan(-config.slope)))}, 
+            terrain + buildFace()
         elseif (nbTracks == totalTracks and (not ignoreFst or totalTracks == 1)) then
             local edgeBase = baseX + 0.5 * tW + 0.5 * pW
             local edgeOffset = 0
@@ -255,7 +306,7 @@ local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, wPlatform, roo
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(platformBase, platformOffset, true),
+                models + generateModels(platformBase, platformOffset, true) + generateFences(platformBase, platformOffset, true),
                 terrain + generateTerrain(platformBase, platformOffset),
                 ptCon)
         elseif (nbTracks == 1 and ignoreLst) then
@@ -284,7 +335,7 @@ local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, wPlatform, roo
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(platformBase, platformOffset),
+                models + generateModels(platformBase, platformOffset) + generateFences(platformBase, platformOffset, false),
                 terrain + generateTerrain(platformBase, platformOffset),
                 ptCon)
         else
@@ -302,11 +353,7 @@ local rBuild = function(totalTracks, baseX, arcPacker, hPlatform, wPlatform, roo
                 ptCon)
         end
     end
-    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new / coor.xyz(-1, 0, hPlatform - 3.5 + 0.53))
-end
-
-local buildEntry = function(model, slope, hPlatform)
-    return station.newModel(model, coor.rotZ(-pi * 0.5), coor.transX(-6.5), coor.transZ(hPlatform - 0.25), coor.rotX(atan(-slope)))
+    return build(totalTracks, baseX, 0, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new / coor.xyz(-1, 0, config.hPlatform - 3.5 + 0.53))
 end
 
 local updateFn = function()
@@ -320,6 +367,11 @@ local updateFn = function()
         local wPlatform = wPlatformList[params.wPlatform + 1]
         local roofLength = roofLengthList[params.roofLength + 1] * 0.01
         local mainBuilding = buildingList[params.entrySize + 1]
+        local fencesLength = fencesLengthList[params.fencesStyle + 1]
+        local fencesModel = {
+            "fences/" .. tostring(params.fencesColor + 1) .. "/platform_fences_" .. tostring(params.fencesStyle + 1) .. ".mdl",
+            "fences/" .. tostring(params.fencesColor + 1) .. "/platform_fences_pole_" .. tostring(params.fencesStyle + 1) .. ".mdl",
+        }
         
         local nSeg = platformSegments[params.length + 1]
         local length = nSeg * station.segmentLength
@@ -331,7 +383,16 @@ local updateFn = function()
         local edge, streetEdge, terminals, terminalsGroup, models, terrain =
             rBuild(nbTracks, 0,
                 ust.arcPacker(radius, incr, length, slope),
-                hPlatform, wPlatform, roofLength, buildingParamsList[params.entrySize + 1], slope,
+                {
+                    hPlatform = hPlatform,
+                    wPlatform = wPlatform,
+                    roofLength = roofLength,
+                    buildingParams = buildingParamsList[params.entrySize + 1],
+                    slope = slope,
+                    fencesModel = fencesModel,
+                    fencesLength = fencesLength,
+                    entryModel = mainBuilding,
+                },
                 ({true, false, true, false})[params.trackLayout + 1],
                 (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
         )
@@ -350,7 +411,7 @@ local updateFn = function()
                         }
                     }
                 )),
-                models = terminals + models + {buildEntry(mainBuilding, slope, hPlatform)},
+                models = terminals + models,
                 terminalGroups = terminalsGroup,
                 terrainAlignmentLists = {
                     {

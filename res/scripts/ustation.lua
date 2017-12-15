@@ -105,6 +105,9 @@ local equalizeArcs = function(...)
 )
 end
 
+ust.retriveBiLatCoords = retriveBiLatCoords
+ust.equalizeArcs = equalizeArcs
+
 local bitLatCoords = function(l, r, length)
     local lcs1, rcs1 = table.unpack(retriveBiLatCoords(length)(equalizeArcs(l[1], r[1])))
     local lcs2, rcs2 = table.unpack(retriveBiLatCoords(length)(equalizeArcs(l[2], r[2])))
@@ -245,9 +248,9 @@ ust.generateEdges = function(arcPacker)
     end
 end
 
-ust.generateTerminals = function(arcPacker, hPlatform)
+ust.generateTerminals = function(arcPacker, config)
     local il = pipe.interlace({"i", "s"})
-    local platformZ = hPlatform + 0.53
+    local platformZ = config.hPlatform + 0.53
     return function(edges, terminals, terminalsGroup, xOffsets, uOffsets, enablers, ptCon)
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(platformZ)(function(l) return l - 3 end)))
         local ls, rs = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(platformZ)()))
@@ -327,18 +330,18 @@ ust.generateTerminals = function(arcPacker, hPlatform)
     end
 end
 
-ust.generateModels = function(arcPacker, fitModel, hPlatform, roofLength)
+ust.generateModels = function(arcPacker, fitModel, config)
     local il = pipe.interlace({"s", "i"})
-    local tZ = coor.transZ(hPlatform - 1.4)
-    local platformZ = hPlatform + 0.53
+    local tZ = coor.transZ(config.hPlatform - 1.4)
+    local platformZ = config.hPlatform + 0.53
     local arcPacker = arcPacker(platformZ)
     return function(xOffsets, uOffsets, noEquipement)
         noEquipement = noEquipement or false
         uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
         local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
         local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.8, uOffsets[2] - 0.8}, arcPacker()))
-        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * roofLength end)))
-        local lpi, rpi = table.unpack(func.map2(xOffsets, {uOffsets[1] + 1, uOffsets[2] - 1}, arcPacker(function(l) return l * roofLength end)))
+        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * config.roofLength end)))
+        local lpi, rpi = table.unpack(func.map2(xOffsets, {uOffsets[1] + 1, uOffsets[2] - 1}, arcPacker(function(l) return l * config.roofLength end)))
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
@@ -394,7 +397,7 @@ ust.generateModels = function(arcPacker, fitModel, hPlatform, roofLength)
                             station.newModel(e .. "_br.mdl", tZ, coor.flipX(), fitModel(1, 10, platformZ, sizeR, false, true)),
                             station.newModel(e .. "_tl.mdl", tZ, coor.flipX(), fitModel(1, 10, platformZ, sizeR, true, false)),
                             station.newModel("platform_roof_pole.mdl", tZ, coor.flipY(),
-                                coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, i == 1 and 5 or -5, 0), (vecPo)):mRot(),
+                                coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, i == 1 and 5 or -5, 0), vecPo):mRot(),
                                 coor.trans(lc.i:avg(rc.i, lc.s, rc.s)), coor.transZ(-platformZ))
                         }
                     end)
