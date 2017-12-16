@@ -211,7 +211,7 @@ local generateFences = function(arcPacker, fitModel, config)
     local il = pipe.interlace({"s", "i"})
     local platformZ = config.hPlatform + 0.53
     local arcPacker = arcPacker(platformZ)
-    return function(xOffsets, uOffsets, isLeft)
+    return function(xOffsets, uOffsets, isLeft, isTrack)
         uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
         local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.2, uOffsets[2] - 0.2}, arcPacker(function(l) return l - 0.3 end)))
         local newModels = pipe.new
@@ -221,10 +221,17 @@ local generateFences = function(arcPacker, fitModel, config)
                 return {
                     func.map(il(c), function(ic)
                         local vec = ic.i - ic.s
-                        return station.newModel(config.fencesModel[1], coor.scaleX(vec:length() / config.fencesLength), quat.byVec(coor.xyz(config.fencesLength, 0, 0), vec):mRot(), coor.trans(ic.s:avg(ic.i)))
+                        return station.newModel(config.fencesModel[1],
+                            coor.rotZ(((not isLeft and i == 1) or (isLeft and i ~= 1)) and 0 or pi),
+                            coor.scaleX(vec:length() / config.fencesLength),
+                            quat.byVec(coor.xyz(config.fencesLength, 0, 0), vec):mRot(),
+                            coor.trans(ic.s:avg(ic.i) + (isTrack and coor.xyz(0, 0, -platformZ) or coor.o)))
                     end),
                     func.map(c, function(ic)
-                        return station.newModel(config.fencesModel[2], coor.rotZ(0.5 * pi), coor.rotZ(li:rad(ic)), coor.trans(ic))
+                        return station.newModel(config.fencesModel[2],
+                            coor.rotZ(0.5 * pi),
+                            coor.rotZ(li:rad(ic)),
+                            coor.trans(ic + (isTrack and coor.xyz(0, 0, -platformZ) or coor.o)))
                     end)
                 }
             end)
@@ -279,8 +286,7 @@ local rBuild = function(totalTracks, baseX, arcPacker, config, ignoreFst, ignore
                 coor.xyz(xMax, yMax, z) .. mRot,
                 coor.xyz(config.buildingParams.entry[1].x, yMax, z) .. mX * mRot
             }
-            /
-            {
+            / {
                 coor.xyz(config.buildingParams.street.x, yMin, 0) .. mX,
                 coor.xyz(config.buildingParams.entry[1].x, yMin, z) .. mX * mRot,
                 coor.xyz(config.buildingParams.entry[1].x, yMax, z) .. mX * mRot,
@@ -292,9 +298,9 @@ local rBuild = function(totalTracks, baseX, arcPacker, config, ignoreFst, ignore
     
     local function build(nbTracks, baseX, incrX, edges, terminals, terminalsGroup, models, terrain, ptCon)
         if (nbTracks == 0) then
-            return edges, buildAccessRoad(), terminals, terminalsGroup, 
-            models + buildEntryPath() + {station.newModel(config.entryModel, coor.rotZ(-pi * 0.5), coor.transX(-6.5), coor.transZ(config.hPlatform - 0.25), coor.rotX(atan(-config.slope)))}, 
-            terrain + buildFace()
+            return edges, buildAccessRoad(), terminals, terminalsGroup,
+                models + buildEntryPath() + {station.newModel(config.entryModel, coor.rotZ(-pi * 0.5), coor.transX(-6.5), coor.transZ(config.hPlatform - 0.25), coor.rotX(atan(-config.slope)))},
+                terrain + buildFace()
         elseif (nbTracks == totalTracks and (not ignoreFst or totalTracks == 1)) then
             local edgeBase = baseX + 0.5 * tW + 0.5 * pW
             local edgeOffset = 0
@@ -306,7 +312,10 @@ local rBuild = function(totalTracks, baseX, arcPacker, config, ignoreFst, ignore
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(platformBase, platformOffset, true) + generateFences(platformBase, platformOffset, true),
+                models
+                + generateModels(platformBase, platformOffset, true)
+                + (config.leftFences and generateFences(platformBase, platformOffset, true) or {})
+                + (config.rightFences and totalTracks == 1 and generateFences({edgeBase, edgeBase}, {-2, 2}, false, true) or {}),
                 terrain + generateTerrain(platformBase, platformOffset),
                 ptCon)
         elseif (nbTracks == 1 and ignoreLst) then
@@ -321,7 +330,9 @@ local rBuild = function(totalTracks, baseX, arcPacker, config, ignoreFst, ignore
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(platformBase, platformOffset),
+                models
+                + generateModels(platformBase, platformOffset)
+                + (config.rightFences and generateFences({edgeBase, edgeBase}, {-2, 2}, false, true) or {}),
                 terrain + generateTerrain(platformBase, platformOffset),
                 ptCon)
         elseif (nbTracks == 1 and not ignoreLst) then
@@ -335,7 +346,9 @@ local rBuild = function(totalTracks, baseX, arcPacker, config, ignoreFst, ignore
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(platformBase, platformOffset) + generateFences(platformBase, platformOffset, false),
+                models
+                + generateModels(platformBase, platformOffset)
+                + (config.rightFences and generateFences(platformBase, platformOffset, false) or {}),
                 terrain + generateTerrain(platformBase, platformOffset),
                 ptCon)
         else
@@ -348,7 +361,9 @@ local rBuild = function(totalTracks, baseX, arcPacker, config, ignoreFst, ignore
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(platformBase, platformOffset),
+                models + generateModels(platformBase, platformOffset)
+                + (config.leftFences and nbTracks == totalTracks and generateFences({baseX, baseX + incrX + tW + pW}, {-2, 2}, true, true) or {})
+                + (config.rightFences and nbTracks == 2 and generateFences({baseX, baseX + incrX + tW + pW}, {-2, 2}, false, true) or {}),
                 terrain + generateTerrain(platformBase, platformOffset),
                 ptCon)
         end
@@ -392,6 +407,8 @@ local updateFn = function()
                     fencesModel = fencesModel,
                     fencesLength = fencesLength,
                     entryModel = mainBuilding,
+                    leftFences = params.fencesPos == 1 or params.fencesPos == 3,
+                    rightFences = params.fencesPos == 2 or params.fencesPos == 3,
                 },
                 ({true, false, true, false})[params.trackLayout + 1],
                 (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]

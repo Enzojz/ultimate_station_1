@@ -5,23 +5,30 @@ function data() return
         { 
           indices = 
             { 
-              normal = { count = 216, offset = 2592 }, 
-              position = { count = 216, offset = 2592 }, 
-              tangent = { count = 216, offset = 2592 }, 
-              uv0 = { count = 216, offset = 2592 }, 
+              normal = 
+                { count = 1128, offset = 13536 }, 
+              position = 
+                { count = 1128, offset = 13536 }, 
+              tangent = 
+                { count = 1128, offset = 13536 }, 
+              uv0 = 
+                { count = 1128, offset = 13536 }, 
              }, 
-          materials = { "ust/platform_fences_yellow.mtl" }
+          materials = 
+            { 
+              "ust/platform_fences_yellow.mtl"
+             }
          }
        }, 
     vertexAttr = 
       { 
         normal = 
-          { count = 648, numComp = 3, offset = 1080 }, 
+          { count = 3384, numComp = 3, offset = 5640 }, 
         position = 
-          { count = 648, numComp = 3, offset = 0 }, 
+          { count = 3384, numComp = 3, offset = 0 }, 
         tangent = 
-          { count = 864, numComp = 4, offset = 1728 }, 
+          { count = 4512, numComp = 4, offset = 9024 }, 
         uv0 = 
-          { count = 432, numComp = 2, offset = 648 }, 
+          { count = 2256, numComp = 2, offset = 3384 }, 
        }
    } end

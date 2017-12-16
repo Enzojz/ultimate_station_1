@@ -14,7 +14,10 @@ function data() return
               uv0 = 
                 { count = 11088, offset = 133056 }, 
              }, 
-          materials = { "ust/platform_fences_green.mtl" }
+          materials = 
+            { 
+              "ust/platform_fences_green.mtl"
+             }
          }
        }, 
     vertexAttr = 
