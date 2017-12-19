@@ -54,25 +54,27 @@ end
 ust.arcPacker = function(radius, incr, length, slope)
     local baseCenter = coor.xyz(radius, 0, 0)
     local initRad = radius > 0 and pi or 0
-    return function(z)
-        z = z or 0
-        return function(lengthOverride)
-            local l = lengthOverride and lengthOverride(length) or length
-            return function(x, dr)
-                dr = dr or 0
-                local ar = arc.byOR(baseCenter + coor.xyz(x, 0, z), abs(radius - dr))
-                local rad = (radius > 0 and 1 or -1) * l / ar.r * 0.25
-                return pipe.new
-                    / ar:withLimits({
-                        sup = initRad - rad * 2,
-                        inf = initRad,
-                        slope = -slope
-                    })
-                    / ar:withLimits({
-                        inf = initRad,
-                        sup = initRad + rad * 2,
-                        slope = slope
-                    })
+    return function(dr, x)
+        return function(z)
+            local z = z or 0
+            return function(lengthOverride)
+                local l = lengthOverride and lengthOverride(length) or length
+                return function(xDr)
+                    local dr = (dr or 0) + (xDr or 0)
+                    local ar = arc.byOR(baseCenter + coor.xyz(x, 0, z), abs(radius - dr))
+                    local rad = (radius > 0 and 1 or -1) * l / ar.r * 0.5
+                    return pipe.new
+                        / ar:withLimits({
+                            sup = initRad - rad,
+                            inf = initRad,
+                            slope = -slope
+                        })
+                        / ar:withLimits({
+                            inf = initRad,
+                            sup = initRad + rad,
+                            slope = slope
+                        })
+                end
             end
         end
     end
@@ -236,23 +238,21 @@ end
 
 ust.unitLane = function(f, t) return station.newModel("person_lane.mdl", ust.mRot(t - f), coor.trans(f)) end
 
-ust.generateEdges = function(arcPacker)
-    return function(edges, isLeft, xOffset, xtOffset)
-        local arcs = arcPacker(xOffset, xtOffset)
-        return edges /
-            {
-                edge = arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc) + (arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end),
-                snap = pipe.new / {false, false} / {false, false} / {false, true} / {false, true}
-            }
-    end
+ust.generateEdges = function(edges, isLeft, arcPacker)
+    local arcs = arcPacker()()()
+    return edges /
+        {
+            edge = arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc) + (arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end),
+            snap = pipe.new / {false, false} / {false, false} / {false, true} / {false, true}
+        }
 end
 
-ust.generateTerminals = function(arcPacker, config)
+ust.generateTerminals = function(config)
     local il = pipe.interlace({"i", "s"})
     local platformZ = config.hPlatform + 0.53
-    return function(edges, terminals, terminalsGroup, xOffsets, uOffsets, enablers, ptCon)
-        local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(platformZ)(function(l) return l - 3 end)))
-        local ls, rs = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(platformZ)()))
+    return function(edges, terminals, terminalsGroup, arcL, arcR, enablers, ptCon)
+        local l, r = arcL(platformZ)(function(l) return l - 3 end)(1), arcR(platformZ)(function(l) return l - 3 end)(-1)
+        local ls, rs = arcL(platformZ)()(1), arcR(platformZ)()(-1)
         
         local lc, rc, c = bitLatCoords(l, r, 10)
         local lsc, rsc, sc = bitLatCoords(ls, rs, 5)
@@ -272,33 +272,33 @@ ust.generateTerminals = function(arcPacker, config)
             end)
             * function(ls)
                 return pipe.new
-                / (enablers[1] and func.map(ls, pipe.select("l")) or {})
-                / (enablers[2] and func.map(ls, pipe.select("r")) or {})
-                / (enablers[1] and enablers[2] and func.map(ls, pipe.select("link")) or {})
-                / {
-                    ust.unitLane(lc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
-                    ust.unitLane(rc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
-                    ust.unitLane(lc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
-                    ust.unitLane(rc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
-                    ust.unitLane(lc[c - 3]:avg(rc[c - 3], rc[c - 2], lc[c - 2]), lsc[sc - 4]:avg(rsc[sc - 4])),
-                    ust.unitLane(lc[c + 3]:avg(rc[c + 3], rc[c + 2], lc[c + 2]), lsc[sc + 4]:avg(rsc[sc + 4]))
-                }
-                / func.map2(il(func.range(lsc, sc - 3, sc + 3)), il(func.range(rsc, sc - 3, sc + 3)), function(lc, rc)
-                    local b = lc.i:avg(rc.i)
-                    local t = lc.s:avg(rc.s)
-                    local vec = t - b
-                    return station.newModel("person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
-                end)
-                / {
-                    ust.unitLane(lc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
-                    ust.unitLane(rc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
-                    ust.unitLane(lc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)])),
-                    ust.unitLane(rc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)]))
-                }
-                / pipe.mapn(ptCon, newPtCon)(function(pt, nPt)
-                       return station.newModel("person_lane.mdl", ust.mRot((nPt - pt)), coor.trans(pt))
-                end)
-        end
+                    / (enablers[1] and func.map(ls, pipe.select("l")) or {})
+                    / (enablers[2] and func.map(ls, pipe.select("r")) or {})
+                    / (enablers[1] and enablers[2] and func.map(ls, pipe.select("link")) or {})
+                    / {
+                        ust.unitLane(lc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
+                        ust.unitLane(rc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
+                        ust.unitLane(lc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
+                        ust.unitLane(rc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
+                        ust.unitLane(lc[c - 3]:avg(rc[c - 3], rc[c - 2], lc[c - 2]), lsc[sc - 4]:avg(rsc[sc - 4])),
+                        ust.unitLane(lc[c + 3]:avg(rc[c + 3], rc[c + 2], lc[c + 2]), lsc[sc + 4]:avg(rsc[sc + 4]))
+                    }
+                    / func.map2(il(func.range(lsc, sc - 3, sc + 3)), il(func.range(rsc, sc - 3, sc + 3)), function(lc, rc)
+                        local b = lc.i:avg(rc.i)
+                        local t = lc.s:avg(rc.s)
+                        local vec = t - b
+                        return station.newModel("person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
+                    end)
+                    / {
+                        ust.unitLane(lc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
+                        ust.unitLane(rc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
+                        ust.unitLane(lc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)])),
+                        ust.unitLane(rc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)]))
+                    }
+                    / pipe.mapn(ptCon, newPtCon)(function(pt, nPt)
+                        return station.newModel("person_lane.mdl", ust.mRot((nPt - pt)), coor.trans(pt))
+                    end)
+            end
         
         return terminals + newTerminals * pipe.flatten(),
             terminalsGroup
@@ -330,13 +330,13 @@ ust.generateTerminals = function(arcPacker, config)
 end
 
 
-ust.generateFences = function(arcPacker, fitModel, config)
+ust.generateFences = function(fitModel, config)
     local il = pipe.interlace({"s", "i"})
     local platformZ = config.hPlatform + 0.53
-    local arcPacker = arcPacker(platformZ)
-    return function(xOffsets, uOffsets, isLeft, isTrack)
-        uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
-        local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.2, uOffsets[2] - 0.2}, arcPacker(function(l) return l - 0.3 end)))
+    return function(arcL, arcR, isLeft, isTrack)
+        local li, ri =
+            arcL(platformZ)(function(l) return l - 0.3 end)((isTrack and -0.5 * config.wTrack or -0.5) + 0.3),
+            arcR(platformZ)(function(l) return l - 0.3 end)((isTrack and 0.5 * config.wTrack or 0.5) - 0.3)
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #li), li, ri)(function(i, li, ri)
                 local lc, rc = table.unpack(retriveBiLatCoords(config.fencesLength)(equalizeArcs(li, ri)))
@@ -363,18 +363,18 @@ ust.generateFences = function(arcPacker, fitModel, config)
 end
 
 
-ust.generateModels = function(arcPacker, fitModel, config)
+ust.generateModels = function(fitModel, config)
     local il = pipe.interlace({"s", "i"})
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
-    local arcPacker = arcPacker(platformZ)
-    return function(xOffsets, uOffsets, noEquipement)
+    return function(arcL, arcR, noEquipement)
         noEquipement = noEquipement or false
-        uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
-        local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker()))
-        local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.8, uOffsets[2] - 0.8}, arcPacker()))
-        local lp, rp = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l * config.roofLength end)))
-        local lpi, rpi = table.unpack(func.map2(xOffsets, {uOffsets[1] + 1, uOffsets[2] - 1}, arcPacker(function(l) return l * config.roofLength end)))
+        local baseL, baseR = arcL(platformZ), arcR(platformZ)
+        local baseRL, baseRR = baseL(function(l) return l * config.roofLength end), baseR(function(l) return l * config.roofLength end)
+        local l, r = baseL()(-0.5), baseR()(0.5)
+        local li, ri = baseL()(0.8), baseR()(-0.8)
+        local lp, rp = baseRL(-0.5), baseRR(0.5)
+        local lpi, rpi = baseRL(1), baseRR(-1)
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
@@ -440,11 +440,10 @@ ust.generateModels = function(arcPacker, fitModel, config)
     end
 end
 
-ust.generateTerrain = function(arcPacker)
+ust.generateTerrain = function()
     local il = pipe.interlace({"i", "s"})
-    return function(xOffsets, uOffsets)
-        uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
-        local l, r = table.unpack(func.map2(xOffsets, uOffsets, arcPacker(function(l) return l + 5 end)))
+    return function(arcL, arcR)
+        local l, r = arcL()(function(l) return l + 5 end)(-0.5), arcR()(function(l) return l + 5 end)(0.5)
         return pipe.new
             * pipe.mapn(l, r)(function(l, r)
                 local lc, rc = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r)))
