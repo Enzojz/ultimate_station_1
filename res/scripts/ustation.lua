@@ -105,7 +105,6 @@ local equalizeArcs = function(...)
 )
 end
 
-ust.retriveBiLatCoords = retriveBiLatCoords
 ust.equalizeArcs = equalizeArcs
 
 local bitLatCoords = function(l, r, length)
@@ -329,6 +328,40 @@ ust.generateTerminals = function(arcPacker, config)
             newPtCon
     end
 end
+
+
+ust.generateFences = function(arcPacker, fitModel, config)
+    local il = pipe.interlace({"s", "i"})
+    local platformZ = config.hPlatform + 0.53
+    local arcPacker = arcPacker(platformZ)
+    return function(xOffsets, uOffsets, isLeft, isTrack)
+        uOffsets = {uOffsets[1] - 0.5, uOffsets[2] + 0.5}
+        local li, ri = table.unpack(func.map2(xOffsets, {uOffsets[1] + 0.2, uOffsets[2] - 0.2}, arcPacker(function(l) return l - 0.3 end)))
+        local newModels = pipe.new
+            + pipe.mapn(func.seq(1, #li), li, ri)(function(i, li, ri)
+                local lc, rc = table.unpack(retriveBiLatCoords(config.fencesLength)(equalizeArcs(li, ri)))
+                local c = isLeft and lc or rc
+                return {
+                    func.map(il(c), function(ic)
+                        local vec = ic.i - ic.s
+                        return station.newModel(config.fencesModel[1],
+                            coor.rotZ(((not isLeft and i == 1) or (isLeft and i ~= 1)) and 0 or pi),
+                            coor.scaleX(vec:length() / config.fencesLength),
+                            quat.byVec(coor.xyz(config.fencesLength, 0, 0), vec):mRot(),
+                            coor.trans(ic.s:avg(ic.i) + (isTrack and coor.xyz(0, 0, -platformZ) or coor.o)))
+                    end),
+                    func.map(c, function(ic)
+                        return station.newModel(config.fencesModel[2],
+                            coor.rotZ(0.5 * pi),
+                            coor.rotZ(li:rad(ic)),
+                            coor.trans(ic + (isTrack and coor.xyz(0, 0, -platformZ) or coor.o)))
+                    end)
+                }
+            end)
+        return newModels * pipe.flatten() * pipe.flatten()
+    end
+end
+
 
 ust.generateModels = function(arcPacker, fitModel, config)
     local il = pipe.interlace({"s", "i"})
