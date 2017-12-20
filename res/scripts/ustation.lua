@@ -240,9 +240,21 @@ ust.unitLane = function(f, t) return station.newModel("person_lane.mdl", ust.mRo
 
 ust.generateEdges = function(edges, isLeft, arcPacker)
     local arcs = arcPacker()()()
+    local eInf, eSup = table.unpack(arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
+    if isLeft then
+        eInf[1] = eInf[1]:avg(eSup[2])
+        eSup[2] = eInf[1]
+        eInf[3] = eInf[3]:avg(eSup[4])
+        eSup[4] = eInf[3]
+    else
+        eInf[2] = eInf[2]:avg(eSup[1])
+        eSup[1] = eInf[2]
+        eInf[4] = eInf[4]:avg(eSup[3])
+        eSup[3] = eInf[4]
+    end
     return edges /
         {
-            edge = arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc) + (arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end),
+            edge = pipe.new / eInf / eSup + arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end,
             snap = pipe.new / {false, false} / {false, false} / {false, true} / {false, true}
         }
 end
