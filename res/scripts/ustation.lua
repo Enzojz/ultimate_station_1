@@ -84,13 +84,16 @@ ust.mRot = function(vec)
     return coor.scaleX(vec:length()) * quat.byVec(coor.xyz(1, 0, 0), (vec)):mRot()
 end
 
-local retriveBiLatCoords = function(length)
-    return function(l, ...)
-        local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / length)
-        local rst = pipe.new * {l, ...}
-        local lscale = l:length() / (nSeg * length)
-        return rst * pipe.map(function(s) return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg}, function(n) return s:pt(s.inf + n * ((s.sup - s.inf) / nSeg)) end) end)
-    end
+local retriveBiLatCoords = function(length, l, ...)
+    local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / length)
+    local rst = pipe.new * {l, ...}
+    local lscale = l:length() / (nSeg * length)
+    return table.unpack(
+        func.map(rst,
+            function(s) return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg},
+                function(n) return s:pt(s.inf + n * ((s.sup - s.inf) / nSeg)) end)
+            end)
+)
 end
 
 local equalizeArcs = function(...)
@@ -110,8 +113,8 @@ end
 ust.equalizeArcs = equalizeArcs
 
 local bitLatCoords = function(l, r, length)
-    local lcs1, rcs1 = table.unpack(retriveBiLatCoords(length)(equalizeArcs(l[1], r[1])))
-    local lcs2, rcs2 = table.unpack(retriveBiLatCoords(length)(equalizeArcs(l[2], r[2])))
+    local lcs1, rcs1 = retriveBiLatCoords(length, equalizeArcs(l[1], r[1]))
+    local lcs2, rcs2 = retriveBiLatCoords(length, equalizeArcs(l[2], r[2]))
     return
         lcs1 * pipe.range(2, #lcs1) * pipe.rev() + {lcs1[1]:avg(lcs2[1])} + lcs2 * pipe.range(2, #lcs2),
         rcs1 * pipe.range(2, #rcs1) * pipe.rev() + {rcs1[1]:avg(rcs2[1])} + rcs2 * pipe.range(2, #rcs2),
@@ -351,7 +354,7 @@ ust.generateFences = function(fitModel, config)
             arcR(platformZ)(function(l) return l - 0.3 end)((isTrack and 0.5 * config.wTrack or 0.5) - 0.3)
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #li), li, ri)(function(i, li, ri)
-                local lc, rc = table.unpack(retriveBiLatCoords(config.fencesLength)(equalizeArcs(li, ri)))
+                local lc, rc = retriveBiLatCoords(config.fencesLength, equalizeArcs(li, ri))
                 local c = isLeft and lc or rc
                 return {
                     func.map(il(c), function(ic)
@@ -389,7 +392,7 @@ ust.generateModels = function(fitModel, config)
         local lpi, rpi = baseRL(1), baseRR(-1)
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
-                local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r, li, ri)))
+                local lc, rc, lci, rci = retriveBiLatCoords(5, equalizeArcs(l, r, li, ri))
                 local platformSurface = pipe.new
                     * pipe.rep(#lci - 2)("platform_surface")
                     * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
@@ -412,7 +415,7 @@ ust.generateModels = function(fitModel, config)
                     end)
             end)
             + (noEquipement and {} or pipe.mapn(func.seq(1, #lp), l, r)(function(i, l, r)
-                local lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r)))
+                local lci, rci = retriveBiLatCoords(10, equalizeArcs(l, r))
                 return pipe.mapn(func.seq(2, #lci - 1), func.range(lci, 2, #lci - 1), func.range(rci, 2, #rci - 1))
                     (function(j, lc, rc)
                         return
@@ -425,7 +428,7 @@ ust.generateModels = function(fitModel, config)
                     end)
             end))
             + (roofLength == 0 and {} or pipe.mapn(func.seq(1, #lp), lp, rp, lpi, rpi)(function(i, l, r, li, ri)
-                local lc, rc, lci, rci = table.unpack(retriveBiLatCoords(10)(equalizeArcs(l, r, li, ri)))
+                local lc, rc, lci, rci = retriveBiLatCoords(10, equalizeArcs(l, r, li, ri))
                 local roofSurface = pipe.new * pipe.rep(#lci - 2)("platform_roof_top") / "platform_roof_extremity"
                 local roofEdge = pipe.new * pipe.rep(#lci - 2)("platform_roof_edge") / "platform_roof_corner"
                 return pipe.mapn(roofEdge, roofSurface, il(lc), il(lci), il(rci), il(rc))
@@ -458,7 +461,7 @@ ust.generateTerrain = function()
         local l, r = arcL()(function(l) return l + 5 end)(-0.5), arcR()(function(l) return l + 5 end)(0.5)
         return pipe.new
             * pipe.mapn(l, r)(function(l, r)
-                local lc, rc = table.unpack(retriveBiLatCoords(5)(equalizeArcs(l, r)))
+                local lc, rc = retriveBiLatCoords(5, equalizeArcs(l, r))
                 return pipe.mapn(il(lc), il(rc))
                     (function(lc, rc)
                         local size = assembleSize(l, r, lc, rc, 0)

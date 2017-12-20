@@ -32,79 +32,11 @@ stationlib.prepareEdges = function(edges)
     }
 end
 
-stationlib.joinEdges = function(edges)
-    local function average(op1, op2) return (op1 + op2) * 0.5, (op1 + op2) * 0.5 end
-    local fst = function(l) return l[1][1] end
-    local lst = function(l) return l[#l][2] end
-    local rev = function(l) return pipe.new
-        * func.map(l, function(e)
-            local f, t, vf, vt = table.unpack(e)
-            return {t, f, -vt, -vf}
-        end)
-        * pipe.rev()
-    end
-    local joinEdge = function(l, r)
-        local newL = l + {}
-        local newR = r + {}
-        newL[#l][2], newR[1][1] = average(newL[#l][2], newR[1][1])
-        newL[#l][4], newR[1][3] = average(newL[#l][4], newR[1][3])
-        return {newL, newR}
-    end
-    local connect = function(l, r)
-        local pattern = {
-            {fst, fst, function() return rev(l), r end},
-            {fst, lst, function() return rev(l), rev(r) end},
-            {lst, fst, function() return l, r end},
-            {lst, lst, function() return l, rev(r) end}
-        }
-        return pipe.new
-            * func.map(pattern, function(fns)
-                local pl, pr, fadj = table.unpack(fns)
-                return (pl(l) - pr(r)):length2() < 0.01
-                    and joinEdge(fadj())
-                    or nil
-            end)
-            * pipe.filter(pipe.noop())
-            * function(ls) return #ls == 0 and {l, r} or ls[1] end
-    end
-    
-    local function join(result, fst, snd, ...)
-        local function fn(...)
-            local newEdges = connect(fst.edge, snd.edge)
-            return join(
-                result / (func.with(fst, {edge = newEdges[1]})),
-                func.with(snd, {edge = newEdges[2]}),
-                ...
-        )
-        end
-        return snd and fn(...) or result / fst
-    end
-    
-    return #edges > 1 and join(pipe.new, table.unpack(edges)) or edges
-end
-
 stationlib.mergeEdges = function(edges)
     return {
         edge = func.mapFlatten(edges, pipe.select("edge")),
         snap = func.mapFlatten(edges, pipe.select("snap")),
     }
-end
-
-stationlib.fusionEdges = function(edges)
-    local function transpose(result, ls, ...)
-        return ls
-            and (result
-            and transpose(result * pipe.map2(ls, function(current, new) return current / new end),
-                ...)
-            or transpose(ls * pipe.map(function(_) return pipe.new end), ls, ...)
-            )
-            or result
-    end
-    return #edges > 0
-        and transpose(nil, table.unpack(edges))
-        * pipe.map(stationlib.joinEdges)
-        * function(ls) return transpose(nil, table.unpack(ls)) end
-        or {}
 end
 
 stationlib.basePt = pipe.new * {
