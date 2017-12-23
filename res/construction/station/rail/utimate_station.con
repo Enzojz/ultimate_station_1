@@ -19,11 +19,12 @@ local cos = math.cos
 local sin = math.sin
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
-local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 15}
+local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250, 1380}
 local wPlatformList = {4, 5, 6, 7, 8}
 local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
 local extWidthList = {100, 75, 50, 25, 10}
+local varUnaffectedList = {0, 10, 25, 50, 75, 90}
 
 local buildingList = {
     "main_building_size1.mdl",
@@ -158,7 +159,7 @@ local function params()
         },
         {
             key = "wExtPlatform",
-            name = sp .. "\n" .. _("Platform Variation") .. _("Extremity Width") .. "(%)",
+            name = sp .. "\n" .. _("Platform Variation") .. "\n" .. _("Extremity Width") .. "(%)",
             values = func.map(extWidthList, tostring),
             defaultIndex = 0
         },
@@ -173,6 +174,12 @@ local function params()
             name = _("Ref. Type"),
             values = {_("Track"), _("Platform")},
             defaultIndex = 1
+        },
+        {
+            key = "varNbUnaffected",
+            name = _("Unaffected platforms") .. "(%)",
+            values = func.map(varUnaffectedList, tostring),
+            defaultIndex = 0
         },
         {
             key = "slopeSign",
@@ -297,7 +304,7 @@ end
 local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst)
     local pW = config.wPlatform
     local tW = config.wTrack
-    local bandWidth = 1
+    local bandWidth = 0.8
     local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
     local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
     local generateEdges = ust.generateEdges
@@ -359,7 +366,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         
         local lenP2 = (xpt - erpt):length2()
         local lenT = (xpt - mrpt):length()
-        local r = (lenP2 / lenT + lenT) * 0.5 * (rvec > 0 and 1 or -1)--* (isRight and -1 or 1)
+        local r = (lenP2 / lenT + lenT) * 0.5 * (rvec > 0 and 1 or -1)
         local o = mrpt + (xpt - mrpt):normalized() * abs(r)
         
         return r + 0.5 * tW * (isRight and 1 or -1), o, {
@@ -378,9 +385,19 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         return arcGen(result / {i = t.i, a = {arcPacker(r - tW, o)}},
                             baseX, r - tW, o, true)(...)
                     else
-                        local r, o, a = platformArcGen(r, o, isRight)
-                        return arcGen(result / {i = t.i, a = a},
-                            baseX, r, o, true)(...)
+                        if (abs(t.i - middlePos) / #ptList * 2 <= config.varNbUnaffected) then
+                            return arcGen(result / {
+                                i = t.i,
+                                a = {
+                                    arcPacker(r - (0.5 * tW), o),
+                                    arcPacker(r - (0.5 * tW + pW), o)
+                                }},
+                            baseX, r + 0.5 * tW - pW, o, true)(...)
+                        else
+                            local r, o, a = platformArcGen(r, o, isRight)
+                            return arcGen(result / {i = t.i, a = a},
+                                baseX, r, o, true)(...)
+                        end
                     end
                 end
                 or function(t, ...)
@@ -390,9 +407,19 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         return arcGen(result / {i = t.i, a = {arcPacker(r + tW, o)}},
                             o.x - r, r + tW, o)(...)
                     else
-                        local r, o, a = platformArcGen(r, o)
-                        return arcGen(result / {i = t.i, a = a},
-                            o.x - r, r, o)(...)
+                        if (abs(t.i - middlePos) / #ptList * 2 <= config.varNbUnaffected) then
+                            return arcGen(result / {
+                                i = t.i,
+                                a = {
+                                    arcPacker(r + (0.5 * tW + pW), o),
+                                    arcPacker(r + (0.5 * tW), o)
+                                }},
+                            o.x - r, r - 0.5 * tW + pW, o)(...)
+                        else
+                            local r, o, a = platformArcGen(r, o)
+                            return arcGen(result / {i = t.i, a = a},
+                                o.x - r, r, o)(...)
+                        end
                     end
                 end
         end
@@ -519,6 +546,7 @@ local updateFn = function()
                     wExtPlatform = extWidthList[params.wExtPlatform + 1] * 0.01,
                     varRefPos = params.varRefPos - 1,
                     varRefIsTrack = params.varRefType == 0,
+                    varNbUnaffected = varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
                     wTrack = 5,
                     roofLength = roofLength,
                     buildingParams = buildingParamsList[params.entrySize + 1],
