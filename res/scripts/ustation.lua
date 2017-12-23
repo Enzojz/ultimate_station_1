@@ -266,7 +266,7 @@ ust.generateTerminals = function(config)
     local platformZ = config.hPlatform + 0.53
     return function(edges, terminals, terminalsGroup, arcL, arcR, enablers, ptCon)
         local l, r = arcL(platformZ)(function(l) return l - 3 end)(1), arcR(platformZ)(function(l) return l - 3 end)(-1)
-        local ls, rs = arcL(platformZ)()(1), arcR(platformZ)()(-1)
+        local ls, rs = arcL(platformZ)()(-0.5), arcR(platformZ)()(0.5)
         
         local lc, rc, c = bitLatCoords(l, r, 10)
         local lsc, rsc, sc = bitLatCoords(ls, rs, 5)

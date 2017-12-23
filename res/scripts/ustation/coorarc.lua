@@ -121,8 +121,9 @@ function arc.radByPt(arc, pt)
     local veci = (arc:pt(arc.inf) - arc.o):withZ(0):normalized()
     local vec = (pt - arc.o):withZ(0):normalized()
     local s = veci:cross(vec).z
+
     local c = veci:dot(vec)
-    local r = c > 0 and asin(s) or (s > 0 and (pi - asin(s)) or (-pi - asin(s)))
+    local r = c > 0 and asin(s) or ((s > 0 and pi or -pi) - asin(s))
     return arc.inf + r
 end
 
