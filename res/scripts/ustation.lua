@@ -97,12 +97,12 @@ end
 
 local equalizeArcs = function(...)
     local arcs = pipe.new * {...}
-    local ptInf = func.fold(arcs, coor.xy(0, 0), function(p, ar) return p + ar:pt(ar.inf) end) / #arcs
-    local ptSup = func.fold(arcs, coor.xy(0, 0), function(p, ar) return p + ar:pt(ar.sup) end) / #arcs
+    local ptInf = func.fold(arcs, coor.xyz(0, 0, 0), function(p, ar) return p + ar:pt(ar.inf) end) / #arcs
+    local ptSup = func.fold(arcs, coor.xyz(0, 0, 0), function(p, ar) return p + ar:pt(ar.sup) end) / #arcs
     return table.unpack(arcs * pipe.map(function(ar)
         return ar:withLimits({
-            inf = ust.normalizeRad(ar:rad(ptInf)),
-            sup = ust.normalizeRad(ar:rad(ptSup))
+            inf = ar:rad(ptInf),
+            sup = ar:rad(ptSup)
         }
     )
     end)

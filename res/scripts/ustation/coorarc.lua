@@ -6,6 +6,7 @@ local arc = {}
 local sin = math.sin
 local cos = math.cos
 local acos = math.acos
+local asin = math.asin
 local pi = math.pi
 local abs = math.abs
 local sqrt = math.sqrt
@@ -117,8 +118,12 @@ function arc.ptByRad(arc, rad)
 end
 
 function arc.radByPt(arc, pt)
-    local vec = (pt - arc.o):normalized()
-    return vec.y > 0 and acos(vec.x) or -acos(vec.x)
+    local veci = (arc:pt(arc.inf) - arc.o):withZ(0):normalized()
+    local vec = (pt - arc.o):withZ(0):normalized()
+    local s = veci:cross(vec).z
+    local c = veci:dot(vec)
+    local r = c > 0 and asin(s) or (s > 0 and (pi - asin(s)) or (-pi - asin(s)))
+    return arc.inf + r
 end
 
 function arc.ptByPt(arc, pt)

@@ -19,7 +19,7 @@ local cos = math.cos
 local sin = math.sin
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
-local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 15}
 local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250, 1380}
 local wPlatformList = {4, 5, 6, 7, 8}
 local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
@@ -326,15 +326,14 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local ptList = preBuild(totalTracks, pipe.new)
     local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})
-    local refList = ptListI 
-    * pipe.filter(function(x) return config.varRefIsTrack and x.t or not x.t end)
-    * pipe.map(pipe.select("i"))
-    * pipe.sort(function(x, y) return x < y end)
+    local refList = ptListI
+        * pipe.filter(function(x) return config.varRefIsTrack and x.t or not x.t end)
+        * pipe.map(pipe.select("i"))
+        * pipe.sort(function(x, y) return x < y end)
     local middlePos =
         config.varRefPos < 0 and refList[1]
         or config.varRefPos > 0 and refList[#refList]
         or #refList % 2 == 1 and refList[(#refList + 1) * 0.5] or refList[#refList * 0.5]
-        
     
     local leftGroup = ptListI * pipe.filter(function(p) return p.i < middlePos end) * pipe.rev()
     local middleGroup = ptListI * pipe.filter(function(p) return p.i == middlePos end)
@@ -376,47 +375,24 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     if t == nil then
                         return result * pipe.sort(function(l, r) return l.i < r.i end) * pipe.map(pipe.select("a")), baseX
                     elseif t.t then
-                        return arcGen(
-                            result / {
-                                i = t.i,
-                                a = {arcPacker(r - tW, o)}
-                            },
-                            baseX,
-                            r - tW, o, true)(...)
+                        return arcGen(result / {i = t.i, a = {arcPacker(r - tW, o)}},
+                            baseX, r - tW, o, true)(...)
                     else
                         local r, o, a = platformArcGen(r, o, isRight)
-                        return arcGen(
-                            result / {
-                                i = t.i,
-                                a = a
-                            },
-                            baseX,
-                            r, o, true)(...)
+                        return arcGen(result / {i = t.i, a = a},
+                            baseX, r, o, true)(...)
                     end
                 end
                 or function(t, ...)
                     if t == nil then
-                        return arcGen(result,
-                            o.x - r,
-                            initDr[#initDr],
-                            initX, true)(table.unpack(rightGroup))
+                        return arcGen(result, o.x - r, initDr[#initDr], initX, true)(table.unpack(rightGroup))
                     elseif t.t then
-                        return arcGen(
-                            result / {
-                                i = t.i,
-                                a = {arcPacker(r + tW, o)}
-                            },
-                            o.x - r,
-                            r + tW, o)(...)
+                        return arcGen(result / {i = t.i, a = {arcPacker(r + tW, o)}},
+                            o.x - r, r + tW, o)(...)
                     else
                         local r, o, a = platformArcGen(r, o)
-                        return arcGen(
-                            result / {
-                                i = t.i,
-                                a = a
-                            },
-                            o.x - r,
-                            r, o)(...)
+                        return arcGen(result / {i = t.i, a = a},
+                            o.x - r, r, o)(...)
                     end
                 end
         end
