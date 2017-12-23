@@ -51,17 +51,16 @@ ust.generateArcExt = function(arc)
     }
 end
 
-ust.arcPacker = function(radius, incr, length, slope)
-    local baseCenter = coor.xyz(radius, 0, 0)
-    local initRad = radius > 0 and pi or 0
-    return function(dr, x)
+ust.arcPacker = function(length, slope)
+    return function(radius, o)
+        local initRad = radius > 0 and pi or 0
         return function(z)
             local z = z or 0
             return function(lengthOverride)
                 local l = lengthOverride and lengthOverride(length) or length
                 return function(xDr)
-                    local dr = (dr or 0) + (xDr or 0)
-                    local ar = arc.byOR(baseCenter + coor.xyz(x, 0, z), abs(radius - dr))
+                    local dr = xDr or 0
+                    local ar = arc.byOR(o + coor.xyz(0, 0, z), abs(radius - dr))
                     local rad = (radius > 0 and 1 or -1) * l / ar.r * 0.5
                     return pipe.new
                         / ar:withLimits({

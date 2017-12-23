@@ -1,6 +1,7 @@
 local paramsutil = require "paramsutil"
 local func = require "ustation/func"
 local coor = require "ustation/coor"
+local line = require "ustation/coorline"
 local trackEdge = require "ustation/trackedge"
 local station = require "ustation/stationlib"
 local quat = require "ustation/quaternion"
@@ -22,6 +23,7 @@ local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3
 local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250, 1380}
 local wPlatformList = {4, 5, 6, 7, 8}
 local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
+local extWidthList = {100, 75, 50, 25, 10}
 
 local buildingList = {
     "main_building_size1.mdl",
@@ -155,6 +157,24 @@ local function params()
             defaultIndex = 3
         },
         {
+            key = "wExtPlatform",
+            name = sp .. "\n" .. _("Platform Variation") .. _("Extremity Width") .. "(%)",
+            values = func.map(extWidthList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "varRefPos",
+            name = _("Ref. Pos."),
+            values = {_("Left"), _("Center"), _("Right")},
+            defaultIndex = 0
+        },
+        {
+            key = "varRefType",
+            name = _("Ref. Type"),
+            values = {_("Track"), _("Platform")},
+            defaultIndex = 1
+        },
+        {
             key = "slopeSign",
             name = sp,
             values = {"+", "-"},
@@ -168,13 +188,13 @@ local function params()
         },
         {
             key = "entrySize",
-            name = _("Entry"),
+            name = sp .. "\n" .. _("Entry"),
             values = {"S", "M", "L", "XL"},
             defaultIndex = 1
         },
         {
             key = "fencesPos",
-            name = _("Fences"),
+            name = sp .. "\n" .. _("Fences"),
             values = {"None", "A", "B", "A+B"},
             defaultIndex = 0
         },
@@ -278,7 +298,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local pW = config.wPlatform
     local tW = config.wTrack
     local bandWidth = 1
-    local factorW = 0.5
+    local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
     local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
     local generateEdges = ust.generateEdges
     local generateModels = ust.generateModels(fitModel, config)
@@ -306,48 +326,126 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local ptList = preBuild(totalTracks, pipe.new)
     local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})
-    local middlePos = #ptList % 2 == 0 and (#ptList * 0.5) or ((#ptList + 1) * 0.5)
+    local refList = ptListI 
+    * pipe.filter(function(x) return config.varRefIsTrack and x.t or not x.t end)
+    * pipe.map(pipe.select("i"))
+    * pipe.sort(function(x, y) return x < y end)
+    local middlePos =
+        config.varRefPos < 0 and refList[1]
+        or config.varRefPos > 0 and refList[#refList]
+        or #refList % 2 == 1 and refList[(#refList + 1) * 0.5] or refList[#refList * 0.5]
+        
     
     local leftGroup = ptListI * pipe.filter(function(p) return p.i < middlePos end) * pipe.rev()
     local middleGroup = ptListI * pipe.filter(function(p) return p.i == middlePos end)
     local rightGroup = ptListI * pipe.filter(function(p) return p.i > middlePos end)
     
+    local function platformArcGen(r, o, isRight)
+        local inner = arcPacker(r - (isRight and 1 or -1) * (0.5 * tW), o)
+        local li, ls = table.unpack(inner()()())
+        local ri, rs = table.unpack(arcPacker(r - (isRight and 1 or -1) * (0.5 * tW + pW), o)()()())
+        local mlpt = li:pt(li.inf)
+        local mrpt = ri:pt(ri.inf)
+        local mvec = (mrpt - mlpt):normalized()
+        local f = mvec:dot(mlpt - li.o) > 0 and 1 or -1
+        
+        local elpt = li:pt(li.sup)
+        local erpt = (elpt - li.o):normalized() * f * pWe + elpt
+        
+        local mln = line.byVecPt(mvec, mrpt)
+        local pln = line.byVecPt(mvec .. coor.rotZ(pi * 0.5), erpt)
+        local xpt = (mln - pln):withZ(0)
+        
+        local rvec = (xpt - mrpt):dot(coor.xyz(1, 0, 0))
+        
+        local lenP2 = (xpt - erpt):length2()
+        local lenT = (xpt - mrpt):length()
+        local r = (lenP2 / lenT + lenT) * 0.5 * (rvec > 0 and 1 or -1)--* (isRight and -1 or 1)
+        local o = mrpt + (xpt - mrpt):normalized() * abs(r)
+        
+        return r + 0.5 * tW * (isRight and 1 or -1), o, {
+            isRight and inner or arcPacker(r, o),
+            isRight and arcPacker(r, o) or inner
+        }
+    end
+    
     local function generateArcs(init, initDr, initX)
-        local function arcGen(result, baseX, dr, x, isRight)
+        local function arcGen(result, baseX, r, o, isRight)
             return isRight
                 and function(t, ...)
                     if t == nil then
                         return result * pipe.sort(function(l, r) return l.i < r.i end) * pipe.map(pipe.select("a")), baseX
                     elseif t.t then
                         return arcGen(
-                            result / {i = t.i, a = {arcPacker(dr + tW, x)}}, baseX,
-                            dr + tW, x, true)(...)
+                            result / {
+                                i = t.i,
+                                a = {arcPacker(r - tW, o)}
+                            },
+                            baseX,
+                            r - tW, o, true)(...)
                     else
+                        local r, o, a = platformArcGen(r, o, isRight)
                         return arcGen(
-                            result / {i = t.i, a = {arcPacker(dr + 0.5 * tW, x), arcPacker(dr + 0.5 * tW + pW, x)}}, baseX,
-                            dr + pW, x, true)(...)
+                            result / {
+                                i = t.i,
+                                a = a
+                            },
+                            baseX,
+                            r, o, true)(...)
                     end
                 end
                 or function(t, ...)
                     if t == nil then
-                        return arcGen(result, dr + x, #initDr == 2 and initDr[2] or initDr[1], initX, true)(table.unpack(rightGroup))
+                        return arcGen(result,
+                            o.x - r,
+                            initDr[#initDr],
+                            initX, true)(table.unpack(rightGroup))
                     elseif t.t then
                         return arcGen(
-                            result / {i = t.i, a = {arcPacker(dr - tW, x)}}, dr + x,
-                            dr - tW, x)(...)
+                            result / {
+                                i = t.i,
+                                a = {arcPacker(r + tW, o)}
+                            },
+                            o.x - r,
+                            r + tW, o)(...)
                     else
+                        local r, o, a = platformArcGen(r, o)
                         return arcGen(
-                            result / {i = t.i, a = {arcPacker(dr - 0.5 * tW - pW, x), arcPacker(dr - 0.5 * tW, x)}}, dr + x,
-                            dr - pW, x)(...)
+                            result / {
+                                i = t.i,
+                                a = a
+                            },
+                            o.x - r,
+                            r, o)(...)
                     end
                 end
         end
         return arcGen(pipe.new / init, 0, initDr[1], initX)(table.unpack(leftGroup))
     end
     
-    local allArcs, baseX = (function() if table.unpack(middleGroup).t then
-        return generateArcs({i = middlePos, a = {arcPacker(0, 0)}}, {0}, 0) else
-        return generateArcs({i = middlePos, a = {arcPacker(-0.5 * pW, 0), arcPacker(0.5 * pW, 0)}}, {-0.5 * pW + 0.5 * tW, 0.5 * pW - 0.5 * tW}, 0) end
+    local allArcs, baseX = (function()
+        local o = coor.xyz(config.r, 0, 0)
+        if table.unpack(middleGroup).t then
+            return generateArcs(
+                {
+                    i = middlePos,
+                    a = {arcPacker(config.r, o)}
+                },
+                {config.r}, o
+        ) else
+            return generateArcs(
+                {
+                    i = middlePos,
+                    a = {
+                        arcPacker(config.r + 0.5 * pW, o),
+                        arcPacker(config.r - 0.5 * pW, o)
+                    }
+                },
+                {
+                    config.r - (-0.5 * pW + 0.5 * tW),
+                    config.r - (0.5 * pW - 0.5 * tW)
+                }, o
+        ) end
     end)()
     
     local function build(edges, terminals, terminalsGroup, models, terrain, ptCon, gr, ...)
@@ -367,7 +465,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, true) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[3][1], gr[3][1], false, true) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
-                ptCon, 
+                ptCon,
                 ...)
         elseif (#gr == 2 and #gr[1] == 1 and #gr[2] == 2) then
             edges = generateEdges(edges, true, gr[1][1])
@@ -381,7 +479,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, true) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[2][2], gr[2][2], false, false) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
-                ptCon, 
+                ptCon,
                 ...)
         elseif (#gr == 2 and #gr[1] == 2 and #gr[2] == 1) then
             edges = generateEdges(edges, false, gr[2][1])
@@ -394,7 +492,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, false) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[2][1], gr[2][1], false, true) or {}),
                 terrain + generateTerrain(gr[1][1], gr[1][2]),
-                ptCon, 
+                ptCon,
                 ...)
         else
             edges = generateEdges(edges, false, gr[1][1])
@@ -403,7 +501,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 terminalsGroup,
                 models,
                 terrain,
-                ptCon, 
+                ptCon,
                 ...)
         end
     end
@@ -437,10 +535,14 @@ local updateFn = function()
         
         local edge, streetEdge, terminals, terminalsGroup, models, terrain =
             buildStation(nbTracks,
-                ust.arcPacker(radius, incr, length, slope),
+                ust.arcPacker(length, slope),
                 {
+                    r = radius,
                     hPlatform = hPlatform,
                     wPlatform = wPlatform,
+                    wExtPlatform = extWidthList[params.wExtPlatform + 1] * 0.01,
+                    varRefPos = params.varRefPos - 1,
+                    varRefIsTrack = params.varRefType == 0,
                     wTrack = 5,
                     roofLength = roofLength,
                     buildingParams = buildingParamsList[params.entrySize + 1],
