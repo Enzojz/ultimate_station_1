@@ -120,6 +120,8 @@ local bitLatCoords = function(l, r, length)
         #lcs1
 end
 
+ust.bitLatCoords = bitLatCoords
+
 local assembleSize = function(l, r, lc, rc)
     return {
         lb = lc.i,
@@ -264,20 +266,11 @@ end
 ust.generateTerminals = function(config)
     local il = pipe.interlace({"i", "s"})
     local platformZ = config.hPlatform + 0.53
-    return function(edges, terminals, terminalsGroup, arcL, arcR, enablers, ptCon)
+    return function(edges, terminals, terminalsGroup, arcL, arcR, enablers)
         local l, r = arcL(platformZ)(function(l) return l - 3 end)(1), arcR(platformZ)(function(l) return l - 3 end)(-1)
-        local ls, rs = arcL(platformZ)()(-0.5), arcR(platformZ)()(0.5)
-        
         local lc, rc, c = bitLatCoords(l, r, 10)
-        local lsc, rsc, sc = bitLatCoords(ls, rs, 5)
-        
-        local newPtCon = pipe.new
-            / (lsc[sc]:avg(rsc[sc]) + coor.xyz(0, 0, -3.5))
-            / (lsc[sc + 3 + floor(sc * 0.5)]:avg(rsc[sc + 3 + floor(sc * 0.5)]) + coor.xyz(0, 0, -3.5))
-            / (lsc[sc - 3 - floor(sc * 0.5)]:avg(rsc[sc - 3 - floor(sc * 0.5)]) + coor.xyz(0, 0, -3.5))
-        
-        local newTerminals = pipe.new *
-            pipe.mapn(il(lc), il(rc))(function(lc, rc)
+        local newTerminals = pipe.new
+            * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
                     l = station.newModel("terminal_lane.mdl", ust.mRot(lc.i - lc.s), coor.trans(lc.s)),
                     r = station.newModel("terminal_lane.mdl", ust.mRot(rc.s - rc.i), coor.trans(rc.i)),
@@ -289,29 +282,6 @@ ust.generateTerminals = function(config)
                     / (enablers[1] and func.map(ls, pipe.select("l")) or {})
                     / (enablers[2] and func.map(ls, pipe.select("r")) or {})
                     / (enablers[1] and enablers[2] and func.map(ls, pipe.select("link")) or {})
-                    / {
-                        ust.unitLane(lc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
-                        ust.unitLane(rc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
-                        ust.unitLane(lc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
-                        ust.unitLane(rc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
-                        ust.unitLane(lc[c - 3]:avg(rc[c - 3], rc[c - 2], lc[c - 2]), lsc[sc - 4]:avg(rsc[sc - 4])),
-                        ust.unitLane(lc[c + 3]:avg(rc[c + 3], rc[c + 2], lc[c + 2]), lsc[sc + 4]:avg(rsc[sc + 4]))
-                    }
-                    / func.map2(il(func.range(lsc, sc - 3, sc + 3)), il(func.range(rsc, sc - 3, sc + 3)), function(lc, rc)
-                        local b = lc.i:avg(rc.i)
-                        local t = lc.s:avg(rc.s)
-                        local vec = t - b
-                        return station.newModel("person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
-                    end)
-                    / {
-                        ust.unitLane(lc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
-                        ust.unitLane(rc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
-                        ust.unitLane(lc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)])),
-                        ust.unitLane(rc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)]))
-                    }
-                    / pipe.mapn(ptCon, newPtCon)(function(pt, nPt)
-                        return station.newModel("person_lane.mdl", ust.mRot((nPt - pt)), coor.trans(pt))
-                    end)
             end
         
         return terminals + newTerminals * pipe.flatten(),
@@ -337,9 +307,7 @@ ust.generateTerminals = function(config)
                     vehicleNodeOverride = #edges * 8 - 7
                 }
             } or {}
-            )
-            ,
-            newPtCon
+    )
     end
 end
 

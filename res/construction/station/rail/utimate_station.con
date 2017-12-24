@@ -236,7 +236,7 @@ end
 
 
 local function trackGrouping(result, ar1, ar2, ar3, ...)
-    if (ar1 == nil) then return result end
+    if (ar1 == nil) then return table.unpack(result) end
     
     if (ar1 and ar2 and ar3) then
         if #ar1 == 1 and #ar2 == 2 and #ar3 == 1 then
@@ -254,12 +254,71 @@ local function trackGrouping(result, ar1, ar2, ar3, ...)
 end
 
 local buildEntry = function(config, allArcs)
+    local il = pipe.interlace({"i", "s"})
     local refZ = config.hPlatform + 0.53
     local arcL, arcR = table.unpack(func.filter(allArcs, function(g) return #g == 2 end)[1])
     local l, r = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
     local lp, rp = arcL(refZ)(function(l) return l - 3 end)(1), arcR(refZ)(function(l) return l - 3 end)(-1)
     local refPt = l[1]:pt(l[1].inf):avg(r[1]:pt(r[1].inf))
     local refVec = l[1]:tangent(l[1].inf)
+    
+    local buildLanes = function()
+        return allArcs
+            * pipe.filter(function(a) return #a == 2 end)
+            * pipe.map(function(p)
+                local arcL, arcR = table.unpack(p)
+                local l, r = arcL(refZ)(function(l) return l - 3 end)(1), arcR(refZ)(function(l) return l - 3 end)(-1)
+                local ls, rs = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
+                local lsc, rsc, sc = ust.bitLatCoords(ls, rs, 5)
+                local lc, rc, c = ust.bitLatCoords(l, r, 10)
+                return {
+                    {
+                        ust.unitLane(lc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
+                        ust.unitLane(rc[c - 2], lsc[sc - 4]:avg(rsc[sc - 4])),
+                        ust.unitLane(lc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
+                        ust.unitLane(rc[c + 2], lsc[sc + 4]:avg(rsc[sc + 4])),
+                        ust.unitLane(lc[c - 3]:avg(rc[c - 3], rc[c - 2], lc[c - 2]), lsc[sc - 4]:avg(rsc[sc - 4])),
+                        ust.unitLane(lc[c + 3]:avg(rc[c + 3], rc[c + 2], lc[c + 2]), lsc[sc + 4]:avg(rsc[sc + 4]))
+                    },
+                    func.map2(il(func.range(lsc, sc - 3, sc + 3)), il(func.range(rsc, sc - 3, sc + 3)), function(lc, rc)
+                        local b = lc.i:avg(rc.i)
+                        local t = lc.s:avg(rc.s)
+                        local vec = t - b
+                        return station.newModel("person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
+                    end),
+                    {
+                        ust.unitLane(lc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
+                        ust.unitLane(rc[c - 2 - floor(c * 0.5)], lsc[sc - 4 - floor(sc * 0.5)]:avg(rsc[sc - 4 - floor(sc * 0.5)])),
+                        ust.unitLane(lc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)])),
+                        ust.unitLane(rc[c + 2 + floor(c * 0.5)], lsc[sc + 4 + floor(sc * 0.5)]:avg(rsc[sc + 4 + floor(sc * 0.5)]))
+                    }
+                }
+            end)
+            * pipe.flatten()
+            * pipe.flatten()
+            +
+            allArcs
+            * pipe.filter(function(a) return #a == 2 end)
+            * pipe.map(function(p)
+                local arcL, arcR = table.unpack(p)
+                local l, r = arcL(refZ)(function(l) return l - 3 end)(1), arcR(refZ)(function(l) return l - 3 end)(-1)
+                local ls, rs = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
+                local lsc, rsc, sc = ust.bitLatCoords(ls, rs, 5)
+                local lc, rc, c = ust.bitLatCoords(l, r, 10)
+                return {
+                    lsc[sc]:avg(rsc[sc]) + coor.xyz(0, 0, -3.5),
+                    lsc[sc + 3 + floor(sc * 0.5)]:avg(rsc[sc + 3 + floor(sc * 0.5)]) + coor.xyz(0, 0, -3.5),
+                    lsc[sc - 3 - floor(sc * 0.5)]:avg(rsc[sc - 3 - floor(sc * 0.5)]) + coor.xyz(0, 0, -3.5)
+                }
+            end)
+            * pipe.interlace({"l", "r"})
+            * pipe.map(function(p)
+                return pipe.mapn(p.l, p.r)(function(pt, nPt)
+                    return station.newModel("person_lane.mdl", ust.mRot((nPt - pt)), coor.trans(pt))
+                end)
+            end)
+            * pipe.flatten()
+    end
     
     local buildEntryPath = function()
         local mX = coor.trans(refPt - coor.xyz(6.5, 0, 0))
@@ -304,7 +363,7 @@ local buildEntry = function(config, allArcs)
             * pipe.map(pipe.map(coor.vec2Tuple))
     end
     
-    return buildEntryPath(), buildAccessRoad(), buildFace()
+    return buildEntryPath(), buildAccessRoad(), buildFace(), buildLanes()
 end
 
 local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst)
@@ -456,16 +515,16 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         ) end
     end
     
-    local function build(edges, terminals, terminalsGroup, models, terrain, ptCon, gr, ...)
+    local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
         if (gr == nil) then
-            local buildEntryPath, buildAccessRoad, buildFace = buildEntry(config, allArcs)
+            local buildEntryPath, buildAccessRoad, buildFace, buildLanes = buildEntry(config, allArcs)
             return edges, buildAccessRoad, terminals, terminalsGroup,
-                models + buildEntryPath,
+                models + buildEntryPath + buildLanes,
                 terrain + buildFace
         elseif (#gr == 3) then
             edges = generateEdges(edges, true, gr[1][1])
             edges = generateEdges(edges, false, gr[3][1])
-            terminals, terminalsGroup, ptCon = generateTerminals(edges, terminals, terminalsGroup, gr[2][1], gr[2][2], {true, true}, ptCon)
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2][1], gr[2][2], {true, true})
             return build(
                 edges,
                 terminals,
@@ -474,11 +533,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, true) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[3][1], gr[3][1], false, true) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
-                ptCon,
                 ...)
         elseif (#gr == 2 and #gr[1] == 1 and #gr[2] == 2) then
             edges = generateEdges(edges, true, gr[1][1])
-            terminals, terminalsGroup, ptCon = generateTerminals(edges, terminals, terminalsGroup, gr[2][1], gr[2][2], {true, false}, ptCon)
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2][1], gr[2][2], {true, false})
             return build(
                 edges,
                 terminals,
@@ -488,11 +546,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, true) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[2][2], gr[2][2], false, false) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
-                ptCon,
                 ...)
         elseif (#gr == 2 and #gr[1] == 2 and #gr[2] == 1) then
             edges = generateEdges(edges, false, gr[2][1])
-            terminals, terminalsGroup, ptCon = generateTerminals(edges, terminals, terminalsGroup, gr[1][1], gr[1][2], {false, true}, ptCon)
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1][1], gr[1][2], {false, true})
             return build(edges,
                 terminals,
                 terminalsGroup,
@@ -501,7 +558,6 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, false) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[2][1], gr[2][1], false, true) or {}),
                 terrain + generateTerrain(gr[1][1], gr[1][2]),
-                ptCon,
                 ...)
         else
             edges = generateEdges(edges, false, gr[1][1])
@@ -510,13 +566,11 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 terminalsGroup,
                 models,
                 terrain,
-                ptCon,
                 ...)
         end
     end
     
-    local gr = trackGrouping(pipe.new, table.unpack(allArcs))
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, table.unpack(gr))
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, trackGrouping(pipe.new, table.unpack(allArcs)))
 end
 
 local updateFn = function()
