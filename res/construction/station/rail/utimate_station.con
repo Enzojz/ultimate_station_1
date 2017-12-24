@@ -17,6 +17,7 @@ local pi = math.pi
 local atan = math.atan
 local cos = math.cos
 local sin = math.sin
+local min = math.min
 
 local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
 local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
@@ -252,34 +253,39 @@ local function trackGrouping(result, ar1, ar2, ar3, ...)
     return trackGrouping(result / {ar1}, ar2, ar3, ...)
 end
 
-local buildEntry = function(config)
+local buildEntry = function(config, allArcs)
     local refZ = config.hPlatform + 0.53
+    local arcL, arcR = table.unpack(func.filter(allArcs, function(g) return #g == 2 end)[1])
+    local l, r = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
+    local lp, rp = arcL(refZ)(function(l) return l - 3 end)(1), arcR(refZ)(function(l) return l - 3 end)(-1)
+    local refPt = l[1]:pt(l[1].inf):avg(r[1]:pt(r[1].inf))
+    local refVec = l[1]:tangent(l[1].inf)
     
-    local buildEntryPath = function(baseX)
-        local xOffset = -6.5 + baseX
-        local mX = coor.trans(coor.xyz(xOffset, 0, refZ))
+    local buildEntryPath = function()
+        local mX = coor.trans(refPt - coor.xyz(6.5, 0, 0))
         local mRo = coor.rotX(atan(-config.slope))
         local m = mX * mRo
         return
-            pipe.new * func.map(config.buildingParams.platform, function(p) return ust.unitLane(p .. m, coor.xyz(baseX + 0.5 * config.wPlatform - 1, 0, refZ)) end)
-            + func.map(config.buildingParams.entry, function(p) return ust.unitLane(p .. m, coor.xyz(-10 + xOffset, p.y > 0 and 4.5 or -4.5, 0)) end)
-            + func.map(config.buildingParams.pass, function(p) return ust.unitLane(p .. m, coor.xyz(-1 + baseX, 0, refZ - 3.5)) end)
+            pipe.new * func.map(config.buildingParams.platform, function(p) return ust.unitLane(p .. m, rp[1]:pt(rp[1].inf)) end)
+            + func.map(config.buildingParams.entry, function(p) return ust.unitLane(p .. m, refPt + coor.xyz(-16.5, p.y > 0 and 4.5 or -4.5, -refZ)) end)
+            + func.map(config.buildingParams.pass, function(p) return ust.unitLane(p .. m, refPt - coor.xyz(0, 0, 3.5)) end)
+            + {station.newModel(config.entryModel, coor.rotZ(-pi * 0.5), coor.trans(refPt - coor.xyz(6.5, 0, 0.78)), coor.rotX(atan(-config.slope)))}
     end
     
-    local buildAccessRoad = function(baseX)
-        local pO = coor.xyz(-6.5 + baseX, 0, 0)
+    local buildAccessRoad = function()
+        local pO = coor.xyz(-6.5 + refPt.x, 0, 0)
         return {
             edge = pipe.new / {config.buildingParams.street + pO, config.buildingParams.street + pO + coor.xyz(-20, 0, 0), coor.xyz(-1, 0, 0), coor.xyz(-1, 0, 0)},
             snap = pipe.new / {false, true}
         }
     end
     
-    local buildFace = function(baseX)
+    local buildFace = function()
         local z = refZ - 0.8
         local mRot = coor.rotX(atan(-config.slope))
-        local mX = coor.transX(-6.5 + baseX)
+        local mX = coor.transX(-6.5 + refPt.x)
         local xMin = config.buildingParams.street.x
-        local xMax = baseX - 0.5 * config.wPlatform
+        local xMax = refPt.x - 0.5 * config.wPlatform
         local yMin = -config.buildingParams.halfWidth
         local yMax = config.buildingParams.halfWidth
         return pipe.new
@@ -298,7 +304,7 @@ local buildEntry = function(config)
             * pipe.map(pipe.map(coor.vec2Tuple))
     end
     
-    return buildEntryPath, buildAccessRoad, buildFace
+    return buildEntryPath(), buildAccessRoad(), buildFace()
 end
 
 local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst)
@@ -313,7 +319,6 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local generateTerminals = ust.generateTerminals(config)
     local generateTerrain = ust.generateTerrain()
     
-    local buildEntryPath, buildAccessRoad, buildFace = buildEntry(config)
     
     local function preBuild(nbTracks, result)
         local p = false
@@ -376,57 +381,57 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     end
     
     local function generateArcs(init, initDr, initX)
-        local function arcGen(result, baseX, r, o, isRight)
+        local function arcGen(result, r, o, isRight)
             return isRight
                 and function(t, ...)
                     if t == nil then
-                        return result * pipe.sort(function(l, r) return l.i < r.i end) * pipe.map(pipe.select("a")), baseX
+                        return result * pipe.sort(function(l, r) return l.i < r.i end) * pipe.map(pipe.select("a"))
                     elseif t.t then
                         return arcGen(result / {i = t.i, a = {arcPacker(r - tW, o)}},
-                            baseX, r - tW, o, true)(...)
+                            r - tW, o, true)(...)
                     else
-                        if (abs(t.i - middlePos) / #ptList * 2 <= config.varNbUnaffected) then
+                        if (abs(t.i - middlePos) / #ptList * 2 <= config.varNbUnaffected) or config.wExtPlatform == 1 then
                             return arcGen(result / {
                                 i = t.i,
                                 a = {
                                     arcPacker(r - (0.5 * tW), o),
                                     arcPacker(r - (0.5 * tW + pW), o)
                                 }},
-                            baseX, r + 0.5 * tW - pW, o, true)(...)
+                            r - pW, o, true)(...)
                         else
                             local r, o, a = platformArcGen(r, o, isRight)
                             return arcGen(result / {i = t.i, a = a},
-                                baseX, r, o, true)(...)
+                                r, o, true)(...)
                         end
                     end
                 end
                 or function(t, ...)
                     if t == nil then
-                        return arcGen(result, o.x - r, initDr[#initDr], initX, true)(table.unpack(rightGroup))
+                        return arcGen(result, initDr[#initDr], initX, true)(table.unpack(rightGroup))
                     elseif t.t then
                         return arcGen(result / {i = t.i, a = {arcPacker(r + tW, o)}},
-                            o.x - r, r + tW, o)(...)
+                            r + tW, o)(...)
                     else
-                        if (abs(t.i - middlePos) / #ptList * 2 <= config.varNbUnaffected) then
+                        if (abs(t.i - middlePos) / #ptList * 2 <= config.varNbUnaffected) or config.wExtPlatform == 1 then
                             return arcGen(result / {
                                 i = t.i,
                                 a = {
                                     arcPacker(r + (0.5 * tW + pW), o),
                                     arcPacker(r + (0.5 * tW), o)
                                 }},
-                            o.x - r, r - 0.5 * tW + pW, o)(...)
+                            r + pW, o)(...)
                         else
                             local r, o, a = platformArcGen(r, o)
                             return arcGen(result / {i = t.i, a = a},
-                                o.x - r, r, o)(...)
+                                r, o)(...)
                         end
                     end
                 end
         end
-        return arcGen(pipe.new / init, 0, initDr[1], initX)(table.unpack(leftGroup))
+        return arcGen(pipe.new / init, initDr[1], initX)(table.unpack(leftGroup))
     end
     
-    local allArcs, baseX = (function()
+    local allArcs = pipe.exec * function()
         local o = coor.xyz(config.r, 0, 0)
         if table.unpack(middleGroup).t then
             return generateArcs(
@@ -449,13 +454,14 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     config.r - (0.5 * pW - 0.5 * tW)
                 }, o
         ) end
-    end)()
+    end
     
     local function build(edges, terminals, terminalsGroup, models, terrain, ptCon, gr, ...)
         if (gr == nil) then
-            return edges, buildAccessRoad(baseX), terminals, terminalsGroup,
-                models + buildEntryPath(baseX) + {station.newModel(config.entryModel, coor.rotZ(-pi * 0.5), coor.transX(-6.5 + baseX), coor.transZ(config.hPlatform - 0.25), coor.rotX(atan(-config.slope)))},
-                terrain + buildFace(baseX)
+            local buildEntryPath, buildAccessRoad, buildFace = buildEntry(config, allArcs)
+            return edges, buildAccessRoad, terminals, terminalsGroup,
+                models + buildEntryPath,
+                terrain + buildFace
         elseif (#gr == 3) then
             edges = generateEdges(edges, true, gr[1][1])
             edges = generateEdges(edges, false, gr[3][1])
@@ -510,7 +516,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     end
     
     local gr = trackGrouping(pipe.new, table.unpack(allArcs))
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new / coor.xyz(-1 + baseX, 0, config.hPlatform - 3.5 + 0.53), table.unpack(gr))
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, table.unpack(gr))
 end
 
 local updateFn = function()
@@ -530,11 +536,12 @@ local updateFn = function()
             "fences/" .. tostring(params.fencesColor + 1) .. "/platform_fences_pole_" .. tostring(params.fencesStyle + 1) .. ".mdl",
         }
         
-        local length = trackLengths[params.length + 1]
         
         local nbTracks = trackNumberList[params.nbTracks + 1]
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         local slope = slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
+        
+        local length = min(trackLengths[params.length + 1], radius * pi * 1.5)
         
         local edge, streetEdge, terminals, terminalsGroup, models, terrain =
             buildStation(nbTracks,
