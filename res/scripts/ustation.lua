@@ -394,7 +394,7 @@ ust.generateModels = function(fitModel, config)
                             }
                     end)
             end))
-            + (roofLength == 0 and {} or pipe.mapn(func.seq(1, #lp), lp, rp, lpi, rpi)(function(i, l, r, li, ri)
+            + (config.roofLength == 0 and {} or pipe.mapn(func.seq(1, #lp), lp, rp, lpi, rpi)(function(i, l, r, li, ri)
                 local lc, rc, lci, rci = retriveBiLatCoords(10, equalizeArcs(l, r, li, ri))
                 local roofSurface = pipe.new * pipe.rep(#lci - 2)("platform_roof_top") / "platform_roof_extremity"
                 local roofEdge = pipe.new * pipe.rep(#lci - 2)("platform_roof_edge") / "platform_roof_corner"
