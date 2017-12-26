@@ -52,8 +52,9 @@ ust.generateArcExt = function(arc)
 end
 
 ust.arcPacker = function(length, slope)
-    return function(radius, o)
+    return function(radius, o, lengthVar)
         local initRad = radius > 0 and pi or 0
+        local length = lengthVar and (length * lengthVar) or length
         return function(z)
             local z = z or 0
             return function(lengthOverride)
@@ -299,7 +300,7 @@ ust.generateTerminals = function(config)
             } or enablers[1] and {
                 {
                     terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 7
+                    vehicleNodeOverride = #edges * 8 - 8
                 }
             } or enablers[2] and {
                 {
