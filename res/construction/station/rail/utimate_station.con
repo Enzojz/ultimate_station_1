@@ -345,7 +345,7 @@ local buildEntry = function(config, allArcs)
     local refPt, refVec, cpt, cupt = retriveRef()
     
     local function strCoor(l, r, b)
-        local vec = (r - l):withZ(0):normalized() * 3
+        local vec = (r - l):withZ(0):normalized() * 1.5
         return
             {
                 ust.unitLane(l:avg(r):withZ(refPt.z - 9) + (-vec .. coor.rotZ(0.5 * pi)), b),
@@ -475,18 +475,25 @@ local buildEntry = function(config, allArcs)
                 end)
             end)
             * function(ls) return func.map({1, 2, 3}, function(i) return ls * pipe.map(pipe.select(i)) end) end
-            * pipe.map(function(ls)
+            * pipe.mapi(function(ls, i)
+                local idxPt = allArcs
+                    * pipe.zip(func.seq(1, #allArcs), {"p", "i"})
+                    * pipe.filter(function(a) return #(a.p) == 2 end)
+                    * pipe.map(pipe.select("i"))
+                
+                local fst = func.min(idxPt, function(l, r) return l < r end)
+                local lst = func.max(idxPt, function(l, r) return l < r end)
                 return (#ls == 2) and {
                     underground = pipe.new
                     / {
-                        ls[1].pt - ls[1].vec * 10,
+                        ls[1].pt - ls[1].vec * (10 + (fst - 1) * config.wTrack),
                         ls[1].pt,
                         ls[1].vec,
                         ls[1].vec,
                     }
                     / {
                         ls[2].pt,
-                        ls[2].pt + ls[2].vec * 10,
+                        ls[2].pt + ls[2].vec * (10 + (#allArcs - lst) * config.wTrack),
                         ls[2].vec,
                         ls[2].vec,
                     }
@@ -501,17 +508,22 @@ local buildEntry = function(config, allArcs)
                     ),
                     surface = pipe.new
                     / {
-                        ls[1].pt - ls[1].vec * 20,
-                        ls[1].pt - ls[1].vec * 10,
-                        ls[1].vec,
-                        ls[1].vec,
-                    }
-                    / {
-                        ls[2].pt + ls[2].vec * 10,
-                        ls[2].pt + ls[2].vec * 20,
+                        ls[2].pt + ls[2].vec * (10 + (#allArcs - lst) * config.wTrack),
+                        ls[2].pt + ls[2].vec * (20 + (#allArcs - lst) * config.wTrack),
                         ls[2].vec,
                         ls[2].vec,
                     }
+                    +
+                    (
+                    i == 1 and {} or {
+                        {
+                            ls[1].pt - ls[1].vec * (20 + (fst - 1) * config.wTrack),
+                            ls[1].pt - ls[1].vec * (10 + (fst - 1) * config.wTrack),
+                            ls[1].vec,
+                            ls[1].vec,
+                        }
+                    }
+                )
                 } or false
             end)
             * pipe.filter(pipe.noop())
@@ -522,7 +534,7 @@ local buildEntry = function(config, allArcs)
                 } end)
                 local su = ls * pipe.map(function(ls) return {
                     edge = ls.surface,
-                    snap = pipe.new / {true, false} / {false, true}
+                    snap = pipe.new / {false, true} / {true, false} * pipe.range(1, #ls.surface)
                 } end)
                 return {ug, su}
             end
@@ -875,7 +887,7 @@ local updateFn = function()
                     {
                         type = "STREET",
                         edgeType = "TUNNEL",
-                        edgeTypeName = "street_old.lua",
+                        edgeTypeName = "ust_void.lua",
                         params =
                         {
                             type = "station_pass.lua",

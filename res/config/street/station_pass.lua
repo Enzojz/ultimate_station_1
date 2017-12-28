@@ -1,7 +1,7 @@
 function data()
     return {
         numLanes = 0,
-        streetWidth = 3.0,
+        streetWidth = 0.0,
         sidewalkWidth = 3.0,
         sidewalkHeight = .0,
         yearFrom = 1925,
@@ -81,29 +81,6 @@ function data()
             }
         },
         assets = {
-            {
-                name = "asset/lamp_new.mdl",
-                offset = 5.0,
-                distance = 12.0,
-                prob = 1.0,
-                offsetOrth = 0.1,
-                randRot = false,
-                oneSideOnly = true,
-                alignToElevation = false,
-                avoidFaceEdges = false,
-                placeOnBridge = true,
-            }, 
-            {
-                name = "asset/hydrant_new.mdl",
-                offset = 20.0,
-                distance = 70.0,
-                prob = 1.0,
-                offsetOrth = 0.2,
-                randRot = false,
-                oneSideOnly = false,
-                alignToElevation = true,
-                avoidFaceEdges = false,
-            }, 
         },
         catenary = {
             pole = {

@@ -1,0 +1,26 @@
+function data()
+    return {
+        boundingInfo = {
+            bbMin = {0, 0, 0},
+            bbMax = {0, 0, 0},
+        },
+        collider = {
+            params = {
+                center = {0, 0, 0},
+                halfExtents = {0, 0, 0}
+            },
+            type = "BOX"
+        },
+        lods = {
+            {
+                children = {},
+                matConfigs = {},
+                static = false,
+                visibleFrom = 0,
+                visibleTo = 1000,
+            },
+        },
+        metadata = {},
+    
+    }
+end
