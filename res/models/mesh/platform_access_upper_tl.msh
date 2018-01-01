@@ -5,20 +5,20 @@ function data() return
         { 
           indices = 
             { 
-              normal = { count = 252, offset = 6192 }, 
-              position = { count = 252, offset = 6192 }, 
-              tangent = { count = 252, offset = 6192 }, 
-              uv0 = { count = 252, offset = 6192 }, 
+              normal = { count = 276, offset = 6192 }, 
+              position = { count = 276, offset = 6192 }, 
+              tangent = { count = 276, offset = 6192 }, 
+              uv0 = { count = 276, offset = 6192 }, 
              }, 
           materials = { "ust/asphalt.mtl" }
          }, 
         { 
           indices = 
             { 
-              normal = { count = 180, offset = 6444 }, 
-              position = { count = 180, offset = 6444 }, 
-              tangent = { count = 180, offset = 6444 }, 
-              uv0 = { count = 180, offset = 6444 }, 
+              normal = { count = 156, offset = 6468 }, 
+              position = { count = 156, offset = 6468 }, 
+              tangent = { count = 156, offset = 6468 }, 
+              uv0 = { count = 156, offset = 6468 }, 
              }, 
           materials = 
             { 

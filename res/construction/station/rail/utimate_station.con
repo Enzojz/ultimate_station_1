@@ -250,19 +250,19 @@ local function params()
         {
             key = "entryAType",
             name = _("Second Entry A Type"),
-            values = { _("Underground"), _("Surface"), _("None")},
+            values = {_("Underground"), _("Surface"), _("None")},
             defaultIndex = 1,
         },
         {
             key = "entryBType",
             name = _("Second Entry B Type"),
-            values = { _("Underground"), _("Surface"), _("None")},
+            values = {_("Underground"), _("Surface"), _("None")},
             defaultIndex = 1,
         },
         {
             key = "entryCType",
             name = _("Second Entry C Type"),
-            values = { _("Underground"), _("Surface"), _("None")},
+            values = {_("Underground"), _("Surface"), _("None")},
             defaultIndex = 1,
         },
         {
@@ -317,8 +317,133 @@ local function trackGrouping(result, ar1, ar2, ar3, ...)
     return trackGrouping(result / {ar1}, ar2, ar3, ...)
 end
 
+local buildUndergroundEntry = function()
+    local edgeBuilder = function(config)
+        return function(isMostLeft, isMostRight, c)
+            local platformEdgeO = pipe.new * pipe.rep(c - 2)("platform_edge") / "platform_corner"
+            return platformEdgeO, platformEdgeO
+        end
+    end
+
+    local accessBuilder = function(config)
+        return function(baseL, baseR, isMLMR, fitModel)
+            return {}
+        end
+    end
+
+    
+    local terrainBuilder = function(config)
+        return function(arcL, arcR, isMLMR)
+            return {}
+        end
+    end
+
+    return edgeBuilder, accessBuilder, terrainBuilder
+end
+
+local buildSecondEntrySlope = function()
+    local il = pipe.interlace({"s", "i"})
+
+    local edgeBuilder = function(config)
+        return function(isMostLeft, isMostRight, c)
+            local platformEdgeO = pipe.new
+                * pipe.rep(c - 2)("platform_edge")
+                * pipe.mapi(function(p, i) return (i - 4) % (floor(c * 0.5)) == 0 and "platform_edge_open" or "platform_edge" end)
+                / "platform_corner"
+            
+            local platformEdgeL = isMostLeft and platformEdgeO or pipe.new * pipe.rep(c - 2)("platform_edge") / "platform_corner"
+            local platformEdgeR = isMostRight and platformEdgeO or pipe.new * pipe.rep(c - 2)("platform_edge") / "platform_corner"
+            return platformEdgeL, platformEdgeR
+        end
+    end
+    
+    local accessBuilder = function(config)
+        local platformZ = config.hPlatform + 0.53
+        local tZ = coor.transZ(config.hPlatform - 1.4)
+        return function(baseL, baseR, isMLMR, fitModel)
+            local isMostLeft = (isMLMR and isMLMR < 0) and true or false
+            local isMostRight = (isMLMR and isMLMR > 0) and true or false
+            
+            local l, r = baseL()(-0.5), baseR()(0.5)
+            local li, ri = baseL()(0.3), baseR()(-0.3)
+            local la, ra = baseL()(-0.5 - 5), baseR()(0.5 + 5)
+            
+            return pipe.mapn(func.seq(1, #l), l, r, la, ra)
+                (function(i, l, r, la, ra)
+                    local lc, rc, lca, rca = ust.retriveBiLatCoords(5, ust.equalizeArcs(l, r, la, ra))
+                    
+                    local platformAccess = (isMostLeft or isMostRight)
+                        and (pipe.new
+                        * pipe.rep(#lc - 2)(false)
+                        * pipe.mapi(function(p, i) return
+                            ((i - 4) % (floor(#lc * 0.5)) == 0)
+                                and "platform_edge_access_upper"
+                                or ((i - 5) % (floor(#lc * 0.5)) == 0)
+                                and "platform_edge_access_lower"
+                                or false
+                        end)
+                        / false)
+                        or pipe.new * pipe.rep(#lc - 1)(false)
+                    
+                    return (isMostLeft or isMostRight) and pipe.mapn(platformAccess, il(lc), il(rc), il(lca), il(rca))
+                        (function(s, lc, rc, lca, rca)
+                            local size = isMostLeft and ust.assembleSize(lca, lc) or ust.assembleSize(rc, rca)
+                            return s and {
+                                station.newModel(s .. (isMostLeft and "_br.mdl" or "_bl.mdl"),
+                                    coor.transZ(-1.93) * coor.scaleZ(platformZ / 1.93) * coor.transZ(1.93), tZ,
+                                    fitModel(5, 5, platformZ, size, false, isMostRight)
+                                ),
+                                station.newModel(s .. (isMostLeft and "_tl.mdl" or "_tr.mdl"),
+                                    coor.transZ(-1.93) * coor.scaleZ(platformZ / 1.93) * coor.transZ(1.93), tZ,
+                                    fitModel(5, 5, platformZ, size, true, isMostLeft)
+                            ),
+                            } or {}
+                        end) or {}
+                end)
+        end
+    end
+    
+    local terrainBuilder = function(config)
+        return function(arcL, arcR, isMLMR)
+            local l, r = arcL(-0.05)()(-0.5), arcR(-0.05)()(0.5)
+            local la, ra = arcL(-0.05)()(-5.5), arcR(-0.05)()(5.5)
+            local isMostLeft = (isMLMR and isMLMR < 0) and true or false
+            local isMostRight = (isMLMR and isMLMR > 0) and true or false
+            
+            return (isMostLeft or isMostRight)
+                and (pipe.new
+                * pipe.mapn(l, r, la, ra)(function(l, r, la, ra)
+                    local lc, rc, lca, rca = ust.retriveBiLatCoords(5, ust.equalizeArcs(l, r, la, ra))
+                    
+                    local platformAccess = (isMostLeft or isMostRight)
+                        and (pipe.new
+                        * pipe.rep(#lc - 2)(false)
+                        * pipe.mapi(function(p, i) return ((i - 4) % (floor(#lc * 0.5)) == 0) or ((i - 5) % (floor(#lc * 0.5)) == 0) end)
+                        / false)
+                        or pipe.new * pipe.rep(#lc - 1)(false)
+                    
+                    return pipe.mapn(platformAccess, il(lc), il(rc), il(lca), il(rca))
+                        (function(p, lc, rc, lca, rca)
+                            local size = isMostLeft and ust.assembleSize(lc, lca) or ust.assembleSize(rc, rca)
+                            return p and pipe.new / size.lt / size.lb / size.rb / size.rt
+                                * pipe.map(coor.vec2Tuple)
+                                * ((size.lb - size.lt):cross(size.rb - size.lb).z > 0 and pipe.noop() or pipe.rev())
+                                or false
+                        end)
+                end)
+                * pipe.flatten() * pipe.filter(pipe.noop())) * dump.dump
+                or {}
+        end
+    end
+    
+    local streetBuilder = function(config)
+    end
+
+    return edgeBuilder, accessBuilder, terrainBuilder
+end
+
 local buildEntry = function(config, allArcs)
-    local il = pipe.interlace({"i", "s"})
+    local il = pipe.interlace({"s", "i"})
     local refZ = config.hPlatform + 0.53
     local arcCoords = allArcs
         * pipe.filter(function(a) return #a == 2 end)
@@ -617,7 +742,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local generateModels = ust.generateModels(fitModel, config)
     local generateFences = ust.generateFences(fitModel, config)
     local generateTerminals = ust.generateTerminals(config)
-    local generateTerrain = ust.generateTerrain()
+    local generateTerrain = ust.generateTerrain(config)
     
     local function preBuild(nbTracks, result)
         local p = false
@@ -795,11 +920,13 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     end
     
     local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
+        local isLeftmost = #models == 0
+        local isRightmost = #{...} == 0
         if (gr == nil) then
             local buildEntryPath, buildFace, buildLanes, buildAccessRoad, street, street2, streetFaces = buildEntry(config, allArcs)
             return edges, buildAccessRoad, street, street2, terminals, terminalsGroup,
                 models + buildEntryPath + buildLanes,
-                terrain + buildFace + streetFaces
+                terrain + buildFace --+ streetFaces
         elseif (#gr == 3) then
             edges = generateEdges(edges, true, gr[1][1])
             edges = generateEdges(edges, false, gr[3][1])
@@ -808,10 +935,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(gr[2][1], gr[2][2], #models == 0 and -1 or #{...} == 0 and 1 or 0)
-                + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, true) or {})
-                + (config.rightFences and #{...} == 0 and generateFences(gr[3][1], gr[3][1], false, true) or {}),
-                terrain + generateTerrain(gr[2][1], gr[2][2]),
+                models + generateModels(gr[2][1], gr[2][2], isLeftmost and -1 or isRightmost and 1 or 0)
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], gr[1][1], true, true) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[3][1], gr[3][1], false, true) or {}),
+                terrain + generateTerrain(gr[2][1], gr[2][2], isLeftmost and -1 or isRightmost and 1 or 0),
                 ...)
         elseif (#gr == 2 and #gr[1] == 1 and #gr[2] == 2) then
             edges = generateEdges(edges, true, gr[1][1])
@@ -821,10 +948,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 terminals,
                 terminalsGroup,
                 models
-                + generateModels(gr[2][1], gr[2][2], #models == 0 and -1 or #{...} == 0 and 1 or 0)
-                + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, true) or {})
-                + (config.rightFences and #{...} == 0 and generateFences(gr[2][2], gr[2][2], false, false) or {}),
-                terrain + generateTerrain(gr[2][1], gr[2][2]),
+                + generateModels(gr[2][1], gr[2][2], isLeftmost and -1 or isRightmost and 1 or 0)
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], gr[1][1], true, true) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[2][2], gr[2][2], false, false) or {}),
+                terrain + generateTerrain(gr[2][1], gr[2][2], isLeftmost and -1 or isRightmost and 1 or 0),
                 ...)
         elseif (#gr == 2 and #gr[1] == 2 and #gr[2] == 1) then
             edges = generateEdges(edges, false, gr[2][1])
@@ -833,10 +960,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 terminals,
                 terminalsGroup,
                 models
-                + generateModels(gr[1][1], gr[1][2], #models == 0 and -1 or #{...} == 0 and 1 or 0)
-                + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, false) or {})
-                + (config.rightFences and #{...} == 0 and generateFences(gr[2][1], gr[2][1], false, true) or {}),
-                terrain + generateTerrain(gr[1][1], gr[1][2]),
+                + generateModels(gr[1][1], gr[1][2], isLeftmost and -1 or isRightmost and 1 or 0)
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], gr[1][1], true, false) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[2][1], gr[2][1], false, true) or {}),
+                terrain + generateTerrain(gr[1][1], gr[1][2], isLeftmost and -1 or isRightmost and 1 or 0),
                 ...)
         else
             edges = generateEdges(edges, false, gr[1][1])
@@ -876,6 +1003,8 @@ local updateFn = function()
         
         local length = min(trackLengths[params.length + 1], abs(radius * pi * 1.5))
         
+        local edgeBuilder, accessBuilder, terrainBuilder = buildUndergroundEntry()-- buildSecondEntrySlope()
+        
         local edge, streetEdge, ugStreet, street2, terminals, terminalsGroup, models, terrain =
             buildStation(nbTracks,
                 ust.arcPacker(length, slope),
@@ -906,7 +1035,10 @@ local updateFn = function()
                         A = params.entryAType - 1,
                         B = params.entryBType - 1,
                         C = params.entryCType - 1
-                    }
+                    },
+                    edgeBuilder = edgeBuilder,
+                    accessBuilder = accessBuilder,
+                    terrainBuilder = terrainBuilder
                 },
                 ({true, false, true, false})[params.trackLayout + 1],
                 (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
