@@ -248,6 +248,24 @@ local function params()
             defaultIndex = 1
         },
         {
+            key = "entryAType",
+            name = _("Second Entry A Type"),
+            values = { _("Underground"), _("Surface"), _("None")},
+            defaultIndex = 1,
+        },
+        {
+            key = "entryBType",
+            name = _("Second Entry B Type"),
+            values = { _("Underground"), _("Surface"), _("None")},
+            defaultIndex = 1,
+        },
+        {
+            key = "entryCType",
+            name = _("Second Entry C Type"),
+            values = { _("Underground"), _("Surface"), _("None")},
+            defaultIndex = 1,
+        },
+        {
             key = "fencesPos",
             name = sp .. "\n" .. _("Fences"),
             values = {"None", "A", "B", "A+B"},
@@ -443,6 +461,14 @@ local buildEntry = function(config, allArcs)
             + {station.newModel(config.entryModel, coor.rotZ(-pi * 0.5), m, coor.transZ(-0.78))}
     end
     
+    local makeFace = function(f, t)
+        local f0 = f + coor.xyz(0, 0, 8)
+        local t0 = t + coor.xyz(0, 0, 8)
+        local vec = t0 - f0
+        local vect = (vec .. coor.rotZ(pi * 0.5)):normalized() * 4
+        return pipe.new * {f0 + vect, f0 - vect, t0 - vect, t0 + vect} * pipe.map(coor.vec2Tuple)
+    end
+    
     local buildAccessRoad = function()
         local mVe = coor.rotZ(refVec)
         local mPt = coor.transX(-config.buildingParams.xOffset) * mVe * coor.trans(refPt)
@@ -483,48 +509,60 @@ local buildEntry = function(config, allArcs)
                 
                 local fst = func.min(idxPt, function(l, r) return l < r end)
                 local lst = func.max(idxPt, function(l, r) return l < r end)
-                return (#ls == 2) and {
-                    underground = pipe.new
-                    / {
-                        ls[1].pt - ls[1].vec * (10 + (fst - 1) * config.wTrack),
-                        ls[1].pt,
-                        ls[1].vec,
-                        ls[1].vec,
-                    }
-                    / {
-                        ls[2].pt,
-                        ls[2].pt + ls[2].vec * (10 + (#allArcs - lst) * config.wTrack),
-                        ls[2].vec,
-                        ls[2].vec,
-                    }
-                    + (#arcCoords == 1 and {} or {
-                        {
+                return (#ls == 2)
+                    and {
+                        underground = pipe.new
+                        / {
+                            ls[1].pt - ls[1].vec * (8 + (fst - 1) * config.wTrack),
                             ls[1].pt,
-                            ls[2].pt,
                             ls[1].vec,
+                            ls[1].vec,
+                        }
+                        / {
+                            ls[2].pt,
+                            ls[2].pt + ls[2].vec * (8 + (#allArcs - lst) * config.wTrack),
+                            ls[2].vec,
                             ls[2].vec,
                         }
-                    }
-                    ),
-                    surface = pipe.new
-                    / {
-                        ls[2].pt + ls[2].vec * (10 + (#allArcs - lst) * config.wTrack),
-                        ls[2].pt + ls[2].vec * (20 + (#allArcs - lst) * config.wTrack),
-                        ls[2].vec,
-                        ls[2].vec,
-                    }
-                    +
-                    (
-                    i == 1 and {} or {
-                        {
-                            ls[1].pt - ls[1].vec * (20 + (fst - 1) * config.wTrack),
-                            ls[1].pt - ls[1].vec * (10 + (fst - 1) * config.wTrack),
-                            ls[1].vec,
-                            ls[1].vec,
+                        + (#arcCoords == 1 and {} or {
+                            {
+                                ls[1].pt,
+                                ls[2].pt,
+                                ls[1].vec,
+                                ls[2].vec,
+                            }
                         }
+                        ),
+                        surface = pipe.new
+                        / {
+                            ls[2].pt + ls[2].vec * (8 + (#allArcs - lst) * config.wTrack),
+                            ls[2].pt + ls[2].vec * (20 + (#allArcs - lst) * config.wTrack),
+                            ls[2].vec,
+                            ls[2].vec,
+                        }
+                        +
+                        (
+                        i == 1 and {} or {
+                            {
+                                ls[1].pt - ls[1].vec * (20 + (fst - 1) * config.wTrack),
+                                ls[1].pt - ls[1].vec * (8 + (fst - 1) * config.wTrack),
+                                ls[1].vec,
+                                ls[1].vec,
+                            }
+                        }
+                        ),
+                        faces = pipe.new
+                        / makeFace(
+                            ls[2].pt + ls[2].vec * (7 + (#allArcs - lst) * config.wTrack),
+                            ls[2].pt + ls[2].vec * (0 + (#allArcs - lst) * config.wTrack)
+                        )
+                        / (
+                        i == 1 and false or makeFace(
+                            ls[1].pt - ls[1].vec * (0 + (fst - 1) * config.wTrack),
+                            ls[1].pt - ls[1].vec * (7 + (fst - 1) * config.wTrack)
+                    ))
                     }
-                )
-                } or false
+                    or false
             end)
             * pipe.filter(pipe.noop())
             * function(ls)
@@ -536,7 +574,7 @@ local buildEntry = function(config, allArcs)
                     edge = ls.surface,
                     snap = pipe.new / {false, true} / {true, false} * pipe.range(1, #ls.surface)
                 } end)
-                return {ug, su}
+                return {ug, su, ls * pipe.map(pipe.select("faces")) * pipe.flatten() * pipe.filter(pipe.noop())}
             end
         
         return pipe.new / mainAccess, table.unpack(street)
@@ -758,10 +796,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
         if (gr == nil) then
-            local buildEntryPath, buildFace, buildLanes, buildAccessRoad, street, street2 = buildEntry(config, allArcs)
+            local buildEntryPath, buildFace, buildLanes, buildAccessRoad, street, street2, streetFaces = buildEntry(config, allArcs)
             return edges, buildAccessRoad, street, street2, terminals, terminalsGroup,
                 models + buildEntryPath + buildLanes,
-                terrain + buildFace
+                terrain + buildFace + streetFaces
         elseif (#gr == 3) then
             edges = generateEdges(edges, true, gr[1][1])
             edges = generateEdges(edges, false, gr[3][1])
@@ -770,7 +808,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(gr[2][1], gr[2][2])
+                models + generateModels(gr[2][1], gr[2][2], #models == 0 and -1 or #{...} == 0 and 1 or 0)
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, true) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[3][1], gr[3][1], false, true) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
@@ -783,7 +821,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 terminals,
                 terminalsGroup,
                 models
-                + generateModels(gr[2][1], gr[2][2])
+                + generateModels(gr[2][1], gr[2][2], #models == 0 and -1 or #{...} == 0 and 1 or 0)
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, true) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[2][2], gr[2][2], false, false) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
@@ -795,7 +833,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 terminals,
                 terminalsGroup,
                 models
-                + generateModels(gr[1][1], gr[1][2])
+                + generateModels(gr[1][1], gr[1][2], #models == 0 and -1 or #{...} == 0 and 1 or 0)
                 + (config.leftFences and #models == 0 and generateFences(gr[1][1], gr[1][1], true, false) or {})
                 + (config.rightFences and #{...} == 0 and generateFences(gr[2][1], gr[2][1], false, true) or {}),
                 terrain + generateTerrain(gr[1][1], gr[1][2]),
@@ -864,6 +902,11 @@ local updateFn = function()
                     entryPos = params.entryPos - 1,
                     leftFences = params.fencesPos == 1 or params.fencesPos == 3,
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
+                    entryTypes = {
+                        A = params.entryAType - 1,
+                        B = params.entryBType - 1,
+                        C = params.entryCType - 1
+                    }
                 },
                 ({true, false, true, false})[params.trackLayout + 1],
                 (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
@@ -883,28 +926,29 @@ local updateFn = function()
                         }
                     }
                 ))
-                / (pipe.new * {ugStreet * station.mergeEdges} * station.prepareEdges * pipe.with(
-                    {
-                        type = "STREET",
-                        edgeType = "TUNNEL",
-                        edgeTypeName = "ust_void.lua",
-                        params =
-                        {
-                            type = "station_pass.lua",
-                            tramTrackType = "NO"
-                        }
-                    }
-                ))
-                / (pipe.new * {street2 * station.mergeEdges} * station.prepareEdges * pipe.with(
-                    {
-                        type = "STREET",
-                        params =
-                        {
-                            type = "station_pass.lua",
-                            tramTrackType = "NO"
-                        }
-                    }
-                ))
+                -- / (pipe.new * {ugStreet * station.mergeEdges} * station.prepareEdges * pipe.with(
+                --     {
+                --         type = "STREET",
+                --         edgeType = "TUNNEL",
+                --         edgeTypeName = "ust_void.lua",
+                --         params =
+                --         {
+                --             type = "station_pass.lua",
+                --             tramTrackType = "NO"
+                --         }
+                --     }
+                -- ))
+                -- / (pipe.new * {street2 * station.mergeEdges} * station.prepareEdges * pipe.with(
+                --     {
+                --         type = "STREET",
+                --         alignTerrain = true,
+                --         params =
+                --         {
+                --             type = "station_pass.lua",
+                --             tramTrackType = "NO"
+                --         }
+                --     }
+                -- ))
                 ,
                 models = terminals + models,
                 terminalGroups = terminalsGroup,

@@ -123,7 +123,7 @@ end
 
 ust.bitLatCoords = bitLatCoords
 
-local assembleSize = function(l, r, lc, rc)
+local assembleSize = function(lc, rc)
     return {
         lb = lc.i,
         lt = lc.s,
@@ -240,6 +240,7 @@ ust.fitModel = function(w, h, d, size, fitTop, fitLeft)
     return coor.I() * mXI * mU
 end
 
+local il = pipe.interlace({"s", "i"})
 
 ust.unitLane = function(f, t) return station.newModel("person_lane.mdl", ust.mRot(t - f), coor.trans(f)) end
 
@@ -265,7 +266,6 @@ ust.generateEdges = function(edges, isLeft, arcPacker)
 end
 
 ust.generateTerminals = function(config)
-    local il = pipe.interlace({"i", "s"})
     local platformZ = config.hPlatform + 0.53
     return function(edges, terminals, terminalsGroup, arcL, arcR, enablers)
         local l, r = arcL(platformZ)(function(l) return l - 3 end)(1), arcR(platformZ)(function(l) return l - 3 end)(-1)
@@ -314,7 +314,6 @@ end
 
 
 ust.generateFences = function(fitModel, config)
-    local il = pipe.interlace({"s", "i"})
     local platformZ = config.hPlatform + 0.53
     return function(arcL, arcR, isLeft, isTrack)
         local li, ri =
@@ -347,40 +346,77 @@ end
 
 
 ust.generateModels = function(fitModel, config)
-    local il = pipe.interlace({"s", "i"})
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
-    return function(arcL, arcR, noEquipement)
-        noEquipement = noEquipement or false
+    return function(arcL, arcR, isMLMR, noEquipement)
+        local isMostLeft = (isMLMR and isMLMR < 0) and true or false
+        local isMostRight = (isMLMR and isMLMR > 0) and true or false
+        local noEquipement = noEquipement or false
         local baseL, baseR = arcL(platformZ), arcR(platformZ)
         local baseRL, baseRR = baseL(function(l) return l * config.roofLength end), baseR(function(l) return l * config.roofLength end)
         local l, r = baseL()(-0.5), baseR()(0.5)
         local li, ri = baseL()(0.3), baseR()(-0.3)
+        local la, ra = baseL()(-0.5 - 5), baseR()(0.5 + 5)
         local lp, rp = baseRL(-0.5), baseRR(0.5)
         local lpi, rpi = baseRL(0.5), baseRR(-0.5)
         local newModels = pipe.new
-            + pipe.mapn(func.seq(1, #l), l, r, li, ri)(function(i, l, r, li, ri)
-                local lc, rc, lci, rci = retriveBiLatCoords(5, equalizeArcs(l, r, li, ri))
+            + pipe.mapn(func.seq(1, #l), l, r, li, ri, la, ra)(function(i, l, r, li, ri, la, ra)
+                local lc, rc, lci, rci, lca, rca = retriveBiLatCoords(5, equalizeArcs(l, r, li, ri, la, ra))
                 local platformSurface = pipe.new
                     * pipe.rep(#lci - 2)("platform_surface")
                     * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
                 
-                local platformEdge = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
-                return pipe.mapn(platformEdge, platformSurface, il(lc), il(lci), il(rci), il(rc))
-                    (function(e, s, lc, lic, ric, rc)
-                        local sizeL = assembleSize(l, li, lc, lic)
-                        local sizeR = assembleSize(ri, r, ric, rc)
-                        local sizeS = assembleSize(li, ri, lic, ric)
+                local platformEdgeO = pipe.new
+                    * pipe.rep(#lci - 2)("platform_edge")
+                    * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement) and "platform_edge_open" or "platform_edge" end)
+                    / "platform_corner"
+                
+                
+                local platformEdgeL = isMostLeft and platformEdgeO or pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
+                local platformEdgeR = isMostRight and platformEdgeO or pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
+                
+                local platformAccess = (isMostLeft or isMostRight)
+                    and (pipe.new
+                    * pipe.rep(#lci - 2)(false)
+                    * pipe.mapi(function(p, i) return
+                        ((i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement))
+                            and "platform_edge_access_upper"
+                            or ((i - 5) % (floor(#lci * 0.5)) == 0 and ((i + 1) ~= 4 or not noEquipement))
+                            and "platform_edge_access_lower"
+                            or false
+                    end)
+                    / false)
+                    or pipe.new * pipe.rep(#lci - 1)(false)
+                
+                return pipe.new * pipe.mapn(platformEdgeL, platformEdgeR, platformSurface, il(lc), il(lci), il(rci), il(rc))
+                    (function(el, er, s, lc, lic, ric, rc)
+                        local sizeL = assembleSize(lc, lic)
+                        local sizeR = assembleSize(ric, rc)
+                        local sizeS = assembleSize(lic, ric)
                         return {
                             station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, false, false)),
                             station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, true, true)),
-                            station.newModel(e .. "_br.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, false, false)),
-                            station.newModel(e .. "_tl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, true, true)),
-                            station.newModel(e .. "_bl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, false, true)),
-                            station.newModel(e .. "_tr.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, true, false))
+                            station.newModel(el .. "_br.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, false, false)),
+                            station.newModel(el .. "_tl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, true, true)),
+                            station.newModel(er .. "_bl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, false, true)),
+                            station.newModel(er .. "_tr.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, true, false))
                         }
                     end)
+                + ((isMostLeft or isMostRight) and pipe.mapn(platformAccess, il(lc), il(rc), il(lca), il(rca))
+                (function(s, lc, rc, lca, rca)
+                    local size = isMostLeft and assembleSize(lca, lc) or assembleSize(rc, rca)
+                    return s and {
+                        station.newModel(s .. (isMostLeft and "_br.mdl" or "_bl.mdl"),
+                            coor.transZ(-1.93) * coor.scaleZ(platformZ / 1.93) * coor.transZ(1.93), tZ,
+                            fitModel(5, 5, platformZ, size, false, isMostRight)
+                        ),
+                        station.newModel(s .. (isMostLeft and "_tl.mdl" or "_tr.mdl"),
+                            coor.transZ(-1.93) * coor.scaleZ(platformZ / 1.93) * coor.transZ(1.93), tZ,
+                            fitModel(5, 5, platformZ, size, true, isMostLeft)
+                    ),
+                    } or {}
+                end) or {})
             end)
             + (noEquipement and {} or pipe.mapn(func.seq(1, #lp), l, r)(function(i, l, r)
                 local lci, rci = retriveBiLatCoords(10, equalizeArcs(l, r))
@@ -401,9 +437,9 @@ ust.generateModels = function(fitModel, config)
                 local roofEdge = pipe.new * pipe.rep(#lci - 2)("platform_roof_edge") / "platform_roof_corner"
                 return pipe.mapn(roofEdge, roofSurface, il(lc), il(lci), il(rci), il(rc))
                     (function(e, s, lc, lic, ric, rc)
-                        local sizeL = assembleSize(l, li, lc, lic)
-                        local sizeR = assembleSize(ri, r, ric, rc)
-                        local sizeS = assembleSize(li, ri, lic, ric)
+                        local sizeL = assembleSize(lc, lic)
+                        local sizeR = assembleSize(ric, rc)
+                        local sizeS = assembleSize(lic, ric)
                         local vecPo = lc.i:avg(rc.i) - lc.s:avg(rc.s)
                         return {
                             station.newModel(s .. "_br.mdl", tZ, fitModel(3, 10, platformZ, sizeS, false, false)),
@@ -424,7 +460,6 @@ ust.generateModels = function(fitModel, config)
 end
 
 ust.generateTerrain = function()
-    local il = pipe.interlace({"i", "s"})
     return function(arcL, arcR)
         local l, r = arcL()(function(l) return l + 5 end)(-0.5), arcR()(function(l) return l + 5 end)(0.5)
         return pipe.new
@@ -432,7 +467,7 @@ ust.generateTerrain = function()
                 local lc, rc = retriveBiLatCoords(5, equalizeArcs(l, r))
                 return pipe.mapn(il(lc), il(rc))
                     (function(lc, rc)
-                        local size = assembleSize(l, r, lc, rc, 0)
+                        local size = assembleSize(lc, rc)
                         return pipe.new / size.lt / size.lb / size.rb / size.rt
                             * pipe.map(coor.vec2Tuple)
                             * ((size.lb - size.lt):cross(size.rb - size.lb).z > 0 and pipe.noop() or pipe.rev())
