@@ -352,10 +352,9 @@ ust.generateModels = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
     local edgeBuilder = config.edgeBuilder(config)
-    local accessBuilder = config.accessBuilder(config)
     return function(arcL, arcR, isMLMR, noEquipement)
-        local isMostLeft = (isMLMR and isMLMR < 0) and true or false
-        local isMostRight = (isMLMR and isMLMR > 0) and true or false
+        local isLeftmost = (isMLMR and isMLMR < 0) and true or false
+        local isRightmost = (isMLMR and isMLMR > 0) and true or false
         local noEquipement = noEquipement or false
         local baseL, baseR = arcL(platformZ), arcR(platformZ)
         local baseRL, baseRR = baseL(function(l) return l * config.roofLength end), baseR(function(l) return l * config.roofLength end)
@@ -372,7 +371,7 @@ ust.generateModels = function(fitModel, config)
                     * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
                 
-                local platformEdgeL, platformEdgeR = edgeBuilder(isMostLeft, isMostRight, #lci)
+                local platformEdgeL, platformEdgeR = edgeBuilder(isLeftmost, isRightmost, #lci)
                 
                 return pipe.mapn(platformEdgeL, platformEdgeR, platformSurface, il(lc), il(lci), il(rci), il(rc))
                     (function(el, er, s, lc, lic, ric, rc)
@@ -389,8 +388,6 @@ ust.generateModels = function(fitModel, config)
                         }
                     end)
             end)
-        
-        local entry = accessBuilder(baseL, baseR, isMLMR, fitModel)
         
         local chairs = noEquipement
             and {}
@@ -436,12 +433,12 @@ ust.generateModels = function(fitModel, config)
                     end)
             end)
         
-        return (newModels + entry + chairs + newRoof) * pipe.flatten() * pipe.flatten()
+        return (newModels + chairs + newRoof) * pipe.flatten() * pipe.flatten()
     end
 end
 
 ust.generateTerrain = function(config)
-    return function(arcL, arcR, isMLMR)
+    return function(arcL, arcR)
         local l, r = arcL()(function(l) return l + 5 end)(-0.5), arcR()(function(l) return l + 5 end)(0.5)
         return pipe.new
             * pipe.mapn(l, r)(function(l, r)
@@ -455,7 +452,6 @@ ust.generateTerrain = function(config)
                     end)
             end)
             * pipe.flatten()
-            + config.terrainBuilder(config)(arcL, arcR, isMLMR)
     end
 end
 
