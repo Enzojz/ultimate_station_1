@@ -33,6 +33,7 @@ local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
 local extWidthList = {100, 75, 50, 25, 10}
 local extLengthList = {100, 90, 80, 75, 70, 65, 60, 55, 50, 40}
 local varUnaffectedList = {0, 10, 25, 50, 75, 90}
+local yOffsetList = {0, 10, 20, 30, 40, 50, 60}
 
 local trackLengths = {40, 60, 80, 100, 140, 160, 200, 240, 320, 400, 480, 500, 550, 850, 1050, 1750}
 local trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20}
@@ -206,6 +207,18 @@ local function params()
             defaultIndex = 1
         },
         {
+            key = "yOffsetPlatform",
+            name = "",
+            values = func.map(yOffsetList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "varYOffsetPlatform",
+            name = _("Offset Platform Max.") .. "(%)",
+            values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussain"), _("Gaussain 2")},
+            defaultIndex = 1
+        },
+        {
             key = "varRefType",
             name = "",
             values = {_("Track"), _("Platform")},
@@ -365,16 +378,15 @@ local buildUndergroundEntry = function()
                             coor.trans(ls[2].pt)
                         )
                         / (
-                        i == 1 and false or
+                        i > 1 and
                         station.newModel("underground_entry.mdl",
                             coor.rotZ(-0.5 * pi),
                             coor.transX(fst == 1 and -0.5 or (fst - 1) * config.wTrack),
                             ust.mRot(ls[1].vec),
                             coor.trans(ls[1].pt)
-                )
-                )
+                        ))
+                        * pipe.filter(pipe.noop())
                 end)
-                * pipe.filter(pipe.noop())
                 * pipe.flatten()
                 * pipe.filter(pipe.noop())
         end
@@ -387,34 +399,18 @@ local buildUndergroundEntry = function()
                 * {arcCoords[1], arcCoords[#arcCoords]}
                 * pipe.mapi(function(p, i)
                     local pl = p.platform
+                    local lpt = pipe.new
+                        / pl.lc[pl.c]
+                        / (p.hasUpper and pl.lc[pl.c + 2 + floor(pl.c * 0.5)] or false)
+                        / (p.hasLower and pl.lc[pl.c - 2 - floor(pl.c * 0.5)] or false)
                     
-                    local lpth = pipe.new
-                        / pl.lc[pl.c + 1]
-                        / (p.hasUpper and pl.lc[pl.c + 3 + floor(pl.c * 0.5)] or false)
-                        / (p.hasLower and pl.lc[pl.c - 3 - floor(pl.c * 0.5)] or false)
+                    local rpt = pipe.new
+                        / pl.rc[pl.c]
+                        / (p.hasUpper and pl.rc[pl.c + 2 + floor(pl.c * 0.5)] or false)
+                        / (p.hasLower and pl.rc[pl.c - 2 - floor(pl.c * 0.5)] or false)
                     
-                    local rpth = pipe.new
-                        / pl.rc[pl.c + 1]
-                        / (p.hasUpper and pl.rc[pl.c + 3 + floor(pl.c * 0.5)] or false)
-                        / (p.hasLower and pl.rc[pl.c - 3 - floor(pl.c * 0.5)] or false)
-                    
-                    local lptl = pipe.new
-                        / pl.lc[pl.c - 1]
-                        / (p.hasUpper and pl.lc[pl.c + 1 + floor(pl.c * 0.5)] or false)
-                        / (p.hasLower and pl.lc[pl.c - 1 - floor(pl.c * 0.5)] or false)
-                    
-                    local rptl = pipe.new
-                        / pl.rc[pl.c - 1]
-                        / (p.hasUpper and pl.rc[pl.c + 1 + floor(pl.c * 0.5)] or false)
-                        / (p.hasLower and pl.rc[pl.c - 1 - floor(pl.c * 0.5)] or false)
-                    
-                    
-                    return pipe.mapn(lpth, rpth, lptl, rptl)(function(lh, rh, ll, rl)
-                        return (lh and rh and ll and rl) and
-                            {
-                                h = {pt = (i == 1 and lh or rh) .. transZ, vec = (i == 1 and (lh - rh) or (rh - lh)):withZ(0):normalized()},
-                                l = {pt = (i == 1 and ll or rl) .. transZ, vec = (i == 1 and (ll - rl) or (rl - ll)):withZ(0):normalized()}
-                            } or false
+                    return pipe.mapn(lpt, rpt)(function(l, r)
+                        return (l and r) and {pt = (i == 1 and l or r) .. transZ, vec = (i == 1 and (l - r) or (r - l)):withZ(0):normalized()} or false
                     end)
                 end)
                 * function(ls) return func.map({1, 2, 3}, function(i) return ls * pipe.map(pipe.select(i)) end) end
@@ -428,20 +424,23 @@ local buildUndergroundEntry = function()
                     local fst = func.min(idxPt, function(l, r) return l < r end)
                     local lst = func.max(idxPt, function(l, r) return l < r end)
                     
+                    local vec1 = (ls[1].vec .. coor.rotZ(0.5 * pi)) * 4
+                    local vec2 = (ls[2].vec .. coor.rotZ(0.5 * pi)) * 4
+                    
                     return pipe.new
                         / {
-                            ls[2].h.pt + ls[2].h.vec * (-1.5 + (#allArcs - lst) * config.wTrack),
-                            ls[2].l.pt + ls[2].l.vec * (-1.5 + (#allArcs - lst) * config.wTrack),
-                            ls[2].l.pt + ls[2].l.vec * (15 + (#allArcs - lst) * config.wTrack),
-                            ls[2].h.pt + ls[2].h.vec * (15 + (#allArcs - lst) * config.wTrack)
+                            ls[2].pt + vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack - 2),
+                            ls[2].pt - vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack - 2),
+                            ls[2].pt - vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack + 15),
+                            ls[2].pt + vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack + 15)
                         }
                         / (
                         i ~= 1 and
                         {
-                            ls[1].h.pt + ls[1].h.vec:normalized() * (-1.5 + (fst - 1) * config.wTrack),
-                            ls[1].l.pt + ls[1].l.vec:normalized() * (-1.5 + (fst - 1) * config.wTrack),
-                            ls[1].l.pt + ls[1].l.vec:normalized() * (15 + (fst - 1) * config.wTrack),
-                            ls[1].h.pt + ls[1].h.vec:normalized() * (15 + (fst - 1) * config.wTrack)
+                            ls[1].pt + vec1 + ls[1].vec * ((fst - 1) * config.wTrack - 2),
+                            ls[1].pt - vec1 + ls[1].vec * ((fst - 1) * config.wTrack - 2),
+                            ls[1].pt - vec1 + ls[1].vec * ((fst - 1) * config.wTrack + 15),
+                            ls[1].pt + vec1 + ls[1].vec * ((fst - 1) * config.wTrack + 15)
                         })
                         * pipe.filter(pipe.noop())
                 end)
@@ -1033,15 +1032,15 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         local isVar = posPct > config.varNbUnaffected
                         local lengthPct = isVar and lengthFn(posPct) or 1
                         if t.t then
-                            return arcGen(result / {i = t.i, a = {arcPacker(r - tW, o, isVar and lengthPct or 1)}},
+                            return arcGen(result / {i = t.i, a = {arcPacker(r - tW, o, isVar and lengthPct or 1, -posPct * config.yOffsetPlatform)}},
                                 r - tW, o, true)(...)
                         else
                             if (not isVar or (config.wExtPlatform == 1)) then
                                 return arcGen(result / {
                                     i = t.i,
                                     a = {
-                                        arcPacker(r - (0.5 * tW), o, lengthPct),
-                                        arcPacker(r - (0.5 * tW + pW), o, lengthPct)
+                                        arcPacker(r - (0.5 * tW), o, lengthPct, -posPct * config.yOffsetPlatform),
+                                        arcPacker(r - (0.5 * tW + pW), o, lengthPct, -posPct * config.yOffsetPlatform)
                                     }},
                                 r - pW, o, true)(...)
                             else
@@ -1061,15 +1060,15 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         local isVar = posPct > config.varNbUnaffected
                         local lengthPct = isVar and lengthFn(posPct) or 1
                         if t.t then
-                            return arcGen(result / {i = t.i, a = {arcPacker(r + tW, o, lengthPct)}},
+                            return arcGen(result / {i = t.i, a = {arcPacker(r + tW, o, lengthPct, posPct * config.yOffsetPlatform)}},
                                 r + tW, o)(...)
                         else
                             if (not isVar or (config.wExtPlatform == 1)) then
                                 return arcGen(result / {
                                     i = t.i,
                                     a = {
-                                        arcPacker(r + (0.5 * tW + pW), o, lengthPct),
-                                        arcPacker(r + (0.5 * tW), o, lengthPct)
+                                        arcPacker(r + (0.5 * tW + pW), o, lengthPct, posPct * config.yOffsetPlatform),
+                                        arcPacker(r + (0.5 * tW), o, lengthPct, posPct * config.yOffsetPlatform)
                                     }},
                                 r + pW, o)(...)
                             else
@@ -1207,11 +1206,13 @@ local updateFn = function()
                     wPlatform = wPlatform,
                     wExtPlatform = extWidthList[params.wExtPlatform + 1] * 0.01,
                     lExtPlatform = extLengthList[params.lExtPlatform + 1] * 0.01,
+                    yOffsetPlatform = yOffsetList[params.yOffsetPlatform + 1] * 0.01,
                     varRefPos = params.varRefPos - 1,
                     varRefIsTrack = params.varRefType == 0,
                     varNbUnaffected = varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
                     varModelLength = params.varModelLength + 1,
                     varModelWidth = params.varModelWidth + 1,
+                    varYOffsetPlatform = params.varYOffsetPlatform + 1,
                     wTrack = 5,
                     roofLength = roofLength,
                     buildingParams = buildingParamsList[params.entrySize + 1],

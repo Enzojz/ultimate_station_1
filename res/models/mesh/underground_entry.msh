@@ -1,27 +1,37 @@
 function data() return 
-  { animations = {  }, matConfigs = { { 0 } }, 
+  { animations = {  }, matConfigs = { { 0, 0 } }, 
     subMeshes = 
       { 
         { 
           indices = 
             { 
-              normal = { count = 384, offset = 4608 }, 
-              position = { count = 384, offset = 4608 }, 
-              tangent = { count = 384, offset = 4608 }, 
-              uv0 = { count = 384, offset = 4608 }, 
+              normal = { count = 240, offset = 3744 }, 
+              position = { count = 240, offset = 3744 }, 
+              tangent = { count = 240, offset = 3744 }, 
+              uv0 = { count = 240, offset = 3744 }, 
              }, 
           materials = { "ust/concrete_flat.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = { count = 72, offset = 3984 }, 
+              position = { count = 72, offset = 3984 }, 
+              tangent = { count = 72, offset = 3984 }, 
+              uv0 = { count = 72, offset = 3984 }, 
+             }, 
+          materials = { "ust/paving.mtl" }
          }
        }, 
     vertexAttr = 
       { 
         normal = 
-          { count = 1152, numComp = 3, offset = 1920 }, 
+          { count = 936, numComp = 3, offset = 1560 }, 
         position = 
-          { count = 1152, numComp = 3, offset = 0 }, 
+          { count = 936, numComp = 3, offset = 0 }, 
         tangent = 
-          { count = 1536, numComp = 4, offset = 3072 }, 
+          { count = 1248, numComp = 4, offset = 2496 }, 
         uv0 = 
-          { count = 768, numComp = 2, offset = 1152 }, 
+          { count = 624, numComp = 2, offset = 936 }, 
        }
    } end
