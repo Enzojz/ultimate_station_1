@@ -111,4 +111,58 @@ stationlib.setMirror = function(isMirror)
     end
 end
 
+stationlib.finalizePoly = function(poly)
+    return func.map(((poly[2] - poly[1]):cross(poly[3] - poly[2]).z > 0 and pipe.noop() or pipe.rev())(poly), coor.vec2Tuple)
+end
+
+stationlib.mergePoly = function(...)
+    local polys = pipe.new * {...}
+    local p = {
+        equal = polys * pipe.map(pipe.select("equal", {})) * pipe.filter(pipe.noop()) * pipe.flatten(),
+        less = polys * pipe.map(pipe.select("less", {})) * pipe.filter(pipe.noop()) * pipe.flatten(),
+        greater = polys * pipe.map(pipe.select("greater", {})) * pipe.filter(pipe.noop()) * pipe.flatten(),
+        slot = polys * pipe.map(pipe.select("slot", {})) * pipe.filter(pipe.noop()) * pipe.flatten(),
+        platform = polys * pipe.map(pipe.select("platform", {})) * pipe.filter(pipe.noop()) * pipe.flatten(),
+    }
+    
+    return
+        function(profile)
+            profile = profile or {}
+            
+            return pipe.new * {
+                {
+                    type = "LESS",
+                    faces = p.less,
+                    slopeLow = profile.less or 0.75,
+                    slopeHigh = profile.less or 0.75,
+                },
+                {
+                    type = "GREATER",
+                    faces = p.greater,
+                    slopeLow = profile.greater or 0.75,
+                    slopeHigh = profile.greater or 0.75,
+                },
+                {
+                    type = "EQUAL",
+                    faces = p.equal,
+                    slopeLow = profile.equal or 0.75,
+                    slopeHigh = profile.equal or 0.755,
+                },
+                {
+                    type = "LESS",
+                    faces = p.slot,
+                    slopeLow = profile.slot or stationlib.infi,
+                    slopeHigh = profile.slot or stationlib.infi,
+                },
+                {
+                    type = "GREATER",
+                    faces = p.platform,
+                    slopeLow = profile.platform or stationlib.infi,
+                    slopeHigh = profile.platform or stationlib.infi,
+                },
+            }
+            * pipe.filter(function(e) return #e.faces > 0 end)
+        end
+end
+
 return stationlib

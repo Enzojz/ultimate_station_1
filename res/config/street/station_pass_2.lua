@@ -1,8 +1,8 @@
 function data()
     return {
-        numLanes = 0,
-        streetWidth = 0.0,
-        sidewalkWidth = 3.0,
+        numLanes = 2,
+        streetWidth = 2.0,
+        sidewalkWidth = 2.0,
         sidewalkHeight = .0,
         yearFrom = 1925,
         yearTo = 0,

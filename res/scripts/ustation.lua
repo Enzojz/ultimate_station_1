@@ -441,17 +441,18 @@ ust.generateTerrain = function(config)
     return function(arcL, arcR)
         local l, r = arcL()(function(l) return l + 5 end)(-0.5), arcR()(function(l) return l + 5 end)(0.5)
         return pipe.new
-            * pipe.mapn(l, r)(function(l, r)
-                local lc, rc = retriveBiLatCoords(5, equalizeArcs(l, r))
-                return pipe.mapn(il(lc), il(rc))
-                    (function(lc, rc)
-                        local size = assembleSize(lc, rc)
-                        return pipe.new / size.lt / size.lb / size.rb / size.rt
-                            * pipe.map(coor.vec2Tuple)
-                            * ((size.lb - size.lt):cross(size.rb - size.lb).z > 0 and pipe.noop() or pipe.rev())
-                    end)
-            end)
-            * pipe.flatten()
+            / {
+                equal = pipe.new
+                * pipe.mapn(l, r)(function(l, r)
+                    local lc, rc = retriveBiLatCoords(5, equalizeArcs(l, r))
+                    return pipe.mapn(il(lc), il(rc))
+                        (function(lc, rc)
+                            local size = assembleSize(lc, rc)
+                            return pipe.new / size.lt / size.lb / size.rb / size.rt * station.finalizePoly
+                        end)
+                end)
+                * pipe.flatten()
+            }
     end
 end
 
