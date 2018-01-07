@@ -770,7 +770,7 @@ local buildSecondEntrySlope = function()
                 * pipe.map(function(l)
                     return {
                         edge = pipe.new / {l.pt, l.pt + l.vec * 10, l.vec, l.vec},
-                        snap = pipe.new / {false, false}
+                        snap = pipe.new / {false, true}
                     }
                 end)
                 * function(ls) return {pipe.new
@@ -854,20 +854,20 @@ local buildSecondEntrySlope = function()
                                 return station.newModel("person_lane.mdl", ust.mRot(sizes.ac - p), coor.trans(p))
                             end)
                         end)
-                +
-                sizes
-                * pipe.filter(pipe.noop())
-                * pipe.mapi(function(sizes, i)
-                    local p = sizes.st.pt .. coor.transZ(-config.hPlatform - 0.53)
-                    local e = sizes.st.e .. coor.transZ(-config.hPlatform - 0.53 + 0.05)
-                    local v = sizes.st.vec
-                    local pt1 = p + (v .. coor.rotZ(0.5 * pi)) * 3
-                    local pt2 = p + (v .. coor.rotZ(-0.5 * pi)) * 3
-                    return { 
-                        station.newModel("person_lane.mdl", ust.mRot(e - pt1), coor.trans(pt1)),
-                        station.newModel("person_lane.mdl", ust.mRot(e - pt2), coor.trans(pt2))
-                    }
-                end)
+                        +
+                        sizes
+                        * pipe.filter(pipe.noop())
+                        * pipe.mapi(function(sizes, i)
+                            local p = sizes.st.pt .. coor.transZ(-config.hPlatform - 0.53)
+                            local e = sizes.st.e .. coor.transZ(-config.hPlatform - 0.53 + 0.05)
+                            local v = sizes.st.vec
+                            local pt1 = p + (v .. coor.rotZ(0.5 * pi)) * 3
+                            local pt2 = p + (v .. coor.rotZ(-0.5 * pi)) * 3
+                            return {
+                                station.newModel("person_lane.mdl", ust.mRot(e - pt1), coor.trans(pt1)),
+                                station.newModel("person_lane.mdl", ust.mRot(e - pt2), coor.trans(pt2))
+                            }
+                        end)
                 end)
                 * pipe.flatten()
                 * pipe.flatten()
@@ -888,15 +888,13 @@ local buildEntry = function(config, allArcs)
             local ls, rs = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
             local lsu, rsu = arcL(refZ)()(0.3), arcR(refZ)()(-0.3)
             local la, ra = arcL(refZ)()(-4.25), arcR(refZ)()(4.25)
-            local lc, rc, c = ust.bitLatCoords(l, r, 10)
-            local lsc, rsc, sc = ust.bitLatCoords(ls, rs, 5)
-            local lac, rac, ac = ust.bitLatCoords(la, ra, 5)
-            local lsuc, rsuc, suc = ust.bitLatCoords(lsu, rsu, 5)
+            local lc, rc, c = ust.bitLatCoords(10)(l, r)
+            local lsc, rsc, lac, rac, lsuc, rsuc, sc = ust.bitLatCoords(5)(ls, rs, la, ra, lsu, rsu)
             return {
                 lane = {l = l, r = r, lc = lc, rc = rc, c = c},
                 platform = {l = ls, r = rs, lc = lsc, rc = rsc, c = sc},
-                access = {l = la, r = ra, lc = lac, rc = rac, c = ac},
-                surface = {l = lsu, r = rsu, lc = lsuc, rc = rsuc, c = suc},
+                access = {l = la, r = ra, lc = lac, rc = rac, c = sc},
+                surface = {l = lsu, r = rsu, lc = lsuc, rc = rsuc, c = sc},
                 hasLower = c - 2 - floor(c * 0.5) > 0 and c - 3 > 0,
                 hasUpper = c + 2 + floor(c * 0.5) <= #lc and c + 3 <= #lc
             }
@@ -904,8 +902,8 @@ local buildEntry = function(config, allArcs)
     
     local function retriveRef()
         local pl, la = arcCoords[1].platform, arcCoords[1].lane
-        local lc, rc, c = ust.bitLatCoords(la.l, la.r, 5)
-        
+        local lc, rc, c = ust.bitLatCoords(5)(la.l, la.r)
+
         if (config.entryPos == 0) then
             local refPt = lc[c]
             return refPt,
@@ -1113,12 +1111,12 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         local ri, rs = table.unpack(arcPacker(r - (isRight and 1 or -1) * (0.5 * tW + pW), o, lPct, oPct)()()())
         local mlpt = li:pt(li.inf)
         local mrpt = ri:pt(ri.inf)
-        dump.dump({
-            oll = {x = li.o.x, y = li.o.y},
-            orr = {x = ri.o.x, y = ri.o.y},
-            mlpt = {x = mlpt.x, y = mlpt.y},
-            mrpt = {x = mrpt.x, y = mrpt.y}
-        })
+        -- dump.dump({
+        --     oll = {x = li.o.x, y = li.o.y},
+        --     orr = {x = ri.o.x, y = ri.o.y},
+        --     mlpt = {x = mlpt.x, y = mlpt.y},
+        --     mrpt = {x = mrpt.x, y = mrpt.y}
+        -- })
         local mvec = (mrpt - mlpt):normalized()
         local f = mvec:dot(mlpt - li.o) > 0 and 1 or -1
         
@@ -1134,10 +1132,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         local lenP2 = (xpt - erpt):length2()
         local lenT = (xpt - mrpt):length()
         local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1)
-        dump.dump({o1 = o.y})
+        -- dump.dump({o1 = o.y})
         local o = mrpt + (xpt - mrpt):normalized() * abs(r)
-        dump.dump({o2 = o.y})
-        dump.dump({vec = {(xpt - mrpt):normalized().x, y = (xpt - mrpt):normalized().y}})
+        -- dump.dump({o2 = o.y})
+        -- dump.dump({vec = {(xpt - mrpt):normalized().x, y = (xpt - mrpt):normalized().y}})
         
         return r + 0.5 * tW * (isRight and 1 or -1), o, {
             isRight and inner or arcPacker(r, o, lPct, oPct),
@@ -1222,7 +1220,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 end
         end
         local rs = arcGen(pipe.new / init, initDr[1], initX)(table.unpack(leftGroup))
-        dump.dump(rs * pipe.filter(function(a) return #a == 2 end) * pipe.map(function(a) return {{x = a[1]()()()[1].o.x, y = a[1]()()()[1].o.y}, {x = a[2]()()()[2].o.x, y = a[2]()()()[2].o.y}} end))
+        -- dump.dump(rs * pipe.filter(function(a) return #a == 2 end) * pipe.map(function(a) return {{x = a[1]()()()[1].o.x, y = a[1]()()()[1].o.y}, {x = a[2]()()()[2].o.x, y = a[2]()()()[2].o.y}} end))
         return rs
     end
     

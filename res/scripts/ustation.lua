@@ -115,13 +115,33 @@ end
 
 ust.equalizeArcs = equalizeArcs
 
-local bitLatCoords = function(l, r, length)
-    local lcs1, rcs1 = retriveBiLatCoords(length, equalizeArcs(l[1], r[1]))
-    local lcs2, rcs2 = retriveBiLatCoords(length, equalizeArcs(l[2], r[2]))
-    return
-        lcs1 * pipe.range(2, #lcs1) * pipe.rev() + {lcs1[1]:avg(lcs2[1])} + lcs2 * pipe.range(2, #lcs2),
-        rcs1 * pipe.range(2, #rcs1) * pipe.rev() + {rcs1[1]:avg(rcs2[1])} + rcs2 * pipe.range(2, #rcs2),
-        #lcs1
+local function ungroup(fst, ...)
+    local f = {...}
+    return function(lst, ...)
+        local l = {...}
+        return function(result, c)
+            if (fst and lst) then
+                return ungroup(table.unpack(f))(table.unpack(l))(
+                    result /
+                    (fst * pipe.range(2, #fst) * pipe.rev() + {fst[1]:avg(lst[1])} + lst * pipe.range(2, #lst)),
+                    #fst
+            )
+            else
+                return result / c
+            end
+        end
+    end
+end
+
+local bitLatCoords = function(length)
+    return function(...)
+        local arcs = pipe.new * {...}
+        return table.unpack(ungroup
+            (retriveBiLatCoords(length, equalizeArcs(table.unpack(func.map({...}, pipe.select(1))))))
+            (retriveBiLatCoords(length, equalizeArcs(table.unpack(func.map({...}, pipe.select(2))))))
+            (pipe.new)
+        )
+    end
 end
 
 ust.bitLatCoords = bitLatCoords
@@ -274,7 +294,7 @@ ust.generateTerminals = function(config)
     local platformZ = config.hPlatform + 0.53
     return function(edges, terminals, terminalsGroup, arcL, arcR, enablers)
         local l, r = arcL(platformZ)(function(l) return l - 3 end)(1), arcR(platformZ)(function(l) return l - 3 end)(-1)
-        local lc, rc, c = bitLatCoords(l, r, 10)
+        local lc, rc, c = bitLatCoords(10)(l, r)
         local newTerminals = pipe.new
             * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
