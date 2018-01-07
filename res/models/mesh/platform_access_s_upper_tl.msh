@@ -1,0 +1,50 @@
+function data() return 
+  { animations = {  }, matConfigs = { { 0, 0, 0 } }, 
+    subMeshes = 
+      { 
+        { 
+          indices = 
+            { 
+              normal = { count = 120, offset = 3456 }, 
+              position = { count = 120, offset = 3456 }, 
+              tangent = { count = 120, offset = 3456 }, 
+              uv0 = { count = 120, offset = 3456 }, 
+             }, 
+          materials = { "ust/asphalt.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = { count = 84, offset = 3576 }, 
+              position = { count = 84, offset = 3576 }, 
+              tangent = { count = 84, offset = 3576 }, 
+              uv0 = { count = 84, offset = 3576 }, 
+             }, 
+          materials = 
+            { 
+              "station/train/passenger/trainstation_1990_borders_3.mtl"
+             }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = { count = 84, offset = 3660 }, 
+              position = { count = 84, offset = 3660 }, 
+              tangent = { count = 84, offset = 3660 }, 
+              uv0 = { count = 84, offset = 3660 }, 
+             }, 
+          materials = { "ust/concrete.mtl" }
+         }
+       }, 
+    vertexAttr = 
+      { 
+        normal = 
+          { count = 864, numComp = 3, offset = 1440 }, 
+        position = 
+          { count = 864, numComp = 3, offset = 0 }, 
+        tangent = 
+          { count = 1152, numComp = 4, offset = 2304 }, 
+        uv0 = 
+          { count = 576, numComp = 2, offset = 864 }, 
+       }
+   } end

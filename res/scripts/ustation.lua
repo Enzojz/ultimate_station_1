@@ -278,16 +278,16 @@ ust.generateTerminals = function(config)
         local newTerminals = pipe.new
             * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
-                    l = station.newModel("terminal_lane.mdl", ust.mRot(lc.i - lc.s), coor.trans(lc.s)),
-                    r = station.newModel("terminal_lane.mdl", ust.mRot(rc.s - rc.i), coor.trans(rc.i)),
+                    l = station.newModel(enablers[1] and "terminal_lane.mdl" or "standard_lane.mdl", ust.mRot(lc.i - lc.s), coor.trans(lc.s)),
+                    r = station.newModel(enablers[2] and "terminal_lane.mdl" or "standard_lane.mdl", ust.mRot(rc.s - rc.i), coor.trans(rc.i)),
                     link = station.newModel("standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
                 }
             end)
             * function(ls)
                 return pipe.new
-                    / (enablers[1] and func.map(ls, pipe.select("l")) or {})
-                    / (enablers[2] and func.map(ls, pipe.select("r")) or {})
-                    / (enablers[1] and enablers[2] and func.map(ls, pipe.select("link")) or {})
+                    / func.map(ls, pipe.select("l"))
+                    / func.map(ls, pipe.select("r"))
+                    / func.map(ls, pipe.select("link"))
             end
         
         return terminals + newTerminals * pipe.flatten(),
@@ -309,7 +309,7 @@ ust.generateTerminals = function(config)
                 }
             } or enablers[2] and {
                 {
-                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
+                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
                     vehicleNodeOverride = #edges * 8 - 7
                 }
             } or {}
@@ -372,7 +372,7 @@ ust.generateModels = function(fitModel, config)
                     * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
                 
-                local platformEdgeL, platformEdgeR = edgeBuilder(isLeftmost, isRightmost, #lci)
+                local platformEdgeL, platformEdgeR = edgeBuilder(isLeftmost, isRightmost, #lci, i)
                 
                 return pipe.mapn(platformEdgeL, platformEdgeR, platformSurface, il(lc), il(lci), il(rci), il(rc))
                     (function(el, er, s, lc, lic, ric, rc)

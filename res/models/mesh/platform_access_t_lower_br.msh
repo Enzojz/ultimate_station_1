@@ -15,10 +15,10 @@ function data() return
         { 
           indices = 
             { 
-              normal = { count = 168, offset = 5400 }, 
-              position = { count = 168, offset = 5400 }, 
-              tangent = { count = 168, offset = 5400 }, 
-              uv0 = { count = 168, offset = 5400 }, 
+              normal = { count = 120, offset = 5400 }, 
+              position = { count = 120, offset = 5400 }, 
+              tangent = { count = 120, offset = 5400 }, 
+              uv0 = { count = 120, offset = 5400 }, 
              }, 
           materials = 
             { 
@@ -28,10 +28,10 @@ function data() return
         { 
           indices = 
             { 
-              normal = { count = 48, offset = 5568 }, 
-              position = { count = 48, offset = 5568 }, 
-              tangent = { count = 48, offset = 5568 }, 
-              uv0 = { count = 48, offset = 5568 }, 
+              normal = { count = 96, offset = 5520 }, 
+              position = { count = 96, offset = 5520 }, 
+              tangent = { count = 96, offset = 5520 }, 
+              uv0 = { count = 96, offset = 5520 }, 
              }, 
           materials = { "ust/concrete.mtl" }
          }

@@ -630,10 +630,11 @@ local buildSecondEntrySlope = function()
     local il = pipe.interlace({"s", "i"})
     
     local edgeBuilder = function(config)
-        return function(isLeftmost, isRightmost, c)
+        return function(isLeftmost, isRightmost, c, q)
+            local fc = floor(c * 0.5)
             local platformEdgeO = pipe.new
                 * pipe.rep(c - 2)("platform_edge")
-                * pipe.mapi(function(p, i) return (i - 4) % (floor(c * 0.5)) == 0 and "platform_edge_open" or "platform_edge" end)
+                * pipe.mapi(function(p, i) return (i == fc + 4 or (i == 1 and q == 2)) and "platform_edge_open" or "platform_edge" end)
                 / "platform_corner"
             
             local platformEdgeL = isLeftmost and platformEdgeO or pipe.new * pipe.rep(c - 2)("platform_edge") / "platform_corner"
@@ -649,16 +650,16 @@ local buildSecondEntrySlope = function()
         local fplc, facc = floor(pl.c * 0.5), floor(ac.c * 0.5)
         
         return pipe.new
-            / {
-                ust.assembleSize(
-                    {i = l[pl.c], s = l[pl.c - 1]},
-                    {i = r[ac.c], s = r[ac.c - 1]}
-                ),
+            / (i > 1 and {
                 ust.assembleSize(
                     {i = l[pl.c + 1], s = l[pl.c]},
                     {i = r[ac.c + 1], s = r[ac.c]}
-            )
-            }
+                ),
+                ust.assembleSize(
+                    {i = l[pl.c + 2], s = l[pl.c + 1]},
+                    {i = r[ac.c + 2], s = r[ac.c + 1]}
+            ),
+            })
             / (p.hasUpper and
             {
                 ust.assembleSize(
@@ -669,8 +670,7 @@ local buildSecondEntrySlope = function()
                     {i = l[pl.c + 5 + fplc], s = l[pl.c + 4 + fplc]},
                     {i = r[ac.c + 5 + facc], s = r[ac.c + 4 + facc]}
             )
-            }
-            or false)
+            })
             / (p.hasLower and
             {
                 ust.assembleSize(
@@ -681,8 +681,7 @@ local buildSecondEntrySlope = function()
                     {i = l[pl.c - 5 - fplc], s = l[pl.c - 4 - fplc]},
                     {i = r[ac.c - 5 - facc], s = r[ac.c - 4 - facc]}
             )
-            }
-            or false)
+            })
     end
     
     local accessBuilder = function(config, allArcs)
@@ -699,15 +698,15 @@ local buildSecondEntrySlope = function()
                         * pipe.filter(pipe.noop())
                         * pipe.mapi(function(sizes, i)
                             local isLeftmost = i == 0
-                            return func.map2({"platform_edge_access_upper", "platform_edge_access_lower"}, sizes, function(s, size)
+                            return func.map2({"platform_access_t_upper", "platform_access_t_lower"}, sizes, function(s, size)
                                 return {
                                     station.newModel(s .. (isLeftmost and "_br.mdl" or "_bl.mdl"),
                                         coor.transZ(-1.93) * coor.scaleZ(platformZ / 1.93) * coor.transZ(1.93), tZ,
-                                        fitModel(5, 5, platformZ, size, false, not isLeftmost)
+                                        fitModel(3.75, 5, platformZ, size, false, not isLeftmost)
                                     ),
                                     station.newModel(s .. (isLeftmost and "_tl.mdl" or "_tr.mdl"),
                                         coor.transZ(-1.93) * coor.scaleZ(platformZ / 1.93) * coor.transZ(1.93), tZ,
-                                        fitModel(5, 5, platformZ, size, true, isLeftmost)
+                                        fitModel(3.75, 5, platformZ, size, true, isLeftmost)
                                 )
                                 }
                             end)
@@ -744,8 +743,134 @@ local buildSecondEntrySlope = function()
     end
     
     local streetBuilder = function(config, allArcs)
+        local tZ = coor.transZ(-config.hPlatform - 0.53)
         return function(arcCoords, refPt)
-            return {}
+            return pipe.new
+                * {arcCoords[1], arcCoords[#arcCoords]}
+                * pipe.mapi(function(p, i)
+                    local ac = p.access
+                    local pl = p.platform
+                    
+                    local outer, inner = i == 1 and ac.lc or ac.rc, i == 1 and pl.lc or pl.rc
+                    
+                    return {
+                        i > 1 and {
+                            pt = outer[ac.c + 1] .. tZ,
+                            vec = (outer[ac.c + 1] - inner[pl.c + 1]):withZ(0):normalized()},
+                        p.hasUpper and {
+                            pt = outer[ac.c + 4 + floor(ac.c * 0.5)] .. tZ,
+                            vec = (outer[pl.c + 4 + floor(pl.c * 0.5)] - inner[ac.c + 4 + floor(ac.c * 0.5)]):withZ(0):normalized()},
+                        p.hasLower and {
+                            pt = outer[ac.c - 4 - floor(ac.c * 0.5)] .. tZ,
+                            vec = (outer[pl.c - 4 - floor(pl.c * 0.5)] - inner[ac.c - 4 - floor(ac.c * 0.5)]):withZ(0):normalized()}
+                    }
+                end)
+                * pipe.flatten()
+                * pipe.filter(pipe.noop())
+                * pipe.map(function(l)
+                    return {
+                        edge = pipe.new / {l.pt, l.pt + l.vec * 10, l.vec, l.vec},
+                        snap = pipe.new / {false, false}
+                    }
+                end)
+                * function(ls) return {pipe.new
+                    * {ls * station.mergeEdges}
+                    * station.prepareEdges
+                    * pipe.with({
+                        type = "STREET",
+                        params =
+                        {
+                            type = "station_entry.lua",
+                            tramTrackType = "NO"
+                        }
+                    }
+                )
+                }
+                end
+        end
+    end
+    
+    local laneBuilder = function(config, allArcs)
+        local transZ = coor.transZ(-config.hPlatform - 0.53 - 7.5)
+        return function(arcCoords, refPt)
+            return pipe.new
+                * func.map2({arcCoords[1], arcCoords[#arcCoords]}, {#allArcs[1] == 2, #allArcs[#allArcs] == 2}, function(c, t) return t and c or false end)
+                * pipe.filter(pipe.noop())
+                * pipe.mapi(function(p, i)
+                    local su = p.surface
+                    local la = p.lane
+                    local ac = p.access
+                    local pl = p.platform
+                    local l = i == 1 and su.lc or su.rc
+                    local r = i == 1 and la.lc or la.rc
+                    local s = i == 1 and ac.lc or ac.rc
+                    local t = i == 1 and pl.lc or pl.rc
+                    local fsuc, flac, facc, fplc = floor(su.c * 0.5), floor(la.c * 0.5), floor(ac.c * 0.5), floor(pl.c * 0.5)
+                    
+                    return pipe.new
+                        / (i > 1 and {
+                            ac = l[su.c]:avg(l[su.c + 1]):avg(l[su.c]),
+                            pt = {
+                                r[la.c],
+                                r[la.c + 1]:avg(r[la.c])
+                            },
+                            st = {
+                                e = s[ac.c + 1] / 6 + s[ac.c + 2] / 2 + t[pl.c + 1] / 12 + t[pl.c + 2] / 4,
+                                pt = s[ac.c + 1],
+                                vec = (s[ac.c + 1] - l[su.c + 1]):withZ(0):normalized()
+                            }
+                        })
+                        / (p.hasUpper and {
+                            ac = l[su.c + 4 + fsuc]:avg(l[su.c + 3 + fsuc]):avg(l[su.c + 3 + fsuc]),
+                            pt = {
+                                r[la.c + 2 + flac],
+                                r[la.c + 1 + flac]:avg(r[la.c + 2 + flac])
+                            },
+                            st = {
+                                e = s[ac.c + 4 + facc] / 6 + s[ac.c + 5 + facc] / 2 + t[pl.c + 4 + fplc] / 12 + t[pl.c + 5 + fplc] / 4,
+                                pt = s[ac.c + 4 + facc],
+                                vec = (s[ac.c + 4 + facc] - l[su.c + 4 + fsuc]):withZ(0):normalized()
+                            }
+                        })
+                        / (p.hasLower and {
+                            ac = l[su.c - 4 - fsuc]:avg(l[su.c - 3 - fsuc]):avg(l[su.c - 3 - fsuc]),
+                            pt = {
+                                r[la.c - 2 - flac],
+                                r[la.c - 1 - flac]:avg(r[la.c - 2 - flac])
+                            },
+                            st = {
+                                e = s[ac.c - 4 - facc] / 6 + s[ac.c - 5 - facc] / 2 + t[pl.c - 4 - fplc] / 12 + t[pl.c - 5 - fplc] / 4,
+                                pt = s[ac.c - 4 - facc],
+                                vec = (s[ac.c - 4 - facc] - l[su.c - 4 - fsuc]):withZ(0):normalized()
+                            }
+                        })
+                end)
+                * pipe.mapi(function(sizes, i)
+                    return sizes
+                        * pipe.filter(pipe.noop())
+                        * pipe.mapi(function(sizes, i)
+                            local isLeftmost = i == 0
+                            return func.map(sizes.pt, function(p)
+                                return station.newModel("person_lane.mdl", ust.mRot(sizes.ac - p), coor.trans(p))
+                            end)
+                        end)
+                +
+                sizes
+                * pipe.filter(pipe.noop())
+                * pipe.mapi(function(sizes, i)
+                    local p = sizes.st.pt .. coor.transZ(-config.hPlatform - 0.53)
+                    local e = sizes.st.e .. coor.transZ(-config.hPlatform - 0.53 + 0.05)
+                    local v = sizes.st.vec
+                    local pt1 = p + (v .. coor.rotZ(0.5 * pi)) * 3
+                    local pt2 = p + (v .. coor.rotZ(-0.5 * pi)) * 3
+                    return { 
+                        station.newModel("person_lane.mdl", ust.mRot(e - pt1), coor.trans(pt1)),
+                        station.newModel("person_lane.mdl", ust.mRot(e - pt2), coor.trans(pt2))
+                    }
+                end)
+                end)
+                * pipe.flatten()
+                * pipe.flatten()
         end
     end
     
@@ -761,14 +886,17 @@ local buildEntry = function(config, allArcs)
             local arcL, arcR = table.unpack(p)
             local l, r = arcL(refZ)(function(l) return l - 3 end)(1), arcR(refZ)(function(l) return l - 3 end)(-1)
             local ls, rs = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
-            local la, ra = arcL(refZ)()(-5.5), arcR(refZ)()(5.5)
+            local lsu, rsu = arcL(refZ)()(0.3), arcR(refZ)()(-0.3)
+            local la, ra = arcL(refZ)()(-4.25), arcR(refZ)()(4.25)
             local lc, rc, c = ust.bitLatCoords(l, r, 10)
             local lsc, rsc, sc = ust.bitLatCoords(ls, rs, 5)
             local lac, rac, ac = ust.bitLatCoords(la, ra, 5)
+            local lsuc, rsuc, suc = ust.bitLatCoords(lsu, rsu, 5)
             return {
                 lane = {l = l, r = r, lc = lc, rc = rc, c = c},
                 platform = {l = ls, r = rs, lc = lsc, rc = rsc, c = sc},
                 access = {l = la, r = ra, lc = lac, rc = rac, c = ac},
+                surface = {l = lsu, r = rsu, lc = lsuc, rc = rsuc, c = suc},
                 hasLower = c - 2 - floor(c * 0.5) > 0 and c - 3 > 0,
                 hasUpper = c + 2 + floor(c * 0.5) <= #lc and c + 3 <= #lc
             }
@@ -978,12 +1106,19 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local middleGroup = ptListI * pipe.filter(function(p) return p.i == middlePos end)
     local rightGroup = ptListI * pipe.filter(function(p) return p.i > middlePos end)
     
-    local function platformArcGen(r, o, lPct, pWe, isRight)
-        local inner = arcPacker(r - (isRight and 1 or -1) * (0.5 * tW), o, lPct)
+    local function platformArcGen(r, o, lPct, oPct, pWe, isRight)
+        local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
+        local inner = arcPacker(rInner, o, lPct, oPct)
         local li, ls = table.unpack(inner()()())
-        local ri, rs = table.unpack(arcPacker(r - (isRight and 1 or -1) * (0.5 * tW + pW), o, lPct)()()())
+        local ri, rs = table.unpack(arcPacker(r - (isRight and 1 or -1) * (0.5 * tW + pW), o, lPct, oPct)()()())
         local mlpt = li:pt(li.inf)
         local mrpt = ri:pt(ri.inf)
+        dump.dump({
+            oll = {x = li.o.x, y = li.o.y},
+            orr = {x = ri.o.x, y = ri.o.y},
+            mlpt = {x = mlpt.x, y = mlpt.y},
+            mrpt = {x = mrpt.x, y = mrpt.y}
+        })
         local mvec = (mrpt - mlpt):normalized()
         local f = mvec:dot(mlpt - li.o) > 0 and 1 or -1
         
@@ -994,16 +1129,19 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         local pln = line.byVecPt(mvec .. coor.rotZ(pi * 0.5), erpt)
         local xpt = (mln - pln):withZ(0)
         
-        local rvec = (xpt - mrpt):dot(coor.xyz(1, 0, 0))
+        local rvec = (xpt - mrpt):dot(xpt - li.o) * rInner
         
         local lenP2 = (xpt - erpt):length2()
         local lenT = (xpt - mrpt):length()
-        local r = (lenP2 / lenT + lenT) * 0.5 * (rvec > 0 and 1 or -1)
+        local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1)
+        dump.dump({o1 = o.y})
         local o = mrpt + (xpt - mrpt):normalized() * abs(r)
+        dump.dump({o2 = o.y})
+        dump.dump({vec = {(xpt - mrpt):normalized().x, y = (xpt - mrpt):normalized().y}})
         
         return r + 0.5 * tW * (isRight and 1 or -1), o, {
-            isRight and inner or arcPacker(r, o, lPct),
-            isRight and arcPacker(r, o, lPct) or inner
+            isRight and inner or arcPacker(r, o, lPct, oPct),
+            isRight and arcPacker(r, o, lPct, oPct) or inner
         }
     end
     
@@ -1031,21 +1169,22 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         local posPct = abs(t.i - middlePos) / (#rightGroup)
                         local isVar = posPct > config.varNbUnaffected
                         local lengthPct = isVar and lengthFn(posPct) or 1
+                        local offsetPct = isVar and -posPct * config.yOffsetPlatform or 0
                         if t.t then
-                            return arcGen(result / {i = t.i, a = {arcPacker(r - tW, o, isVar and lengthPct or 1, -posPct * config.yOffsetPlatform)}},
+                            return arcGen(result / {i = t.i, a = {arcPacker(r - tW, o, isVar and lengthPct or 1, offsetPct)}},
                                 r - tW, o, true)(...)
                         else
                             if (not isVar or (config.wExtPlatform == 1)) then
                                 return arcGen(result / {
                                     i = t.i,
                                     a = {
-                                        arcPacker(r - (0.5 * tW), o, lengthPct, -posPct * config.yOffsetPlatform),
-                                        arcPacker(r - (0.5 * tW + pW), o, lengthPct, -posPct * config.yOffsetPlatform)
+                                        arcPacker(r - (0.5 * tW), o, lengthPct, offsetPct),
+                                        arcPacker(r - (0.5 * tW + pW), o, lengthPct, offsetPct)
                                     }},
                                 r - pW, o, true)(...)
                             else
                                 local pWe = isVar and widthFn(posPct) or pW
-                                local r, o, a = platformArcGen(r, o, lengthPct, pWe, true)
+                                local r, o, a = platformArcGen(r, o, lengthPct, offsetPct, pWe, true)
                                 return arcGen(result / {i = t.i, a = a},
                                     r, o, true)(...)
                             end
@@ -1059,21 +1198,22 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         local posPct = abs(t.i - middlePos) / (#leftGroup)
                         local isVar = posPct > config.varNbUnaffected
                         local lengthPct = isVar and lengthFn(posPct) or 1
+                        local offsetPct = isVar and posPct * config.yOffsetPlatform or 0
                         if t.t then
-                            return arcGen(result / {i = t.i, a = {arcPacker(r + tW, o, lengthPct, posPct * config.yOffsetPlatform)}},
+                            return arcGen(result / {i = t.i, a = {arcPacker(r + tW, o, lengthPct, offsetPct)}},
                                 r + tW, o)(...)
                         else
                             if (not isVar or (config.wExtPlatform == 1)) then
                                 return arcGen(result / {
                                     i = t.i,
                                     a = {
-                                        arcPacker(r + (0.5 * tW + pW), o, lengthPct, posPct * config.yOffsetPlatform),
-                                        arcPacker(r + (0.5 * tW), o, lengthPct, posPct * config.yOffsetPlatform)
+                                        arcPacker(r + (0.5 * tW + pW), o, lengthPct, offsetPct),
+                                        arcPacker(r + (0.5 * tW), o, lengthPct, offsetPct)
                                     }},
                                 r + pW, o)(...)
                             else
                                 local pWe = isVar and widthFn(posPct) or pW
-                                local r, o, a = platformArcGen(r, o, lengthPct, pWe, false)
+                                local r, o, a = platformArcGen(r, o, lengthPct, offsetPct, pWe, false)
                                 return arcGen(result / {i = t.i, a = a},
                                     r, o)(...)
                             end
@@ -1081,7 +1221,9 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     end
                 end
         end
-        return arcGen(pipe.new / init, initDr[1], initX)(table.unpack(leftGroup))
+        local rs = arcGen(pipe.new / init, initDr[1], initX)(table.unpack(leftGroup))
+        dump.dump(rs * pipe.filter(function(a) return #a == 2 end) * pipe.map(function(a) return {{x = a[1]()()()[1].o.x, y = a[1]()()()[1].o.y}, {x = a[2]()()()[2].o.x, y = a[2]()()()[2].o.y}} end))
+        return rs
     end
     
     local allArcs = pipe.exec * function()
@@ -1193,7 +1335,7 @@ local updateFn = function()
         
         local length = min(trackLengths[params.length + 1], abs(radius * pi * 1.5))
         
-        local edgeBuilder, accessBuilder, terrainBuilder, streetBuilder, laneBuilder = buildUndergroundEntry()
+        local edgeBuilder, accessBuilder, terrainBuilder, streetBuilder, laneBuilder = buildSecondEntrySlope()
         
         local edge, streetEdge, terminals, terminalsGroup, models, terrain =
             buildStation(nbTracks,

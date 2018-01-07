@@ -1,3 +1,4 @@
+local laneutil = require "laneutil"
 function data()
     return {
         collider = {
@@ -29,6 +30,17 @@ function data()
             }, 
         },
         metadata = {
+            transportNetworkProvider = {
+                laneLists = {
+                    {
+                        transportModes = {"PERSON"},
+                        nodes = laneutil.makeLanes({
+                            {{0, -1.25, 1.93}, {0.8, -1.25, 1.93}, {1, 0, 0}, {1, 0, 0}, 2.4},
+                        })
+                    }
+                },
+                terminals = {}
+            }
         },
         
     }
