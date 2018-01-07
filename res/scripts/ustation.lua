@@ -52,7 +52,7 @@ end
 
 ust.arcPacker = function(length, slope)
     return function(radius, o, lengthVar, dislodge)
-        local dislodge = dislodge and (dislodge * length / abs(radius)) or 0
+        local dislodge = dislodge and (dislodge * length / radius) or 0
         local length = lengthVar and (length * lengthVar) or length
         local initRad = (radius > 0 and pi or 0) + dislodge
         return function(z)

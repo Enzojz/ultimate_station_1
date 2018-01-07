@@ -196,7 +196,7 @@ local function params()
         },
         {
             key = "lExtPlatform",
-            name = "",
+            name = "\n",
             values = func.map(extLengthList, tostring),
             defaultIndex = 0
         },
@@ -207,20 +207,20 @@ local function params()
             defaultIndex = 1
         },
         {
+            key = "yOffsetPlatformSign",
+            name = "\n",
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
             key = "yOffsetPlatform",
-            name = "",
+            name = _("Offset Platform Max.") .. "(%)",
             values = func.map(yOffsetList, tostring),
             defaultIndex = 0
         },
         {
-            key = "varYOffsetPlatform",
-            name = _("Offset Platform Max.") .. "(%)",
-            values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussain"), _("Gaussain 2")},
-            defaultIndex = 1
-        },
-        {
             key = "varRefType",
-            name = "",
+            name = "\n",
             values = {_("Track"), _("Platform")},
             defaultIndex = 1
         },
@@ -232,7 +232,7 @@ local function params()
         },
         {
             key = "varNbUnaffected",
-            name = _("Unaffected platforms") .. "(%)",
+            name = "\n" .. _("Unaffected platforms") .. "(%)",
             values = func.map(varUnaffectedList, tostring),
             defaultIndex = 0
         },
@@ -1109,15 +1109,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
         local inner = arcPacker(rInner, o, lPct, oPct)
         local li, ls = table.unpack(inner()()())
-        local ri, rs = table.unpack(arcPacker(rOuter, o, lPct, oPct * abs(rOuter / rInner))()()())
+        local ri, rs = table.unpack(arcPacker(rOuter, o, lPct, oPct * (rOuter / rInner))()()())
         local mlpt = li:pt(li.inf)
         local mrpt = ri:pt(ri.inf)
-        -- dump.dump({
-        --     oll = {x = li.o.x, y = li.o.y},
-        --     orr = {x = ri.o.x, y = ri.o.y},
-        --     mlpt = {x = mlpt.x, y = mlpt.y},
-        --     mrpt = {x = mrpt.x, y = mrpt.y}
-        -- })
+        
         local mvec = (mrpt - mlpt):normalized()
         local f = mvec:dot(mlpt - li.o) > 0 and 1 or -1
         
@@ -1133,15 +1128,12 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         local lenP2 = (xpt - erpt):length2()
         local lenT = (xpt - mrpt):length()
         local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1)
-        -- dump.dump({o1 = o.y})
         
         local o = mrpt + (xpt - mrpt):normalized() * abs(r)
-        -- dump.dump({o2 = o.y})
-        -- dump.dump({vec = {(xpt - mrpt):normalized().x, y = (xpt - mrpt):normalized().y}})
         
         return r + 0.5 * tW * (isRight and 1 or -1), o, {
-            isRight and inner or arcPacker(r, o, lPct, oPct * abs(r / rInner)),
-            isRight and arcPacker(r, o, lPct, oPct * abs(r / rInner)) or inner
+            isRight and inner or arcPacker(r, o, lPct, oPct * (r / rInner)),
+            isRight and arcPacker(r, o, lPct, oPct * (r / rInner)) or inner
         }
     end
     
@@ -1222,7 +1214,6 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 end
         end
         local rs = arcGen(pipe.new / init, initDr[1], initX)(table.unpack(leftGroup))
-        -- dump.dump(rs * pipe.filter(function(a) return #a == 2 end) * pipe.map(function(a) return {{x = a[1]()()()[1].o.x, y = a[1]()()()[1].o.y}, {x = a[2]()()()[2].o.x, y = a[2]()()()[2].o.y}} end))
         return rs
     end
     
@@ -1348,13 +1339,12 @@ local updateFn = function()
                     wPlatform = wPlatform,
                     wExtPlatform = extWidthList[params.wExtPlatform + 1] * 0.01,
                     lExtPlatform = extLengthList[params.lExtPlatform + 1] * 0.01,
-                    yOffsetPlatform = yOffsetList[params.yOffsetPlatform + 1] * 0.01,
+                    yOffsetPlatform = yOffsetList[params.yOffsetPlatform + 1] * (params.yOffsetPlatformSign == 0 and 0.01 or -0.01),
                     varRefPos = params.varRefPos - 1,
                     varRefIsTrack = params.varRefType == 0,
                     varNbUnaffected = varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
                     varModelLength = params.varModelLength + 1,
                     varModelWidth = params.varModelWidth + 1,
-                    varYOffsetPlatform = params.varYOffsetPlatform + 1,
                     wTrack = 5,
                     roofLength = roofLength,
                     buildingParams = buildingParamsList[params.entrySize + 1],
