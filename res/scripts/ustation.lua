@@ -10,7 +10,6 @@ local pi = math.pi
 local abs = math.abs
 local ceil = math.ceil
 local floor = math.floor
-local pi = math.pi
 
 ust.infi = 1e8
 

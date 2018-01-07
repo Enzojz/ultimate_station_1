@@ -1106,9 +1106,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local function platformArcGen(r, o, lPct, oPct, pWe, isRight)
         local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
+        local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
         local inner = arcPacker(rInner, o, lPct, oPct)
         local li, ls = table.unpack(inner()()())
-        local ri, rs = table.unpack(arcPacker(r - (isRight and 1 or -1) * (0.5 * tW + pW), o, lPct, oPct)()()())
+        local ri, rs = table.unpack(arcPacker(rOuter, o, lPct, oPct * abs(rOuter / rInner))()()())
         local mlpt = li:pt(li.inf)
         local mrpt = ri:pt(ri.inf)
         -- dump.dump({
@@ -1133,13 +1134,14 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         local lenT = (xpt - mrpt):length()
         local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1)
         -- dump.dump({o1 = o.y})
+        
         local o = mrpt + (xpt - mrpt):normalized() * abs(r)
         -- dump.dump({o2 = o.y})
         -- dump.dump({vec = {(xpt - mrpt):normalized().x, y = (xpt - mrpt):normalized().y}})
         
         return r + 0.5 * tW * (isRight and 1 or -1), o, {
-            isRight and inner or arcPacker(r, o, lPct, oPct),
-            isRight and arcPacker(r, o, lPct, oPct) or inner
+            isRight and inner or arcPacker(r, o, lPct, oPct * abs(r / rInner)),
+            isRight and arcPacker(r, o, lPct, oPct * abs(r / rInner)) or inner
         }
     end
     

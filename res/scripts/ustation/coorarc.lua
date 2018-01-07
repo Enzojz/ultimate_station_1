@@ -3,15 +3,17 @@ local line = require "ustation/coorline"
 local func = require "ustation/func"
 local arc = {}
 
-local sin = math.sin
-local cos = math.cos
-local acos = math.acos
-local asin = math.asin
-local pi = math.pi
-local abs = math.abs
-local sqrt = math.sqrt
-local ceil = math.ceil
-local floor = math.floor
+local ma = math
+
+local sin = ma.sin
+local cos = ma.cos
+local acos = ma.acos
+local asin = ma.asin
+local pi = ma.pi
+local abs = ma.abs
+local sqrt = ma.sqrt
+local ceil = ma.ceil
+local floor = ma.floor
 
 -- The circle in form of (x - a)² + (y - b)² = r²
 function arc.new(o, r, limits)
