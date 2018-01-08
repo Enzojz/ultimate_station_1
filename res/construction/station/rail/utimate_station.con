@@ -251,8 +251,8 @@ local function params()
         {
             key = "entrySize",
             name = sp .. "\n" .. _("Entry"),
-            values = {"S", "M", "L", "XL"},
-            defaultIndex = 1
+            values = {"None", "S", "M", "L", "XL"},
+            defaultIndex = 2
         },
         {
             key = "entryPos",
@@ -340,7 +340,7 @@ local buildUndergroundEntry = function()
     
     local accessBuilder = function(config, allArcs)
         local transZ = coor.transZ(-config.hPlatform - 0.53)
-        return function(arcCoords, refPt)
+        return function(arcCoords)
             return pipe.new
                 * {arcCoords[1], arcCoords[#arcCoords]}
                 * pipe.mapi(function(p, i)
@@ -394,7 +394,7 @@ local buildUndergroundEntry = function()
     
     local terrainBuilder = function(config, allArcs)
         local transZ = coor.transZ(-config.hPlatform - 0.53 - 7.5)
-        return function(arcCoords, refPt)
+        return function(arcCoords)
             return pipe.new
                 * {arcCoords[1], arcCoords[#arcCoords]}
                 * pipe.mapi(function(p, i)
@@ -457,7 +457,7 @@ local buildUndergroundEntry = function()
     
     local streetBuilder = function(config, allArcs)
         local transZ = coor.transZ(-config.hPlatform - 0.53 - 7.5)
-        return function(arcCoords, refPt)
+        return function(arcCoords)
             return pipe.new
                 * {arcCoords[1], arcCoords[#arcCoords]}
                 * pipe.mapi(function(p, i)
@@ -581,7 +581,7 @@ local buildUndergroundEntry = function()
     
     local laneBuilder = function(config, allArcs)
         local transZ = coor.transZ(-config.hPlatform - 0.53 - 7.5)
-        return function(arcCoords, refPt)
+        return function(arcCoords)
             local function strCoor(l, r, b)
                 local vec = (r - l):withZ(0):normalized() * 1.5 .. coor.rotZ(0.5 * pi)
                 local ref = l:avg(r) .. transZ
@@ -744,7 +744,7 @@ local buildSecondEntrySlope = function()
     
     local streetBuilder = function(config, allArcs)
         local tZ = coor.transZ(-config.hPlatform - 0.53)
-        return function(arcCoords, refPt)
+        return function(arcCoords)
             return pipe.new
                 * {arcCoords[1], arcCoords[#arcCoords]}
                 * pipe.mapi(function(p, i)
@@ -792,7 +792,7 @@ local buildSecondEntrySlope = function()
     
     local laneBuilder = function(config, allArcs)
         local transZ = coor.transZ(-config.hPlatform - 0.53 - 7.5)
-        return function(arcCoords, refPt)
+        return function(arcCoords)
             return pipe.new
                 * func.map2({arcCoords[1], arcCoords[#arcCoords]}, {#allArcs[1] == 2, #allArcs[#allArcs] == 2}, function(c, t) return t and c or false end)
                 * pipe.filter(pipe.noop())
@@ -903,14 +903,14 @@ local buildEntry = function(config, allArcs)
     local function retriveRef()
         local pl, la = arcCoords[1].platform, arcCoords[1].lane
         local lc, rc, c = ust.bitLatCoords(5)(la.l, la.r)
-
-        if (config.entryPos == 0) then
+        
+        if (config.entries.main.pos == 0 or not config.entries.main.model) then
             local refPt = lc[c]
             return refPt,
                 la.l[1]:rad(refPt) - la.l[1]:rad(lc[c]),
                 rc[c],
                 pl.lc[pl.c]:avg(pl.rc[pl.c])
-        elseif (config.entryPos > 0) then
+        elseif (config.entries.main.pos > 0) then
             local refPt = lc[floor(c * 0.6)]
             return refPt,
                 la.l[1]:rad(refPt) - la.l[1]:rad(lc[c]),
@@ -985,7 +985,7 @@ local buildEntry = function(config, allArcs)
             * func.map(config.buildingParams.platform, function(p) return ust.unitLane(p .. m, cpt) end)
             + func.map(config.buildingParams.entry, function(p) return ust.unitLane(p .. m, coor.xyz(-10, p.y > 0 and 4.5 or -4.5, -0.8) .. mx) end)
             + func.map(config.buildingParams.pass, function(p) return ust.unitLane(p .. m, cupt - coor.xyz(0, 0, 3.5)) end)
-            + {station.newModel(config.entryModel, coor.rotZ(-pi * 0.5), m, coor.transZ(-0.78))}
+            + {station.newModel(config.entries.main.model, coor.rotZ(-pi * 0.5), m, coor.transZ(-0.78))}
     end
     
     local buildAccessRoad = function()
@@ -1042,10 +1042,12 @@ local buildEntry = function(config, allArcs)
         }
     end
     
-    return buildEntryPath() + config.accessBuilder(config, allArcs)(arcCoords),
-        buildFace() + config.terrainBuilder(config, allArcs)(arcCoords, refPt),
-        buildLanes() + config.laneBuilder(config, allArcs)(arcCoords, refPt),
-        pipe.new / buildAccessRoad() + config.streetBuilder(config, allArcs)(arcCoords, refPt)
+    local hasMain = config.entries.main.model
+    
+    return config.accessBuilder(config, allArcs)(arcCoords) + (hasMain and buildEntryPath() or {}),
+        config.terrainBuilder(config, allArcs)(arcCoords) + (hasMain and buildFace() or {}),
+        config.laneBuilder(config, allArcs)(arcCoords) + (hasMain and buildLanes() or {}),
+        config.streetBuilder(config, allArcs)(arcCoords) + (hasMain and {buildAccessRoad()} or {})
 end
 
 local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst)
@@ -1312,7 +1314,7 @@ local updateFn = function()
         local hPlatform = hPlatformList[params.hPlatform + 1] * 0.001
         local wPlatform = wPlatformList[params.wPlatform + 1]
         local roofLength = roofLengthList[params.roofLength + 1] * 0.01
-        local mainBuilding = buildingList[params.entrySize + 1]
+        local mainBuilding = params.entrySize > 0 and buildingList[params.entrySize]
         local fencesLength = fencesLengthList[params.fencesStyle + 1]
         local fencesModel = {
             "fences/" .. tostring(params.fencesColor + 1) .. "/platform_fences_" .. tostring(params.fencesStyle + 1) .. ".mdl",
@@ -1326,7 +1328,22 @@ local updateFn = function()
         
         local length = min(trackLengths[params.length + 1], abs(radius * pi * 1.5))
         
-        local edgeBuilder, accessBuilder, terrainBuilder, streetBuilder, laneBuilder = buildSecondEntrySlope()
+        local entryConfig = {
+            main = {
+                pos = params.entryPos - 1,
+                model = mainBuilding,
+            },
+            street = {
+                left = {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
+                right = {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1}
+            },
+            underground = {
+                left = {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
+                right = {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0}
+            }
+        }
+        
+        local edgeBuilder, accessBuilder, terrainBuilder, streetBuilder, laneBuilder = buildUndergroundEntry()
         
         local edge, streetEdge, terminals, terminalsGroup, models, terrain =
             buildStation(nbTracks,
@@ -1351,15 +1368,9 @@ local updateFn = function()
                     slope = slope,
                     fencesModel = fencesModel,
                     fencesLength = fencesLength,
-                    entryModel = mainBuilding,
-                    entryPos = params.entryPos - 1,
                     leftFences = params.fencesPos == 1 or params.fencesPos == 3,
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
-                    entryTypes = {
-                        A = params.entryAType - 1,
-                        B = params.entryBType - 1,
-                        C = params.entryCType - 1
-                    },
+                    entries = entryConfig,
                     edgeBuilder = edgeBuilder,
                     accessBuilder = accessBuilder,
                     terrainBuilder = terrainBuilder,
