@@ -371,7 +371,12 @@ end
 ust.generateModels = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
-    local edgeBuilder = config.edgeBuilder(config)
+    
+    local edgeBuilder = function(isLeftmost, isRightmost, c)
+        local platformEdgeO = pipe.new * pipe.rep(c - 2)("platform_edge") / "platform_corner"
+        return platformEdgeO, platformEdgeO
+    end
+    -- local edgeBuilder = config.edgeBuilder(config)
     return function(arcL, arcR, isMLMR, noEquipement)
         local isLeftmost = (isMLMR and isMLMR < 0) and true or false
         local isRightmost = (isMLMR and isMLMR > 0) and true or false
@@ -390,6 +395,7 @@ ust.generateModels = function(fitModel, config)
                     * pipe.rep(#lci - 2)("platform_surface")
                     * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
+                
                 
                 local platformEdgeL, platformEdgeR = edgeBuilder(isLeftmost, isRightmost, #lci, i)
                 
