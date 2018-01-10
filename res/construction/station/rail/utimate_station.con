@@ -718,7 +718,7 @@ local buildSecondEntrySlope = function(config, entryConfig)
                 end)
                 * pipe.flatten()
                 * pipe.flatten()
-            } * dump.dump
+            }
     end
     
     local streetBuilder = function()
@@ -1383,6 +1383,7 @@ local updateFn = function()
                 terrainAlignmentLists = station.mergePoly(table.unpack(terrain))(),
                 groundFaces = terrain
                 * pipe.map(pipe.select("equal"))
+                * pipe.filter(pipe.noop())
                 * pipe.flatten()
                 * pipe.map(function(f) return {
                     {face = f, modes = {{type = "FILL", key = "industry_gravel_small_01"}}},
