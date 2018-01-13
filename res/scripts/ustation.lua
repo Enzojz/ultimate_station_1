@@ -339,16 +339,19 @@ end
 
 ust.generateFences = function(fitModel, config)
     local platformZ = config.hPlatform + 0.53
-    return function(arcL, arcR, isLeft, isTrack)
+    return function(arcRef, isLeft, isTrack, filter)
+        local filter = filter(isLeft, isTrack) or function(_) return true end
         local li, ri =
-            arcL(platformZ)(function(l) return l - 0.3 end)((isTrack and -0.5 * config.wTrack or -0.5) + 0.3),
-            arcR(platformZ)(function(l) return l - 0.3 end)((isTrack and 0.5 * config.wTrack or 0.5) - 0.3)
+            arcRef(platformZ)(function(l) return l - 0.3 end)((isTrack and -0.5 * config.wTrack or -0.5) + 0.3),
+            arcRef(platformZ)(function(l) return l - 0.3 end)((isTrack and 0.5 * config.wTrack or 0.5) - 0.3)
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #li), li, ri)(function(i, li, ri)
                 local lc, rc = retriveBiLatCoords(config.fencesLength, equalizeArcs(li, ri))
                 local c = isLeft and lc or rc
                 return {
-                    func.map(il(c), function(ic)
+                    pipe.new * il(c)
+                    * pipe.filter(filter)
+                    * pipe.map(function(ic)
                         local vec = ic.i - ic.s
                         return station.newModel(config.fencesModel[1],
                             coor.rotZ(((not isLeft and i == 1) or (isLeft and i ~= 1)) and 0 or pi),
@@ -356,7 +359,9 @@ ust.generateFences = function(fitModel, config)
                             quat.byVec(coor.xyz(config.fencesLength, 0, 0), vec):mRot(),
                             coor.trans(ic.s:avg(ic.i) + (isTrack and coor.xyz(0, 0, -platformZ) or coor.o)))
                     end),
-                    func.map(c, function(ic)
+                    pipe.new * c
+                    * pipe.filter(filter)
+                    * pipe.map(function(ic)
                         return station.newModel(config.fencesModel[2],
                             coor.rotZ(0.5 * pi),
                             coor.rotZ(li:rad(ic)),
@@ -371,16 +376,9 @@ end
 ust.generateModels = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
-    
-    local edgeBuilder = function(isLeftmost, isRightmost, c)
-        local platformEdgeO = pipe.new * pipe.rep(c - 2)("platform_edge") / "platform_corner"
-        return platformEdgeO, platformEdgeO
-    end
-    -- local edgeBuilder = config.edgeBuilder(config)
-    return function(arcL, arcR, isMLMR, noEquipement)
-        local isLeftmost = (isMLMR and isMLMR < 0) and true or false
-        local isRightmost = (isMLMR and isMLMR > 0) and true or false
-        local noEquipement = noEquipement or false
+
+    return function(arcL, arcR, edgeBuilder)
+        local edgeBuilder = edgeBuilder or function(platformEdgeO, _, _) return platformEdgeO, platformEdgeO end
         local baseL, baseR = arcL(platformZ), arcR(platformZ)
         local baseRL, baseRR = baseL(function(l) return l * config.roofLength end), baseR(function(l) return l * config.roofLength end)
         local l, r = baseL()(-0.5), baseR()(0.5)
@@ -393,11 +391,11 @@ ust.generateModels = function(fitModel, config)
                 local lc, rc, lci, rci = retriveBiLatCoords(5, equalizeArcs(l, r, li, ri))
                 local platformSurface = pipe.new
                     * pipe.rep(#lci - 2)("platform_surface")
-                    * pipe.mapi(function(p, i) return (i == (#lci > 5 and 4 or 2) or i == floor(#lci * 0.5) + 4) and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
+                    * pipe.mapi(function(p, i) return (i == (#lci > 5 and 4 or 2) or i == floor(#lci * 0.5) + 4) and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
                 
-                
-                local platformEdgeL, platformEdgeR = edgeBuilder(isLeftmost, isRightmost, #lci, i)
+                local platformEdgeO = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
+                local platformEdgeL, platformEdgeR = edgeBuilder(platformEdgeO, #lci, i)
                 
                 return pipe.mapn(platformEdgeL, platformEdgeR, platformSurface, il(lc), il(lci), il(rci), il(rc))
                     (function(el, er, s, lc, lic, ric, rc)
@@ -415,9 +413,7 @@ ust.generateModels = function(fitModel, config)
                     end)
             end)
         
-        local chairs = noEquipement
-            and {}
-            or pipe.mapn(func.seq(1, #lp), l, r)
+        local chairs = pipe.mapn(func.seq(1, #lp), l, r)
             (function(i, l, r)
                 local lci, rci = retriveBiLatCoords(10, equalizeArcs(l, r))
                 return pipe.mapn(func.seq(2, #lci - 1), func.range(lci, 2, #lci - 1), func.range(rci, 2, #rci - 1))
