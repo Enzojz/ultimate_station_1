@@ -393,7 +393,7 @@ ust.generateModels = function(fitModel, config)
                 local lc, rc, lci, rci = retriveBiLatCoords(5, equalizeArcs(l, r, li, ri))
                 local platformSurface = pipe.new
                     * pipe.rep(#lci - 2)("platform_surface")
-                    * pipe.mapi(function(p, i) return (i - 4) % (floor(#lci * 0.5)) == 0 and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
+                    * pipe.mapi(function(p, i) return (i == (#lci > 5 and 4 or 2) or i == floor(#lci * 0.5) + 4) and (i ~= 4 or not noEquipement) and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
                 
                 

@@ -132,6 +132,20 @@ function pipe.mapn(...)
     end
 end
 
+function pipe.mapx(...)
+    local ls = pipe.new * {...}
+    return function(fun)
+        return function(l)
+            local result = {}
+            for i = 1, #l do
+                params = ls * pipe.map(pipe.select(i)) 
+                result[i] = fun(l[i], table.unpack(params))
+            end
+            return result
+        end
+    end
+end
+
 
 function pipe.range(from, to)
     return function(ls)
@@ -224,7 +238,7 @@ end
 
 function pipe.select(name, def)
     return function(el)
-        return el[name] or def
+        return (el[name] == nil) and def or el[name]
     end
 end
 
