@@ -394,22 +394,62 @@ ust.generateModels = function(fitModel, config)
                     * pipe.mapi(function(p, i) return (i == (#lci > 5 and 4 or 2) or i == floor(#lci * 0.5) + 4) and "platform_stair" or "platform_surface" end)
                     / "platform_extremity"
                 
+                local platformSurfaceEx = pipe.new
+                    * pipe.rep(#lci - 2)("platform_surface")
+                    / "platform_extremity"
+
                 local platformEdgeO = pipe.new * pipe.rep(#lci - 2)("platform_edge") / "platform_corner"
                 local platformEdgeL, platformEdgeR = edgeBuilder(platformEdgeO, #lci, i)
                 
-                return pipe.mapn(platformEdgeL, platformEdgeR, platformSurface, il(lc), il(lci), il(rci), il(rc))
-                    (function(el, er, s, lc, lic, ric, rc)
+                return pipe.mapn(platformEdgeL, platformEdgeR, platformSurface, platformSurfaceEx, il(lc), il(lci), il(rci), il(rc))
+                    (function(el, er, s, sx, lc, lic, ric, rc)
                         local sizeL = assembleSize(lc, lic)
                         local sizeR = assembleSize(ric, rc)
                         local sizeS = assembleSize(lic, ric)
-                        return {
-                            station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, false, false)),
-                            station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, true, true)),
-                            station.newModel(el .. "_br.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, false, false)),
-                            station.newModel(el .. "_tl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, true, true)),
-                            station.newModel(er .. "_bl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, false, true)),
-                            station.newModel(er .. "_tr.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, true, false))
-                        }
+                        
+                        local surfaces = pipe.exec * function()
+                            local vecs = {
+                                top = sizeS.rt - sizeS.lt,
+                                bottom = sizeS.rb - sizeS.lb
+                            }
+                            if (vecs.top:length() < 8 and vecs.bottom:length() < 8) then
+                                return pipe.new
+                                / station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, false, false))
+                                / station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, true, true))
+                            else
+                                local sizeS1 = {
+                                    lb = sizeS.lb,
+                                    lt = sizeS.lt,
+                                    rb = sizeS.lb + vecs.bottom / 3,
+                                    rt = sizeS.lt + vecs.top / 3,
+                                }
+                                local sizeS2 = {
+                                    lb = sizeS1.rb,
+                                    lt = sizeS1.rt,
+                                    rb = sizeS1.rb + vecs.bottom / 3,
+                                    rt = sizeS1.rt + vecs.top / 3,
+                                }
+                                local sizeS3 = {
+                                    lb = sizeS2.rb,
+                                    lt = sizeS2.rt,
+                                    rb = sizeS.rb,
+                                    rt = sizeS.rt,
+                                }
+                                return pipe.new
+                                / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS1, false, false))
+                                / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS1, true, true))
+                                / station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, false, false))
+                                / station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, true, true))
+                                / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS3, false, false))
+                                / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS3, true, true))
+                            end
+                        end
+
+                        return surfaces 
+                            / station.newModel(el .. "_br.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, false, false))
+                            / station.newModel(el .. "_tl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, true, true))
+                            / station.newModel(er .. "_bl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, false, true))
+                            / station.newModel(er .. "_tr.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, true, false))
                     end)
             end)
         
@@ -422,7 +462,7 @@ ust.generateModels = function(fitModel, config)
                         (j == 3 or (j % 3 == 0 and (j - 3) % 6 == 0) or (j - 3) % (floor(#lci * 0.5)) == 0) and {}
                             or {
                                 station.newModel(j % 3 ~= 0 and "platform_chair.mdl" or "platform_trash.mdl",
-                                    quat.byVec(coor.xyz(0, i == 1 and 1 or -1, 0), l:tangent(l:rad(lc))):mRot(),
+                                    quat.byVec(coor.xyz(0, i == 1 and 1 or -1, 0), l:tangent(l:rad(lc)):avg(r:tangent(r:rad(rc)))):mRot(),
                                     coor.trans(lc:avg(rc)))
                             }
                     end)
