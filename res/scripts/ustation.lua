@@ -340,7 +340,7 @@ end
 ust.generateFences = function(fitModel, config)
     local platformZ = config.hPlatform + 0.53
     return function(arcRef, isLeft, isTrack, filter)
-        local filter = filter(isLeft, isTrack) or function(_) return true end
+        local filter = filter and filter(isLeft, isTrack) or function(_) return true end
         local li, ri =
             arcRef(platformZ)(function(l) return l - 0.3 end)((isTrack and -0.5 * config.wTrack or -0.5) + 0.3),
             arcRef(platformZ)(function(l) return l - 0.3 end)((isTrack and 0.5 * config.wTrack or 0.5) - 0.3)

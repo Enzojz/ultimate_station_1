@@ -1234,7 +1234,21 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         ) end
     end
     
-    local entryConfig = func.with(config.entries, {
+    local isLeftTrack = #allArcs[1] == 1
+    local isRightTrack = #allArcs[#allArcs] == 1
+
+    local entryConfig = {
+        main = isLeftTrack and { pos = false, model = false} or config.entries.main,
+        street = {
+            func.mapi(config.entries.street[1], function(t, i) return t and not (mainBuilding and params.entryPos + 1 == i) and not isLeftTrack end),
+            func.mapi(config.entries.street[2], function(t, i) return t and not isRightTrack end),
+        },
+        underground = {
+            func.mapi(config.entries.underground[1], function(t, i) return 
+                (t or (isLeftTrack and config.entries.street[1][i]))
+                and not (mainBuilding and params.entryPos + 1 == i) end),
+            func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
+        },
         allArcs = allArcs,
         arcCoords = pipe.exec * function()
             local refZ = config.hPlatform + 0.53
@@ -1258,8 +1272,8 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     }
                 end)
         end
-    })
-    
+    }
+
     local entries = pipe.new
         / buildEntry(config, entryConfig)
         / buildUndergroundEntry(config, entryConfig)
@@ -1359,11 +1373,11 @@ local updateFn = function()
                 model = mainBuilding,
             },
             street = {
-                func.mapi({params.entryAType == 1, params.entryBType == 1, params.entryCType == 1}, function(t, i) return t and not (mainBuilding and params.entryPos + 1 == i) end),
+                {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
                 {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1}
             },
             underground = {
-                func.mapi({params.entryAType == 0, params.entryBType == 0, params.entryCType == 0}, function(t, i) return t and not (mainBuilding and params.entryPos + 1 == i) end),
+                {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
                 {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0}
             }
         }
@@ -1387,7 +1401,7 @@ local updateFn = function()
                     varModelWidth = params.varModelWidth + 1,
                     wTrack = 5,
                     roofLength = roofLength,
-                    buildingParams = buildingParamsList[params.entrySize + 1],
+                    buildingParams = buildingParamsList[params.entrySize],
                     slope = slope,
                     fencesModel = fencesModel,
                     fencesLength = fencesLength,
