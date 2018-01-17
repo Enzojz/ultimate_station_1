@@ -424,7 +424,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         return result * pipe.sort(function(l, r) return l.i < r.i end) * pipe.map(pipe.select("a"))
                     else
                         local posPct = abs(t.i - middlePos) / (#rightGroup)
-                        local isVar = posPct > config.varNbUnaffected
+                        local isVar = posPct >= config.varNbUnaffected
                         local lengthPct = isVar and lengthFn(posPct) or 1
                         local offsetPct = isVar and -posPct * config.yOffsetPlatform or 0
                         if t.t then
@@ -441,7 +441,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                                 rA - pW, oA, rB - pW, oB, true)(...)
                             else
                                 local pWe = isVar and widthFn(posPct) or pW
-                                local r, o, a = platformArcGen(rA, oA, rB, oB, lengthPct, offsetPct, pWe, true)
+                                local rA, oA, rB, oB, a = platformArcGen(rA, oA, rB, oB, lengthPct, offsetPct, pWe, true)
                                 return arcGen(result / {i = t.i, a = a},
                                     rA, oA, rB, oB, true)(...)
                             end
@@ -453,7 +453,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         return arcGen(result, initDrA[#initDrA], initXA, initDrB[#initDrB], initXB, true)(table.unpack(rightGroup))
                     else
                         local posPct = abs(t.i - middlePos) / (#leftGroup)
-                        local isVar = posPct > config.varNbUnaffected
+                        local isVar = posPct >= config.varNbUnaffected
                         local lengthPct = isVar and lengthFn(posPct) or 1
                         local offsetPct = isVar and posPct * config.yOffsetPlatform or 0
                         if t.t then
@@ -470,7 +470,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                                 rA + pW, oA, rB + pW, oB)(...)
                             else
                                 local pWe = isVar and widthFn(posPct) or pW
-                                local r, o, a = platformArcGen(rA, oA, rB, oB, lengthPct, offsetPct, pWe, false)
+                                local rA, oA, rB, oB, a = platformArcGen(rA, oA, rB, oB, lengthPct, offsetPct, pWe, false)
                                 return arcGen(result / {i = t.i, a = a},
                                     rA, oA, rB, oB)(...)
                             end
@@ -515,6 +515,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local isLeftTrack = #allArcs[1] == 1
     local isRightTrack = #allArcs[#allArcs] == 1
     
+
     local entryConfig = {
         main = isLeftTrack and {pos = false, model = false} or config.entries.main,
         street = {
