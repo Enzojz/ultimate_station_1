@@ -123,7 +123,7 @@ local function ungroup(fst, ...)
                 return ungroup(table.unpack(f))(table.unpack(l))(
                     result /
                     (fst * pipe.range(2, #fst) * pipe.rev() + {fst[1]:avg(lst[1])} + lst * pipe.range(2, #lst)),
-                    #fst
+                    floor((#fst + #lst) * 0.5)
             )
             else
                 return result / c
