@@ -596,7 +596,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(gr[2][1], gr[2][2], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                models + generateModels(gr[2][1], gr[2][2])
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
@@ -616,12 +616,12 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 ...)
         elseif (#gr == 2 and #gr[1] == 2 and #gr[2] == 1) then
             edges = generateEdges(edges, false, gr[2][1])
-            terminasls, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1][1], gr[1][2], {false, true})
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1][1], gr[1][2], {false, true})
             return build(edges,
                 terminals,
                 terminalsGroup,
                 models
-                + generateModels(gr[1][1], gr[1][2])
+                + generateModels(gr[1][1], gr[1][2], entries[3].edgeBuilder(isLeftmost, isRightmost))
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1][1], gr[1][2]),
