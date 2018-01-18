@@ -536,7 +536,6 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local isLeftTrack = #allArcs[1] == 1
     local isRightTrack = #allArcs[#allArcs] == 1
     
-    
     local entryConfig = {
         main = isLeftTrack and {pos = false, model = false} or config.entries.main,
         street = {
@@ -597,7 +596,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 edges,
                 terminals,
                 terminalsGroup,
-                models + generateModels(gr[2][1], gr[2][2])
+                models + generateModels(gr[2][1], gr[2][2], entries[3].edgeBuilder(isLeftmost, isRightmost))
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
@@ -610,9 +609,9 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 terminals,
                 terminalsGroup,
                 models
-                + generateModels(gr[2][1], gr[2][2])
-                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true) or {})
-                + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false) or {}),
+                + generateModels(gr[2][1], gr[2][2], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true, entries[3].fenceFilter) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[2][1], gr[2][2]),
                 ...)
         elseif (#gr == 2 and #gr[1] == 2 and #gr[2] == 1) then
@@ -623,8 +622,8 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 terminalsGroup,
                 models
                 + generateModels(gr[1][1], gr[1][2])
-                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false) or {})
-                + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true) or {}),
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1][1], gr[1][2]),
                 ...)
         else

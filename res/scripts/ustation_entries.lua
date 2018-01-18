@@ -325,14 +325,14 @@ local buildSecondEntrySlope = function(config, entryConfig)
     end
 
     local edgeBuilder = function(isLeftmost, isRightmost)
-        return function(platformEdgeO, c, q)
+        return function(platformEdgeO, c)
             local fc = floor(c * 0.5)
 
             local enabler = func.map({
-                q == 1 and {entryConfig.street[1][1] and fc + 4} or {entryConfig.street[1][2] and 1, entryConfig.street[1][3] and fc + 4},
-                q == 1 and {entryConfig.street[2][1] and fc + 4} or {entryConfig.street[2][2] and 1, entryConfig.street[2][3] and fc + 4},
+                {entryConfig.street[1][1] and c - fc - 4, entryConfig.street[1][2] and c, entryConfig.street[1][3] and c + fc + 3},
+                {entryConfig.street[2][1] and c - fc - 4, entryConfig.street[2][2] and c, entryConfig.street[2][3] and c + fc + 3},
             }, pipe.filter(pipe.noop()))
-
+            
             local platformEdgeL = isLeftmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[1], i) and "platform_edge_open" or e end) or platformEdgeO
             local platformEdgeR = isRightmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[2], i) and "platform_edge_open" or e end) or platformEdgeO
             return platformEdgeL, platformEdgeR
