@@ -1,0 +1,690 @@
+local paramsutil = require "paramsutil"
+local func = require "ustation/func"
+local coor = require "ustation/coor"
+local line = require "ustation/coorline"
+local trackEdge = require "ustation/trackedge"
+local station = require "ustation/stationlib"
+local quat = require "ustation/quaternion"
+local pipe = require "ustation/pipe"
+local ust = require "ustation"
+local uste = require "ustation_entries"
+
+local dump = require "datadumper"
+
+local ma = math
+
+local abs = ma.abs
+local ceil = ma.ceil
+local floor = ma.floor
+local pi = ma.pi
+local atan = ma.atan
+local pow = ma.pow
+local cos = ma.cos
+local sin = ma.sin
+local min = ma.min
+local e = ma.exp(1)
+local log = ma.log
+local log10 = log(10)
+
+local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
+local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
+local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250, 1380}
+local wPlatformList = {4, 5, 6, 7, 8, 10, 12, 14, 15}
+local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
+local extWidthList = {100, 75, 50, 25, 10}
+local extLengthList = {100, 90, 80, 75, 70, 65, 60, 55, 50, 40}
+local varUnaffectedList = {0, 10, 25, 50, 75, 90}
+local yOffsetList = {0, 10, 20, 30, 40, 50, 60}
+
+local trackLengths = {40, 60, 80, 100, 140, 160, 200, 240, 320, 400, 480, 500, 550, 850, 1050, 1750}
+local trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20}
+local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
+
+local fencesLengthList = {2, 2.5, 2}
+local buildingList, buildingParamsList = table.unpack(require("ustation_building"))
+
+local function params()
+    local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
+    return {
+        {
+            key = "nbTracksA",
+            name = _("Part A") .. "\n\n" .._("Number of tracks"),
+            values = func.map(trackNumberList, tostring),
+        },
+        {
+            key = "lengthA",
+            name = _("Platform length") .. "(m)",
+            values = func.map(trackLengths, tostring),
+            defaultIndex = 5
+        },
+        {
+            key = "signA",
+            name = "",
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "radiusA",
+            name = _("Radius") .. "(m)",
+            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
+            defaultIndex = 0
+        },
+        
+        {
+            key = "nbTracksB",
+            name = sp .. "\n" .. _("Part B") .. "\n\n" .._("Number of tracks"),
+            values = func.map(trackNumberList, tostring),
+        },
+        {
+            key = "lengthB",
+            name = _("Platform length") .. "(m)",
+            values = func.map(trackLengths, tostring),
+            defaultIndex = 5
+        },
+        {
+            key = "signB",
+            name = "",
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "radiusB",
+            name = _("Radius") .. "(m)",
+            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
+            defaultIndex = 0
+        },
+        paramsutil.makeTrackTypeParam(),
+        paramsutil.makeTrackCatenaryParam(),
+        {
+            key = "trackLayout",
+            name = _("Track Layout"),
+            values = func.map({1, 2, 3, 4}, tostring),
+            defaultIndex = 1
+        },
+        {
+            key = "nbTransitTracks",
+            name = sp .. "\n" .. _("Transit Tracks"),
+            values = func.map({0, 1, 2, 3, 4}, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "posTransitTracks",
+            name = _("Position"),
+            values = {_("Left"), _("Centre"), _("Sides"), _("Right")},
+            defaultIndex = 1
+        },
+        {
+            key = "hPlatform",
+            name = sp .. "\n" .. _("Platform") .. "\n\n" .. _("Height") .. "(mm)",
+            values = func.map(hPlatformList, tostring),
+            defaultIndex = 3
+        },
+        {
+            key = "wPlatform",
+            name = _("Width") .. "(m)",
+            values = func.map(wPlatformList, tostring),
+            defaultIndex = 1
+        },
+        {
+            key = "roofLength",
+            name = _("Roof length") .. "(%)",
+            values = func.map(roofLengthList, tostring),
+            defaultIndex = 3
+        },
+        {
+            key = "wExtPlatform",
+            name = sp .. "\n" .. _("Platform Variation") .. "\n",
+            values = func.map(extWidthList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "varModelWidth",
+            name = _("Narrowest Extremity Width") .. "(%)",
+            values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussain"), _("Gaussain 2")},
+            defaultIndex = 1
+        },
+        {
+            key = "lExtPlatform",
+            name = "",
+            values = func.map(extLengthList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "varModelLength",
+            name = _("Shortest Platform") .. "(%)",
+            values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussain"), _("Gaussain 2")},
+            defaultIndex = 1
+        },
+        {
+            key = "yOffsetPlatformSign",
+            name = "",
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "yOffsetPlatform",
+            name = _("Offset Platform Max.") .. "(%)",
+            values = func.map(yOffsetList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "varRefType",
+            name = "",
+            values = {_("Track"), _("Platform")},
+            defaultIndex = 1
+        },
+        {
+            key = "varRefPos",
+            name = _("Reference"),
+            values = {_("Left"), _("Center"), _("Right")},
+            defaultIndex = 0
+        },
+        {
+            key = "varNbUnaffected",
+            name = "\n" .. _("Unaffected platforms") .. "(%)",
+            values = func.map(varUnaffectedList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "slopeSign",
+            name = sp,
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "slope",
+            name = _("Slope") .. "(‰)",
+            values = func.map(slopeList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "entrySize",
+            name = sp .. "\n" .. _("Main Entry"),
+            values = {"None", "S", "M", "L", "XL"},
+            defaultIndex = 2
+        },
+        {
+            key = "entryPos",
+            name = _("Position"),
+            values = {_("A"), _("Default"), _("B")},
+            defaultIndex = 1
+        },
+        {
+            key = "entryAType",
+            name = _("Second Entry A Type"),
+            values = {_("Underground"), _("Surface"), _("None")},
+            defaultIndex = 1,
+        },
+        {
+            key = "entryBType",
+            name = _("Second Entry B Type"),
+            values = {_("Underground"), _("Surface"), _("None")},
+            defaultIndex = 1,
+        },
+        {
+            key = "entryCType",
+            name = _("Second Entry C Type"),
+            values = {_("Underground"), _("Surface"), _("None")},
+            defaultIndex = 1,
+        },
+        {
+            key = "fencesPos",
+            name = sp .. "\n" .. _("Fences"),
+            values = {"None", "A", "B", "A+B"},
+            defaultIndex = 0
+        },
+        {
+            key = "fencesStyle",
+            name = _("Fences Style"),
+            values = {"A", "B", "C"},
+            defaultIndex = 0
+        },
+        {
+            key = "fencesColor",
+            name = _("Fences Color"),
+            values = {"White", "Green", "Yellow"},
+            defaultIndex = 0
+        }
+    }
+end
+
+local function defaultParams(param)
+    local function limiter(d, u)
+        return function(v) return v and v < u and v or d end
+    end
+    param.trackType = param.trackType or 0
+    param.catenary = param.catenary or 0
+    
+    func.forEach(
+        func.filter(params({}), function(p) return p.key ~= "tramTrack" end),
+        function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
+end
+
+
+local function trackGrouping(result, ar1, ar2, ar3, ...)
+    if (ar1 == nil) then return table.unpack(result) end
+    
+    if (ar1 and ar2 and ar3) then
+        if #ar1 == 1 and #ar2 == 2 and #ar3 == 1 then
+            return trackGrouping(result / {ar1, ar2, ar3}, ...)
+        end
+    end
+    
+    if (ar1 and ar2) then
+        if (#ar1 + #ar2 == 3) then
+            return trackGrouping(result / {ar1, ar2}, ar3, ...)
+        end
+    end
+    
+    return trackGrouping(result / {ar1}, ar2, ar3, ...)
+end
+
+local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst)
+    local pW = config.wPlatform
+    local tW = config.wTrack
+    local bandWidth = 0.8
+    local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
+    local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
+    local generateEdges = ust.generateEdges
+    local generateModels = ust.generateModels(fitModel, config)
+    local generateFences = ust.generateFences(fitModel, config)
+    local generateTerminals = ust.generateTerminals(config)
+    local generateTerrain = ust.generateTerrain(config)
+    
+    local function preBuild(nbTracks, result)
+        local p = false
+        local t = true
+        local transitSeq = pipe.new * pipe.rep(config.nbTransitTracks)(t)
+        if (nbTracks == 0) then
+            if (#transitSeq > 0) then
+                if (config.posTransitTracks == -2) then
+                    result = transitSeq + result
+                elseif (config.posTransitTracks == 1) then
+                    result = result + transitSeq
+                elseif (config.posTransitTracks == 0) then
+                    result = pipe.new * pipe.rep(ceil(config.nbTransitTracks * 0.5))(t) + result + pipe.new * pipe.rep(floor(config.nbTransitTracks * 0.5))(t)
+                else
+                    local idx = result * pipe.zip(func.seq(1, #result), {"t", "i"}) * pipe.filter(function(p) return not p.t end) * pipe.map(pipe.select("i"))
+                    result = result * pipe.range(1, idx[ceil(#idx * 0.5)]) + transitSeq + result * pipe.range(idx[ceil(#idx * 0.5)] + 1, #result)
+                end
+            end
+            return result
+        elseif (nbTracks == totalTracks and (not ignoreFst or totalTracks == 1)) then
+            return preBuild(nbTracks - 1, result / p / t)
+        elseif (nbTracks == 1 and ignoreLst) then
+            return preBuild(nbTracks - 1, result / p / t)
+        elseif (nbTracks == 1 and not ignoreLst) then
+            return preBuild(nbTracks - 1, result / t / p)
+        else
+            return preBuild(nbTracks - 2, result / t / p / t)
+        end
+    end
+    
+    local ptList = preBuild(totalTracks, pipe.new)
+    local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})
+    local refList = ptListI
+        * pipe.filter(function(x) return config.varRefIsTrack and x.t or not x.t end)
+        * pipe.map(pipe.select("i"))
+        * pipe.sort(function(x, y) return x < y end)
+    local middlePos =
+        config.varRefPos < 0 and refList[1]
+        or config.varRefPos > 0 and refList[#refList]
+        or #refList % 2 == 1 and refList[(#refList + 1) * 0.5] or refList[#refList * 0.5]
+    
+    local leftGroup = ptListI * pipe.filter(function(p) return p.i < middlePos end) * pipe.rev()
+    local middleGroup = ptListI * pipe.filter(function(p) return p.i == middlePos end)
+    local rightGroup = ptListI * pipe.filter(function(p) return p.i > middlePos end)
+    
+    local function platformArcGen(r, o, lPct, oPct, pWe, isRight)
+        local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
+        local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
+        local inner = arcPacker(rInner, o, lPct, oPct)
+        local li, ls = table.unpack(inner()()())
+        local ri, rs = table.unpack(arcPacker(rOuter, o, lPct, oPct * (rOuter / rInner))()()())
+        local mlpt = li:pt(li.inf)
+        local mrpt = ri:pt(ri.inf)
+        
+        local mvec = (mrpt - mlpt):normalized()
+        local f = mvec:dot(mlpt - li.o) > 0 and 1 or -1
+        
+        local elpt = li:pt(li.sup)
+        local erpt = (elpt - li.o):normalized() * f * pWe + elpt
+        
+        local mln = line.byVecPt(mvec, mrpt)
+        local pln = line.byVecPt(mvec .. coor.rotZ(pi * 0.5), erpt)
+        local xpt = (mln - pln):withZ(0)
+        
+        local rvec = (xpt - mrpt):dot(xpt - li.o) * rInner
+        
+        local lenP2 = (xpt - erpt):length2()
+        local lenT = (xpt - mrpt):length()
+        local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1)
+        
+        local o = mrpt + (xpt - mrpt):normalized() * abs(r)
+        
+        return r + 0.5 * tW * (isRight and 1 or -1), o, {
+            isRight and inner or arcPacker(r, o, lPct, oPct * (r / rInner)),
+            isRight and arcPacker(r, o, lPct, oPct * (r / rInner)) or inner
+        }
+    end
+    
+    local function generateArcs(init, initDr, initX)
+        local varFn = function(base) return
+            {
+                function(_) return 1 end,
+                function(x) return x end,
+                function(x) return x * x end,
+                function(x) return pow(x, 4) end,
+                function(x) return 1 - pow(e, -x * x * 4.5) end,
+                function(x) return pow(e, -pow(6 * x - 3, 2) * 0.5) end,
+            }
+        end
+        
+        local lengthFn = function(posPct) return 1 - (1 - config.lExtPlatform) * varFn(config.lExtPlatform)[config.varModelLength](posPct) end
+        local widthFn = function(posPct) return (1 - (1 - config.wExtPlatform) * varFn(config.wExtPlatform)[config.varModelWidth](posPct)) * (pW - bandWidth * 2) + bandWidth * 2 end
+        
+        local function arcGen(result, r, o, isRight)
+            return isRight
+                and function(t, ...)
+                    if t == nil then
+                        return result * pipe.sort(function(l, r) return l.i < r.i end) * pipe.map(pipe.select("a"))
+                    else
+                        local posPct = abs(t.i - middlePos) / (#rightGroup)
+                        local isVar = posPct > config.varNbUnaffected
+                        local lengthPct = isVar and lengthFn(posPct) or 1
+                        local offsetPct = isVar and -posPct * config.yOffsetPlatform or 0
+                        if t.t then
+                            return arcGen(result / {i = t.i, a = {arcPacker(r - tW, o, isVar and lengthPct or 1, offsetPct)}},
+                                r - tW, o, true)(...)
+                        else
+                            if (not isVar or (config.wExtPlatform == 1)) then
+                                return arcGen(result / {
+                                    i = t.i,
+                                    a = {
+                                        arcPacker(r - (0.5 * tW), o, lengthPct, offsetPct),
+                                        arcPacker(r - (0.5 * tW + pW), o, lengthPct, offsetPct)
+                                    }},
+                                r - pW, o, true)(...)
+                            else
+                                local pWe = isVar and widthFn(posPct) or pW
+                                local r, o, a = platformArcGen(r, o, lengthPct, offsetPct, pWe, true)
+                                return arcGen(result / {i = t.i, a = a},
+                                    r, o, true)(...)
+                            end
+                        end
+                    end
+                end
+                or function(t, ...)
+                    if t == nil then
+                        return arcGen(result, initDr[#initDr], initX, true)(table.unpack(rightGroup))
+                    else
+                        local posPct = abs(t.i - middlePos) / (#leftGroup)
+                        local isVar = posPct > config.varNbUnaffected
+                        local lengthPct = isVar and lengthFn(posPct) or 1
+                        local offsetPct = isVar and posPct * config.yOffsetPlatform or 0
+                        if t.t then
+                            return arcGen(result / {i = t.i, a = {arcPacker(r + tW, o, lengthPct, offsetPct)}},
+                                r + tW, o)(...)
+                        else
+                            if (not isVar or (config.wExtPlatform == 1)) then
+                                return arcGen(result / {
+                                    i = t.i,
+                                    a = {
+                                        arcPacker(r + (0.5 * tW + pW), o, lengthPct, offsetPct),
+                                        arcPacker(r + (0.5 * tW), o, lengthPct, offsetPct)
+                                    }},
+                                r + pW, o)(...)
+                            else
+                                local pWe = isVar and widthFn(posPct) or pW
+                                local r, o, a = platformArcGen(r, o, lengthPct, offsetPct, pWe, false)
+                                return arcGen(result / {i = t.i, a = a},
+                                    r, o)(...)
+                            end
+                        end
+                    end
+                end
+        end
+        local rs = arcGen(pipe.new / init, initDr[1], initX)(table.unpack(leftGroup))
+        return rs
+    end
+    
+    local allArcs = pipe.exec * function()
+        local o = coor.xyz(config.r, 0, 0)
+        if table.unpack(middleGroup).t then
+            return generateArcs(
+                {
+                    i = middlePos,
+                    a = {arcPacker(config.r, o)}
+                },
+                {config.r}, o
+        ) else
+            return generateArcs(
+                {
+                    i = middlePos,
+                    a = {
+                        arcPacker(config.r + 0.5 * pW, o),
+                        arcPacker(config.r - 0.5 * pW, o)
+                    }
+                },
+                {
+                    config.r - (-0.5 * pW + 0.5 * tW),
+                    config.r - (0.5 * pW - 0.5 * tW)
+                }, o
+        ) end
+    end
+    
+    local isLeftTrack = #allArcs[1] == 1
+    local isRightTrack = #allArcs[#allArcs] == 1
+
+    local entryConfig = {
+        main = isLeftTrack and { pos = false, model = false} or config.entries.main,
+        street = {
+            func.mapi(config.entries.street[1], function(t, i) return t and not (config.entries.main.model and config.entries.main.pos + 2 == i) and not isLeftTrack end),
+            func.mapi(config.entries.street[2], function(t, i) return t and not isRightTrack end),
+        },
+        underground = {
+            func.mapi(config.entries.underground[1], function(t, i) return 
+                (t or (isLeftTrack and config.entries.street[1][i]))
+                and not (config.entries.main.model and config.entries.main.pos + 2 == i) end),
+            func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
+        },
+        allArcs = allArcs,
+        arcCoords = pipe.exec * function()
+            local refZ = config.hPlatform + 0.53
+            return allArcs
+                * pipe.filter(function(a) return #a == 2 end)
+                * pipe.map(function(p)
+                    local arcL, arcR = table.unpack(p)
+                    local l, r = arcL(refZ)(function(l) return l - 3 end)(1), arcR(refZ)(function(l) return l - 3 end)(-1)
+                    local ls, rs = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
+                    local lsu, rsu = arcL(refZ)()(0.3), arcR(refZ)()(-0.3)
+                    local la, ra = arcL(refZ)()(-4.25), arcR(refZ)()(4.25)
+                    local lc, rc, c = ust.bitLatCoords(10)(l, r)
+                    local lsc, rsc, lac, rac, lsuc, rsuc, sc = ust.bitLatCoords(5)(ls, rs, la, ra, lsu, rsu)
+                    return {
+                        lane = {l = l, r = r, lc = lc, rc = rc, c = c},
+                        platform = {l = ls, r = rs, lc = lsc, rc = rsc, c = sc},
+                        access = {l = la, r = ra, lc = lac, rc = rac, c = sc},
+                        surface = {l = lsu, r = rsu, lc = lsuc, rc = rsuc, c = sc},
+                        hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 2 - floor(c * 0.5) > 0),
+                        hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 2 + floor(c * 0.5) <= #lc)
+                    }
+                end)
+        end
+    }
+
+    local entries = pipe.new
+        / uste.buildEntry(config, entryConfig)
+        / uste.buildUndergroundEntry(config, entryConfig)
+        / uste.buildSecondEntrySlope(config, entryConfig)
+    
+    local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
+        local isLeftmost = #models == 0
+        local isRightmost = #{...} == 0
+        if (gr == nil) then
+            local buildEntryPath = entries * pipe.map(pipe.select("access")) * pipe.flatten()
+            local buildFace = entries * pipe.map(pipe.select("terrain")) * pipe.flatten()
+            local buildAccessRoad = entries * pipe.map(pipe.select("street")) * pipe.flatten()
+            local buildLanes = entries * pipe.map(pipe.select("lane")) * pipe.flatten()
+            
+            return edges, buildAccessRoad, terminals, terminalsGroup,
+                models + buildEntryPath + buildLanes,
+                terrain + buildFace
+        elseif (#gr == 3) then
+            edges = generateEdges(edges, true, gr[1][1])
+            edges = generateEdges(edges, false, gr[3][1])
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2][1], gr[2][2], {true, true})
+            return build(
+                edges,
+                terminals,
+                terminalsGroup,
+                models + generateModels(gr[2][1], gr[2][2])
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true) or {}),
+                terrain + generateTerrain(gr[2][1], gr[2][2]),
+                ...)
+        elseif (#gr == 2 and #gr[1] == 1 and #gr[2] == 2) then
+            edges = generateEdges(edges, true, gr[1][1])
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2][1], gr[2][2], {true, false})
+            return build(
+                edges,
+                terminals,
+                terminalsGroup,
+                models
+                + generateModels(gr[2][1], gr[2][2], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true, entries[3].fenceFilter) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
+                terrain + generateTerrain(gr[2][1], gr[2][2]),
+                ...)
+        elseif (#gr == 2 and #gr[1] == 2 and #gr[2] == 1) then
+            edges = generateEdges(edges, false, gr[2][1])
+            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1][1], gr[1][2], {false, true})
+            return build(edges,
+                terminals,
+                terminalsGroup,
+                models
+                + generateModels(gr[1][1], gr[1][2], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
+                terrain + generateTerrain(gr[1][1], gr[1][2]),
+                ...)
+        else
+            edges = generateEdges(edges, false, gr[1][1])
+            return build(edges,
+                terminals,
+                terminalsGroup,
+                models,
+                terrain,
+                ...)
+        end
+    end
+    
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, trackGrouping(pipe.new, table.unpack(allArcs)))
+end
+
+local updateFn = function()
+    return function(params)
+        defaultParams(params)
+
+        local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
+        local catenary = params.catenary == 1
+        local trackBuilder = trackEdge.builder(catenary, trackType)
+        local hPlatform = hPlatformList[params.hPlatform + 1] * 0.001
+        local wPlatform = wPlatformList[params.wPlatform + 1]
+        local roofLength = roofLengthList[params.roofLength + 1] * 0.01
+        local mainBuilding = params.entrySize > 0 and buildingList[params.entrySize]
+        local fencesLength = fencesLengthList[params.fencesStyle + 1]
+        local fencesModel = {
+            "fences/" .. tostring(params.fencesColor + 1) .. "/platform_fences_" .. tostring(params.fencesStyle + 1) .. ".mdl",
+            "fences/" .. tostring(params.fencesColor + 1) .. "/platform_fences_pole_" .. tostring(params.fencesStyle + 1) .. ".mdl",
+        }
+        
+        local nbTracks = trackNumberList[params.nbTracksA + 1]
+        local radius = (rList[params.radiusA + 1] * 1000) * (params.signA == 0 and 1 or -1)
+        local slope = slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
+        
+        local length = min(trackLengths[params.lengthA + 1], abs(radius * pi * 1.5))
+        
+        local entryConfig = {
+            main = {
+                pos = false,
+                model = false,
+            },
+            street = {
+                {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
+                {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1}
+            },
+            underground = {
+                {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
+                {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0}
+            }
+        }
+        
+        local edge, streetEdge, terminals, terminalsGroup, models, terrain =
+            buildStation(nbTracks,
+                ust.arcPacker(length, slope),
+                {
+                    nbTransitTracks = params.nbTransitTracks,
+                    posTransitTracks = params.posTransitTracks - 2,
+                    r = radius,
+                    hPlatform = hPlatform,
+                    wPlatform = wPlatform,
+                    wExtPlatform = extWidthList[params.wExtPlatform + 1] * 0.01,
+                    lExtPlatform = extLengthList[params.lExtPlatform + 1] * 0.01,
+                    yOffsetPlatform = yOffsetList[params.yOffsetPlatform + 1] * (params.yOffsetPlatformSign == 0 and 0.01 or -0.01),
+                    varRefPos = params.varRefPos - 1,
+                    varRefIsTrack = params.varRefType == 0,
+                    varNbUnaffected = varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
+                    varModelLength = params.varModelLength + 1,
+                    varModelWidth = params.varModelWidth + 1,
+                    wTrack = 5,
+                    roofLength = roofLength,
+                    buildingParams = buildingParamsList[params.entrySize],
+                    slope = slope,
+                    fencesModel = fencesModel,
+                    fencesLength = fencesLength,
+                    leftFences = params.fencesPos == 1 or params.fencesPos == 3,
+                    rightFences = params.fencesPos == 2 or params.fencesPos == 3,
+                    entries = entryConfig
+                },
+                ({true, false, true, false})[params.trackLayout + 1],
+                (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
+        )
+        return
+            pipe.new
+            * {
+                edgeLists = pipe.new
+                / (pipe.new * {edge * station.mergeEdges} * station.prepareEdges * trackBuilder.normal())
+                + streetEdge,
+                models = terminals + models,
+                terminalGroups = terminalsGroup,
+                terrainAlignmentLists = station.mergePoly(table.unpack(terrain))(),
+                groundFaces = terrain
+                * pipe.map(pipe.select("equal"))
+                * pipe.filter(pipe.noop())
+                * pipe.flatten()
+                * pipe.map(function(f) return {
+                    {face = f, modes = {{type = "FILL", key = "industry_gravel_small_01"}}},
+                    {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
+                } end)
+                * pipe.flatten()
+            }
+    end
+end
+
+function data()
+    return {
+        type = "RAIL_STATION",
+        description = {
+            name = _("Ultimate Station"),
+            description = _("One or many tracks with fix radious and signaling spacing.")
+        },
+        availability = {
+            yearFrom = 1850,
+            yearTo = 0,
+        },
+        order = 27218,
+        params = params(),
+        updateFn = updateFn()
+    }
+end
