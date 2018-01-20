@@ -291,7 +291,7 @@ ust.generateTerminals = function(config)
     local platformZ = config.hPlatform + 0.53
     return function(edges, terminals, terminalsGroup, arcL, arcR, enablers)
         local l, r = arcL(platformZ)(function(l) return l - 3 end)(1), arcR(platformZ)(function(l) return l - 3 end)(-1)
-        local lc, rc, c = bitLatCoords(10)(l, r)
+        local lc, rc, c = bitLatCoords(5)(l, r)
         local newTerminals = pipe.new
             * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
@@ -386,7 +386,8 @@ ust.generateModels = function(fitModel, config)
         local lpi, rpi = baseRL(0.5), baseRR(-0.5)
         
         local lc, rc, lic, ric, c = bitLatCoords(5)(l, r, li, ri)
-        local lpc, rpc, lpic, rpic, pc = bitLatCoords(10)(lp, rp, lpi, rpi)
+        local lpc, rpc, lpic, rpic, pc = bitLatCoords(5)(lp, rp, lpi, rpi)
+        local lpp, rpp, ppc = bitLatCoords(10)(lp, rp)
         local lcc, rcc, cc = bitLatCoords(10)(l, r)
         
         local platformSurface = pipe.new
@@ -494,7 +495,7 @@ ust.generateModels = function(fitModel, config)
         
         local newRoof = config.roofLength == 0
             and {}
-            or pipe.mapn(roofEdge, roofSurface, il(lpc), il(lpic), il(rpic), il(rpc), func.seq(1, pc * 2 - 1))
+            or pipe.new * pipe.mapn(roofEdge, roofSurface, il(lpc), il(lpic), il(rpic), il(rpc), func.seq(1, pc * 2 - 1))
             (function(e, s, lc, lic, ric, rc, i)
                 local lc = i >= pc and lc or {s = lc.i, i = lc.s}
                 local rc = i >= pc and rc or {s = rc.i, i = rc.s}
@@ -504,19 +505,25 @@ ust.generateModels = function(fitModel, config)
                 local sizeL = assembleSize(lc, lic)
                 local sizeR = assembleSize(ric, rc)
                 local sizeS = assembleSize(lic, ric)
-                local vecPo = lc.i:avg(rc.i) - lc.s:avg(rc.s)
                 return {
-                    station.newModel(s .. "_br.mdl", tZ, fitModel(3, 10, platformZ, sizeS, false, false)),
-                    station.newModel(s .. "_tl.mdl", tZ, fitModel(3, 10, platformZ, sizeS, true, true)),
-                    station.newModel(e .. "_br.mdl", tZ, fitModel(1, 10, platformZ, sizeL, false, false)),
-                    station.newModel(e .. "_tl.mdl", tZ, fitModel(1, 10, platformZ, sizeL, true, true)),
-                    station.newModel(e .. "_br.mdl", tZ, coor.flipX(), fitModel(1, 10, platformZ, sizeR, false, true)),
-                    station.newModel(e .. "_tl.mdl", tZ, coor.flipX(), fitModel(1, 10, platformZ, sizeR, true, false)),
-                    station.newModel("platform_roof_pole.mdl", tZ,
-                        coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, i == 1 and 5 or -5, 0), vecPo):mRot(),
-                        coor.trans(lc.i:avg(rc.i, lc.s, rc.s)), coor.transZ(-platformZ))
+                    station.newModel(s .. "_br.mdl", tZ, fitModel(3, 5, platformZ, sizeS, false, false)),
+                    station.newModel(s .. "_tl.mdl", tZ, fitModel(3, 5, platformZ, sizeS, true, true)),
+                    station.newModel(e .. "_br.mdl", tZ, fitModel(1, 5, platformZ, sizeL, false, false)),
+                    station.newModel(e .. "_tl.mdl", tZ, fitModel(1, 5, platformZ, sizeL, true, true)),
+                    station.newModel(e .. "_br.mdl", tZ, coor.flipX(), fitModel(1, 5, platformZ, sizeR, false, true)),
+                    station.newModel(e .. "_tl.mdl", tZ, coor.flipX(), fitModel(1, 5, platformZ, sizeR, true, false))
                 }
             end)
+            / pipe.mapn(il(lpp), il(rpp), func.seq(1, ppc * 2 - 1))
+            (function(lc, rc, i)
+                local lc = i >= ppc and lc or {s = lc.i, i = lc.s}
+                local rc = i >= ppc and rc or {s = rc.i, i = rc.s}
+                local vecPo = lc.i:avg(rc.i) - lc.s:avg(rc.s)
+                return station.newModel("platform_roof_pole.mdl", tZ, coor.flipY(),
+                    coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, 5, 0), vecPo):mRot(),
+                    coor.trans(lc.i:avg(rc.i, lc.s, rc.s)), coor.transZ(-platformZ))
+            end)
+        
         
         return (pipe.new / newModels / newRoof / chairs) * pipe.flatten() * pipe.flatten()
     end

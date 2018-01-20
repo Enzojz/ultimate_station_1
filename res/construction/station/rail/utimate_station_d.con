@@ -559,15 +559,15 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     local ls, rs = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
                     local lsu, rsu = arcL(refZ)()(0.3), arcR(refZ)()(-0.3)
                     local la, ra = arcL(refZ)()(-4.25), arcR(refZ)()(4.25)
-                    local lc, rc, c = ust.bitLatCoords(10)(l, r)
+                    local lc, rc, c = ust.bitLatCoords(5)(l, r)
                     local lsc, rsc, lac, rac, lsuc, rsuc, sc = ust.bitLatCoords(5)(ls, rs, la, ra, lsu, rsu)
                     return {
                         lane = {l = l, r = r, lc = lc, rc = rc, c = c},
                         platform = {l = ls, r = rs, lc = lsc, rc = rsc, c = sc},
                         access = {l = la, r = ra, lc = lac, rc = rac, c = sc},
                         surface = {l = lsu, r = rsu, lc = lsuc, rc = rsuc, c = sc},
-                        hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 2 - floor(c * 0.5) > 0),
-                        hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 2 + floor(c * 0.5) <= #lc)
+                        hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
+                        hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc)
                     }
                 end)
         end

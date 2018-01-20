@@ -155,7 +155,7 @@ local buildUndergroundEntry = function(config, entryConfig)
             * pipe.filter(function(ls) return #ls > 0 end)
             * pipe.map(function(ls)
                 local underground = pipe.new
-                    / (ls[1].enabled and {
+                    / (ls[1] and ls[1].enabled and {
                         ls[1].pt,
                         ls[1].pt + (fst == 1
                         and ls[1].vec + ls[1].vec:normalized() * (-0.5)
@@ -163,7 +163,7 @@ local buildUndergroundEntry = function(config, entryConfig)
                         ls[1].vec,
                         ls[1].vec,
                     })
-                    / (ls[2].enabled and {
+                    / (ls[2] and ls[2].enabled and {
                         ls[2].pt,
                         ls[2].pt + (#allArcs == lst
                         and ls[2].vec + ls[2].vec:normalized() * (-0.5)
@@ -171,7 +171,7 @@ local buildUndergroundEntry = function(config, entryConfig)
                         ls[2].vec,
                         ls[2].vec,
                     })
-                    / ((ls[1].enabled or ls[2].enabled) and #arcCoords > 1 and
+                    / (((ls[1] and ls[1].enabled) or (ls[2] and ls[2].enabled)) and #arcCoords > 1 and
                     {
                         ls[1].pt,
                         ls[2].pt,
@@ -608,23 +608,15 @@ local buildEntry = function(config, entryConfig)
                     p = pl.c > 5 and {l = la.c + 2, p = pl.c + 4} or {l = la.c + 1, p = pl.c + 2}
                 }
                 return pipe.new
-                    / ust.unitLane(la.lc[ref.n.l], pl.lc[ref.n.p]:avg(pl.rc[ref.n.p]))
-                    / ust.unitLane(la.rc[ref.n.l], pl.lc[ref.n.p]:avg(pl.rc[ref.n.p]))
-                    / ust.unitLane(la.lc[ref.p.l], pl.lc[ref.p.p]:avg(pl.rc[ref.p.p]))
-                    / ust.unitLane(la.rc[ref.p.l], pl.lc[ref.p.p]:avg(pl.rc[ref.p.p]))
-                    / ust.unitLane(la.lc[ref.n.l - 1]:avg(la.rc[ref.n.l - 1], la.rc[ref.n.l], la.lc[ref.n.l]), pl.lc[ref.n.p]:avg(pl.rc[ref.n.p]))
-                    / ust.unitLane(la.lc[ref.p.l + 1]:avg(la.rc[ref.p.l + 1], la.rc[ref.p.l], la.lc[ref.p.l]), pl.lc[ref.p.p]:avg(pl.rc[ref.p.p]))
+                    / ust.unitLane(la.lc[ref.n.l - 2]:avg(la.rc[ref.n.l - 2], la.lc[ref.n.l - 3], la.rc[ref.n.l - 3]), pl.lc[ref.n.p]:avg(pl.rc[ref.n.p]))
+                    / ust.unitLane(la.lc[ref.p.l + 2]:avg(la.rc[ref.p.l + 2], la.lc[ref.p.l + 3], la.rc[ref.p.l + 3]), pl.lc[ref.p.p]:avg(pl.rc[ref.p.p]))
                     +
                     (p.hasLower and {
-                        ust.unitLane(la.lc[la.c - 2 - flac], pl.lc[pl.c - 4 - fplc]:avg(pl.rc[pl.c - 4 - fplc])),
-                        ust.unitLane(la.rc[la.c - 2 - flac], pl.lc[pl.c - 4 - fplc]:avg(pl.rc[pl.c - 4 - fplc])),
-                        ust.unitLane(la.lc[la.c - 3 - flac]:avg(la.rc[la.c - 3 - flac], la.rc[la.c - 2 - flac], la.lc[la.c - 2 - flac]), pl.lc[pl.c - 4 - fplc]:avg(pl.rc[pl.c - 4 - fplc]))
+                        ust.unitLane(la.lc[la.c - 5 - flac]:avg(la.rc[la.c - 5 - flac], la.rc[la.c - 4 - flac], la.lc[la.c - 4 - flac]), pl.lc[pl.c - 4 - fplc]:avg(pl.rc[pl.c - 4 - fplc]))
                     } or {})
                     +
                     (p.hasUpper and {
-                        ust.unitLane(la.lc[la.c + 2 + flac], pl.lc[pl.c + 4 + fplc]:avg(pl.rc[pl.c + 4 + fplc])),
-                        ust.unitLane(la.rc[la.c + 2 + flac], pl.lc[pl.c + 4 + fplc]:avg(pl.rc[pl.c + 4 + fplc])),
-                        ust.unitLane(la.lc[la.c + 3 + flac]:avg(la.rc[la.c + 3 + flac], la.rc[la.c + 2 + flac], la.lc[la.c + 2 + flac]), pl.lc[pl.c + 4 + fplc]:avg(pl.rc[pl.c + 4 + fplc]))
+                        ust.unitLane(la.lc[la.c + 5 + flac]:avg(la.rc[la.c + 5 + flac], la.rc[la.c + 4 + flac], la.lc[la.c + 4 + flac]), pl.lc[pl.c + 4 + fplc]:avg(pl.rc[pl.c + 4 + fplc]))
                     } or {})
                     + func.map2(il(func.range(pl.lc, pl.c - 3, pl.c + 3)), il(func.range(pl.rc, pl.c - 3, pl.c + 3)), function(lc, rc)
                         local b = lc.i:avg(rc.i)
@@ -641,15 +633,13 @@ local buildEntry = function(config, entryConfig)
                 local fplc = floor(pl.c * 0.5)
                 return pipe.new
                     / (pl.lc[pl.c]:avg(pl.rc[pl.c]) + coor.xyz(0, 0, -3.5))
-                    + (p.hasUpper and {pl.lc[pl.c + 3 + fplc]:avg(pl.rc[pl.c + 3 + fplc]) - coor.xyz(0, 0, 3.5)} or {})
-                    + (p.hasLower and {pl.lc[pl.c - 3 - fplc]:avg(pl.rc[pl.c - 3 - fplc]) - coor.xyz(0, 0, 3.5)} or {})
+                    / (p.hasUpper and pl.lc[pl.c + 3 + fplc]:avg(pl.rc[pl.c + 3 + fplc]) - coor.xyz(0, 0, 3.5))
+                    / (p.hasLower and pl.lc[pl.c - 3 - fplc]:avg(pl.rc[pl.c - 3 - fplc]) - coor.xyz(0, 0, 3.5))
             end)
-            * pipe.interlace({"l", "r"})
-            * pipe.map(function(p)
-                return pipe.mapn(p.l, p.r)(function(pt, nPt)
-                    return station.newModel("person_lane.mdl", ust.mRot((nPt - pt)), coor.trans(pt))
-                end)
-            end)
+            * (function(ls) return {ls * pipe.map(pipe.select(1)), ls * pipe.map(pipe.select(2)), ls * pipe.map(pipe.select(3))} end)
+            * pipe.map(pipe.filter(pipe.noop()))
+            * pipe.map(pipe.interlace({"l", "r"}))
+            * pipe.map(pipe.map(function(pt) return station.newModel("person_lane.mdl", ust.mRot((pt.l - pt.r)), coor.trans(pt.r)) end))
             * pipe.flatten()
     end
     
