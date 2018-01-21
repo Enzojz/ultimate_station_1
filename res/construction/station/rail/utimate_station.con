@@ -342,21 +342,10 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         }
     end
     
+    local lengthFn = function(posPct) return 1 - (1 - config.lExtPlatform) * ust.varFn(config.lExtPlatform)[config.varModelLength](posPct) end
+    local widthFn = function(posPct) return (1 - (1 - config.wExtPlatform) * ust.varFn(config.wExtPlatform)[config.varModelWidth](posPct)) * (pW - bandWidth * 2) + bandWidth * 2 end
+    
     local function generateArcs(init, initDr, initX)
-        local varFn = function(base) return
-            {
-                function(_) return 1 end,
-                function(x) return x end,
-                function(x) return x * x end,
-                function(x) return pow(x, 4) end,
-                function(x) return 1 - pow(e, -x * x * 4.5) end,
-                function(x) return pow(e, -pow(6 * x - 3, 2) * 0.5) end,
-            }
-        end
-        
-        local lengthFn = function(posPct) return 1 - (1 - config.lExtPlatform) * varFn(config.lExtPlatform)[config.varModelLength](posPct) end
-        local widthFn = function(posPct) return (1 - (1 - config.wExtPlatform) * varFn(config.wExtPlatform)[config.varModelWidth](posPct)) * (pW - bandWidth * 2) + bandWidth * 2 end
-        
         local function arcGen(result, r, o, isRight)
             return isRight
                 and function(t, ...)
@@ -390,7 +379,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 end
                 or function(t, ...)
                     if t == nil then
-                        return arcGen(result, initDr[#initDr], initX, true)(table.unpack(rightGroup))
+                        return arcGen(result, initDr[#initDr], initX[#initX], true)(table.unpack(rightGroup))
                     else
                         local posPct = abs(t.i - middlePos) / (#leftGroup)
                         local isVar = posPct > config.varNbUnaffected
@@ -418,33 +407,50 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     end
                 end
         end
-        local rs = arcGen(pipe.new / init, initDr[1], initX)(table.unpack(leftGroup))
+        local rs = arcGen(pipe.new / init, initDr[1], initX[1])(table.unpack(leftGroup))
         return rs
     end
     
     local allArcs = pipe.exec * function()
         local o = coor.xyz(config.r, 0, 0)
+        
         if table.unpack(middleGroup).t then
             return generateArcs(
                 {
                     i = middlePos,
                     a = {arcPacker(config.r, o)}
                 },
-                {config.r}, o
+                {config.r}, {o}
         ) else
-            return generateArcs(
-                {
-                    i = middlePos,
-                    a = {
-                        arcPacker(config.r + 0.5 * pW, o),
-                        arcPacker(config.r - 0.5 * pW, o)
-                    }
-                },
-                {
-                    config.r - (-0.5 * pW + 0.5 * tW),
-                    config.r - (0.5 * pW - 0.5 * tW)
-                }, o
-        ) end
+            local isVar = config.varNbUnaffected == 0
+            if (not isVar) then
+                return generateArcs(
+                    {
+                        i = middlePos,
+                        a = {
+                            arcPacker(config.r + 0.5 * pW, o),
+                            arcPacker(config.r - 0.5 * pW, o)
+                        }
+                    },
+                    {
+                        config.r - (-0.5 * pW + 0.5 * tW),
+                        config.r - (0.5 * pW - 0.5 * tW)
+                    }, {o}
+            )
+            else
+                local rR, oR, a = platformArcGen(config.r + 0.5 * pW, o, 1, 0, widthFn(0), true)
+                return generateArcs(
+                    {
+                        i = middlePos,
+                        a = a
+                    },
+                    {
+                        config.r - (-0.5 * pW + 0.5 * tW),
+                        rR
+                    }, {o, oR}
+            )
+            end
+        end
     end
     
     local isLeftTrack = #allArcs[1] == 1
@@ -473,15 +479,15 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     local ls, rs = arcL(refZ)()(-0.5), arcR(refZ)()(0.5)
                     local lsu, rsu = arcL(refZ)()(0.3), arcR(refZ)()(-0.3)
                     local la, ra = arcL(refZ)()(-4.25), arcR(refZ)()(4.25)
-                    local lc, rc, c = ust.bitLatCoords(10)(l, r)
+                    local lc, rc, c = ust.bitLatCoords(5)(l, r)
                     local lsc, rsc, lac, rac, lsuc, rsuc, sc = ust.bitLatCoords(5)(ls, rs, la, ra, lsu, rsu)
                     return {
                         lane = {l = l, r = r, lc = lc, rc = rc, c = c},
                         platform = {l = ls, r = rs, lc = lsc, rc = rsc, c = sc},
                         access = {l = la, r = ra, lc = lac, rc = rac, c = sc},
                         surface = {l = lsu, r = rsu, lc = lsuc, rc = rsuc, c = sc},
-                        hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 2 - floor(c * 0.5) > 0),
-                        hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 2 + floor(c * 0.5) <= #lc)
+                        hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
+                        hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc)
                     }
                 end)
         end

@@ -13,6 +13,18 @@ local floor = math.floor
 
 ust.infi = 1e8
 
+ust.varFn = function(base) return
+    {
+        function(_) return 1 end,
+        function(x) return x end,
+        function(x) return x * x end,
+        function(x) return pow(x, 4) end,
+        function(x) return 1 - pow(e, -x * x * 4.5) end,
+        function(x) return pow(e, -pow(6 * x - 3, 2) * 0.5) end,
+    }
+end
+
+
 ust.normalizeRad = function(rad)
     return (rad < pi * -0.5) and ust.normalizeRad(rad + pi * 2) or
         ((rad > pi + pi * 0.5) and ust.normalizeRad(rad - pi * 2) or rad)

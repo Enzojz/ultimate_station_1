@@ -271,7 +271,6 @@ local arcPacker = function(length, slope)
     end
 end
 
-
 local function defaultParams(param)
     local function limiter(d, u)
         return function(v) return v and v < u and v or d end
@@ -401,19 +400,8 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         }
     end
     
-    local varFn = function(base) return
-        {
-            function(_) return 1 end,
-            function(x) return x end,
-            function(x) return x * x end,
-            function(x) return pow(x, 4) end,
-            function(x) return 1 - pow(e, -x * x * 4.5) end,
-            function(x) return pow(e, -pow(6 * x - 3, 2) * 0.5) end,
-        }
-    end
-    
-    local lengthFn = function(posPct) return 1 - (1 - config.lExtPlatform) * varFn(config.lExtPlatform)[config.varModelLength](posPct) end
-    local widthFn = function(posPct) return (1 - (1 - config.wExtPlatform) * varFn(config.wExtPlatform)[config.varModelWidth](posPct)) * (pW - bandWidth * 2) + bandWidth * 2 end
+    local lengthFn = function(posPct) return 1 - (1 - config.lExtPlatform) * ust.varFn(config.lExtPlatform)[config.varModelLength](posPct) end
+    local widthFn = function(posPct) return (1 - (1 - config.wExtPlatform) * ust.varFn(config.wExtPlatform)[config.varModelWidth](posPct)) * (pW - bandWidth * 2) + bandWidth * 2 end
     
     local function generateArcs(init, initDrA, initXA, initDrB, initXB)
         
