@@ -494,8 +494,7 @@ local buildSecondEntrySlope = function(config, entryConfig)
                     / (p.hasLower and enabler[1] and {
                         ac = l[su.c - 4 - fsuc]:avg(l[su.c - 3 - fsuc]):avg(l[su.c - 3 - fsuc]),
                         pt = {
-                            r[la.c - 2 - flac],
-                            r[la.c - 1 - flac]:avg(r[la.c - 2 - flac])
+                            r[la.c - 3 - flac]:avg(r[la.c - 4 - flac])
                         },
                         st = {
                             e = s[ac.c - 4 - facc] / 6 + s[ac.c - 5 - facc] / 2 + t[pl.c - 4 - fplc] / 12 + t[pl.c - 5 - fplc] / 4,
@@ -518,8 +517,7 @@ local buildSecondEntrySlope = function(config, entryConfig)
                     / (p.hasUpper and enabler[3] and {
                         ac = l[su.c + 4 + fsuc]:avg(l[su.c + 3 + fsuc]):avg(l[su.c + 3 + fsuc]),
                         pt = {
-                            r[la.c + 2 + flac],
-                            r[la.c + 1 + flac]:avg(r[la.c + 2 + flac])
+                            r[la.c + 3 + flac]:avg(r[la.c + 4 + flac])
                         },
                         st = {
                             e = s[ac.c + 4 + facc] / 6 + s[ac.c + 5 + facc] / 2 + t[pl.c + 4 + fplc] / 12 + t[pl.c + 5 + fplc] / 4,

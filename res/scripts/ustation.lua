@@ -309,14 +309,14 @@ ust.generateTerminals = function(config)
                 return {
                     l = station.newModel(enablers[1] and "terminal_lane.mdl" or "standard_lane.mdl", ust.mRot(lc.i - lc.s), coor.trans(lc.s)),
                     r = station.newModel(enablers[2] and "terminal_lane.mdl" or "standard_lane.mdl", ust.mRot(rc.s - rc.i), coor.trans(rc.i)),
-                    link = station.newModel("standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
+                    link = (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
                 }
             end)
             * function(ls)
                 return pipe.new
                     / func.map(ls, pipe.select("l"))
                     / func.map(ls, pipe.select("r"))
-                    / func.map(ls, pipe.select("link"))
+                    / (ls * pipe.map(pipe.select("link")) * pipe.filter(pipe.noop()))
             end
         
         return terminals + newTerminals * pipe.flatten(),
