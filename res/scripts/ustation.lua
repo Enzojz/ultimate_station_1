@@ -11,6 +11,8 @@ local abs = math.abs
 local ceil = math.ceil
 local floor = math.floor
 
+local dump = require "datadumper"
+
 ust.infi = 1e8
 
 ust.varFn = function(base) return
@@ -96,8 +98,11 @@ ust.mRot = function(vec)
     return coor.scaleX(vec:length()) * quat.byVec(coor.xyz(1, 0, 0), (vec)):mRot()
 end
 
-local retriveBiLatCoords = function(length, l, ...)
-    local nSeg = (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / length)
+local retriveNSeg = function(length, l, ...)
+    return (function(x) return (x < 1 or (x % 1 > 0.5)) and ceil(x) or floor(x) end)(l:length() / length), l, ...
+end
+
+local retriveBiLatCoords = function(nSeg, l, ...)
     local rst = pipe.new * {l, ...}
     local lscale = l:length() / (nSeg * length)
     return table.unpack(
@@ -112,17 +117,14 @@ local equalizeArcs = function(...)
     local arcs = pipe.new * {...}
     local ptInf = func.fold(arcs, coor.xyz(0, 0, 0), function(p, ar) return p + ar:pt(ar.inf) end) / #arcs
     local ptSup = func.fold(arcs, coor.xyz(0, 0, 0), function(p, ar) return p + ar:pt(ar.sup) end) / #arcs
-    return table.unpack(arcs * pipe.map(function(ar)
+    return arcs * pipe.map(function(ar)
         return ar:withLimits({
             inf = ar:rad(ptInf),
             sup = ar:rad(ptSup)
         }
     )
     end)
-)
 end
-
-ust.equalizeArcs = equalizeArcs
 
 local function ungroup(fst, ...)
     local f = {...}
@@ -145,9 +147,20 @@ end
 local bitLatCoords = function(length)
     return function(...)
         local arcs = pipe.new * {...}
+        local arcsInf = equalizeArcs(table.unpack(func.map({...}, pipe.select(1))))
+        local arcsSup = equalizeArcs(table.unpack(func.map({...}, pipe.select(2))))
+        local nSegInf = retriveNSeg(length, table.unpack(arcsInf))
+        local nSegSup = retriveNSeg(length, table.unpack(arcsSup))
+        if (nSegInf % 2 ~= nSegSup % 2) then
+            if (nSegInf > nSegSup) then
+                nSegSup = nSegSup + 1
+            else
+                nSegInf = nSegInf + 1
+            end
+        end
         return table.unpack(ungroup
-            (retriveBiLatCoords(length, equalizeArcs(table.unpack(func.map({...}, pipe.select(1))))))
-            (retriveBiLatCoords(length, equalizeArcs(table.unpack(func.map({...}, pipe.select(2))))))
+            (retriveBiLatCoords(nSegInf, table.unpack(equalizeArcs(table.unpack(func.map({...}, pipe.select(1)))))))
+            (retriveBiLatCoords(nSegSup, table.unpack(equalizeArcs(table.unpack(func.map({...}, pipe.select(2)))))))
             (pipe.new)
     )
     end
@@ -354,9 +367,10 @@ ust.generateFences = function(fitModel, config)
         local li, ri =
             arcRef(platformZ)(function(l) return l - 0.3 end)((isTrack and -0.5 * config.wTrack or -0.5) + 0.3),
             arcRef(platformZ)(function(l) return l - 0.3 end)((isTrack and 0.5 * config.wTrack or 0.5) - 0.3)
+
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #li), li, ri)(function(i, li, ri)
-                local lc, rc = retriveBiLatCoords(config.fencesLength, equalizeArcs(li, ri))
+                local lc, rc = retriveBiLatCoords(retriveNSeg(config.fencesLength, table.unpack(equalizeArcs(li, ri))))
                 local c = isLeft and lc or rc
                 return {
                     pipe.new * il(c)

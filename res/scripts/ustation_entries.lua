@@ -333,8 +333,8 @@ local buildSecondEntrySlope = function(config, entryConfig)
                 {entryConfig.street[2][1] and c - fc - 4, entryConfig.street[2][2] and c, entryConfig.street[2][3] and c + fc + 3},
             }, pipe.filter(pipe.noop()))
             
-            local platformEdgeL = isLeftmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[1], i) and "platform_edge_open" or e end) or platformEdgeO
-            local platformEdgeR = isRightmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[2], i) and "platform_edge_open" or e end) or platformEdgeO
+            local platformEdgeL = isLeftmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[1], i) and i ~= 1 and i ~= #platformEdgeO and "platform_edge_open" or e end) or platformEdgeO
+            local platformEdgeR = isRightmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[2], i) and i ~= 1 and i ~= #platformEdgeO and "platform_edge_open" or e end) or platformEdgeO
             return platformEdgeL, platformEdgeR
         end
     end
