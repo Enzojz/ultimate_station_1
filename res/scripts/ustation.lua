@@ -557,12 +557,10 @@ end
 
 ust.generateTerrain = function(config)
     return function(arcs)
-        local l, r = arcs[1]()(function(l) return l + 5 end)(-0.5), arcs[2]()(function(l) return l + 5 end)(0.5)
-        local lc, rc = bitLatCoords(5)(l, r)
         return pipe.new
             / {
                 equal = pipe.new
-                * pipe.mapn(il(lc), il(rc))
+                * pipe.mapn(il(arcs.terrain.lc), il(arcs.terrain.rc))
                 (function(lc, rc)
                     local size = assembleSize(lc, rc)
                     return pipe.new / size.lt / size.lb / size.rb / size.rt * station.finalizePoly

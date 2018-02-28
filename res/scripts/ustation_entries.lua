@@ -570,25 +570,23 @@ local buildEntry = function(config, entryConfig)
     
     local function retriveRef()
         local pl, la = arcCoords[1].platform, arcCoords[1].lane
-        local lc, rc, c = ust.bitLatCoords(5)(la.l, la.r)
-        
         if (entryConfig.main.pos == 0 or not entryConfig.main.model) then
-            local refPt = lc[c]
+            local refPt = la.lc[la.c]
             return refPt,
-                la.l[1]:rad(refPt) - la.l[1]:rad(lc[c]),
-                rc[c],
+                la.l[1]:rad(refPt) - la.l[1]:rad(la.lc[la.c]),
+                la.rc[la.c],
                 pl.lc[pl.c]:avg(pl.rc[pl.c])
         elseif (entryConfig.main.pos < 0) then
-            local refPt = lc[floor(c * 0.6)]
+            local refPt = la.lc[floor(la.c * 0.6)]
             return refPt,
-                la.l[1]:rad(refPt) - la.l[1]:rad(lc[c]),
-                rc[floor(c * 0.6)],
+                la.l[1]:rad(refPt) - la.l[1]:rad(la.lc[la.c]),
+                la.rc[floor(la.c * 0.6)],
                 pl.lc[pl.c - 3 - floor(pl.c * 0.5)]:avg(pl.rc[pl.c - 3 - floor(pl.c * 0.5)])
         else
-            local refPt = lc[ceil(c * 1.4)]
+            local refPt = la.lc[ceil(la.c * 1.4)]
             return refPt,
-                la.l[2]:rad(refPt) - la.l[1]:rad(lc[c]),
-                rc[ceil(c * 1.4)],
+                la.l[2]:rad(refPt) - la.l[1]:rad(la.lc[la.c]),
+                la.rc[ceil(la.c * 1.4)],
                 pl.lc[pl.c + 3 + floor(pl.c * 0.5)]:avg(pl.rc[pl.c + 3 + floor(pl.c * 0.5)])
         end
     end

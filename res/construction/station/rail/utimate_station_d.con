@@ -544,12 +544,16 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         l = arcL(refZ)(function(l) return l * config.roofLength end),
                         r = arcR(refZ)(function(l) return l * config.roofLength end)
                     }
-
+                    local terrain = {
+                        l = arcL()(function(l) return l + 5 end),
+                        r = arcR()(function(l) return l + 5 end)
+                    }
+                    
                     local arcGen = function(p, o) return {
                         l = p.l(o),
                         r = p.r(-o)
                     } end
-
+                    
                     local arcs = {
                         lane = arcGen(lane, 1),
                         edge = arcGen(general, -0.5),
@@ -558,7 +562,8 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         roof = {
                             edge = arcGen(roof, -0.5),
                             surface = arcGen(roof, 0.5)
-                        }
+                        },
+                        terrain = arcGen(terrain, -0.5)
                     }
                     
                     local lc, rc, c = ust.bitLatCoords(5)(arcs.lane.l, arcs.lane.r)
@@ -566,6 +571,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     local lcc, rcc, cc = ust.bitLatCoords(10)(arcs.edge.l, arcs.edge.r)
                     local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
                     local lppc, rppc, ppc = ust.bitLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
+                    local ltc, rtc, tc = ust.bitLatCoords(5)(arcs.terrain.l, arcs.terrain.r)
                     return {
                         [1] = arcL,
                         [2] = arcR,
@@ -573,12 +579,13 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         platform = func.with(arcs.edge, {lc = lsc, rc = rsc, c = sc}),
                         access = func.with(arcs.access, {lc = lac, rc = rac, c = sc}),
                         surface = func.with(arcs.surface, {lc = lsuc, rc = rsuc, c = sc}),
-                        chair = func.with(arcs.edge, {lc = lcc, rc=rcc, c = cc}),
+                        chair = func.with(arcs.edge, {lc = lcc, rc = rcc, c = cc}),
                         roof = {
                             edge = func.with(arcs.roof.edge, {lc = lpc, rc = rpc, c = pc}),
                             surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, c = pc}),
                             pole = func.with(arcs.roof.edge, {lc = lppc, rc = rppc, c = ppc})
                         },
+                        terrain = func.with(arcs.terrain, {lc = ltc, rc = rtc, c = tc}),
                         hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
                         hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc)
                     }
@@ -587,7 +594,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 end
             end)
     end
-
+    
     local entryConfig = {
         main = isLeftTrack and {pos = false, model = false} or config.entries.main,
         street = {
