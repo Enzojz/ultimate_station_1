@@ -1,6 +1,7 @@
 local func = require "ustation/func"
 local coor = require "ustation/coor"
 local arc = require "ustation/coorarc"
+local line = require "ustation/coorline"
 local quat = require "ustation/quaternion"
 local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
@@ -113,14 +114,21 @@ local retriveBiLatCoords = function(nSeg, l, ...)
 )
 end
 
-local equalizeArcs = function(...)
-    local arcs = pipe.new * {...}
-    local ptInf = func.fold(arcs, coor.xyz(0, 0, 0), function(p, ar) return p + ar:pt(ar.inf) end) / #arcs
-    local ptSup = func.fold(arcs, coor.xyz(0, 0, 0), function(p, ar) return p + ar:pt(ar.sup) end) / #arcs
+local equalizeArcs = function(f, s, ...)
+    local arcs = pipe.new * {f, s, ...}
+    local ptInf = f:pt(f.inf):avg(s:pt(s.inf))
+    local ptSup = f:pt(f.sup):avg(s:pt(s.sup))
+    local lnInf = line.byPtPt(arc.ptByPt(f, ptInf), arc.ptByPt(s, ptInf))
+    local lnSup = line.byPtPt(arc.ptByPt(f, ptSup), arc.ptByPt(s, ptSup))
     return arcs * pipe.map(function(ar)
+        local intInf = ar / lnInf
+        local intSup = ar / lnSup
+        assert(#intInf == 2)
+        assert(#intSup == 2)
+
         return ar:withLimits({
-            inf = ar:rad(ptInf),
-            sup = ar:rad(ptSup)
+            inf = ar:rad(((intInf[1] - ptInf):length2() < (intInf[2] - ptInf):length2()) and intInf[1] or intInf[2]),
+            sup = ar:rad(((intSup[1] - ptSup):length2() < (intSup[2] - ptSup):length2()) and intSup[1] or intSup[2])
         }
     )
     end)
@@ -159,8 +167,8 @@ local bitLatCoords = function(length)
             end
         end
         return table.unpack(ungroup
-            (retriveBiLatCoords(nSegInf, table.unpack(equalizeArcs(table.unpack(func.map({...}, pipe.select(1)))))))
-            (retriveBiLatCoords(nSegSup, table.unpack(equalizeArcs(table.unpack(func.map({...}, pipe.select(2)))))))
+            (retriveBiLatCoords(nSegInf, table.unpack(arcsInf)))
+            (retriveBiLatCoords(nSegSup, table.unpack(arcsSup)))
             (pipe.new)
     )
     end
@@ -314,9 +322,8 @@ end
 
 ust.generateTerminals = function(config)
     local platformZ = config.hPlatform + 0.53
-    return function(edges, terminals, terminalsGroup, arcL, arcR, enablers)
-        local l, r = arcL(platformZ)(function(l) return l - 3 end)(1), arcR(platformZ)(function(l) return l - 3 end)(-1)
-        local lc, rc, c = bitLatCoords(5)(l, r)
+    return function(edges, terminals, terminalsGroup, arcs, enablers)
+        local lc, rc, c = arcs.lane.lc, arcs.lane.rc, arcs.lane.c
         local newTerminals = pipe.new
             * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
@@ -401,20 +408,13 @@ ust.generateModels = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
     
-    return function(arcL, arcR, edgeBuilder)
+    return function(arcs, edgeBuilder)
         local edgeBuilder = edgeBuilder or function(platformEdgeO, _) return platformEdgeO, platformEdgeO end
-        local baseL, baseR = arcL(platformZ), arcR(platformZ)
-        local baseRL, baseRR = baseL(function(l) return l * config.roofLength end), baseR(function(l) return l * config.roofLength end)
-        local l, r = baseL()(-0.5), baseR()(0.5)
-        local li, ri = baseL()(0.3), baseR()(-0.3)
-        local la, ra = baseL()(-0.5 - 5), baseR()(0.5 + 5)
-        local lp, rp = baseRL(-0.5), baseRR(0.5)
-        local lpi, rpi = baseRL(0.5), baseRR(-0.5)
-        
-        local lc, rc, lic, ric, c = bitLatCoords(5)(l, r, li, ri)
-        local lpc, rpc, lpic, rpic, pc = bitLatCoords(5)(lp, rp, lpi, rpi)
-        local lpp, rpp, ppc = bitLatCoords(10)(lp, rp)
-        local lcc, rcc, cc = bitLatCoords(10)(l, r)
+
+        local lc, rc, lic, ric, c = arcs.platform.lc, arcs.platform.rc, arcs.surface.lc, arcs.surface.rc, arcs.surface.c
+        local lpc, rpc, lpic, rpic, pc = arcs.roof.edge.lc, arcs.roof.edge.rc, arcs.roof.surface.lc, arcs.roof.surface.rc, arcs.roof.edge.c
+        local lpp, rpp, ppc = arcs.roof.pole.lc, arcs.roof.pole.rc, arcs.roof.pole.c
+        local lcc, rcc, cc = arcs.chair.lc, arcs.chair.rc, arcs.chair.c
         
         local platformSurface = pipe.new
             * pipe.rep(c - 2)("platform_surface")
@@ -556,8 +556,8 @@ ust.generateModels = function(fitModel, config)
 end
 
 ust.generateTerrain = function(config)
-    return function(arcL, arcR)
-        local l, r = arcL()(function(l) return l + 5 end)(-0.5), arcR()(function(l) return l + 5 end)(0.5)
+    return function(arcs)
+        local l, r = arcs[1]()(function(l) return l + 5 end)(-0.5), arcs[2]()(function(l) return l + 5 end)(0.5)
         local lc, rc = bitLatCoords(5)(l, r)
         return pipe.new
             / {
