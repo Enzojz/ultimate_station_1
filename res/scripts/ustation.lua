@@ -301,6 +301,7 @@ ust.unitLane = function(f, t) return station.newModel("person_lane.mdl", ust.mRo
 
 ust.generateEdges = function(edges, isLeft, arcPacker)
     local arcs = arcPacker()()()
+    dump.dump(arcs)
     local eInf, eSup = table.unpack(arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
     if isLeft then
         eInf[1] = eInf[1]:avg(eSup[2])
