@@ -59,7 +59,7 @@ local function params()
         },
         {
             key = "lengthA",
-            name = _("Platform length") .. "(m)".."\n".."A",
+            name = _("Platform length") .. "(m)" .. "\n" .. "A",
             values = func.map(trackLengths, tostring),
             defaultIndex = 5
         },
@@ -72,10 +72,10 @@ local function params()
         paramsutil.makeTrackTypeParam(),
         paramsutil.makeTrackCatenaryParam(),
         {
-            key = "trackLayout",
-            name = _("Track Layout"),
-            values = func.map({1, 2, 3, 4}, tostring),
-            defaultIndex = 1
+            key = "platformLayout",
+            name = _("Platform Layout"),
+            values = {_("L"), _("LC"), _("LCR"), _("C"), _("LR"), _("CR"), _("R")},
+            defaultIndex = 2
         },
         {
             key = "nbTransitTracks",
@@ -96,21 +96,9 @@ local function params()
             defaultIndex = 0
         },
         {
-            key = "signA",
-            name = sp,
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
             key = "radiusA",
-            name = _("Radius") .. " A" .. "(m)",
+            name = sp .. _("Radius") .. " A" .. "(m)",
             values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
-            defaultIndex = 0
-        },
-        {
-            key = "signB",
-            name = "",
-            values = {"+", "-"},
             defaultIndex = 0
         },
         {
@@ -118,6 +106,12 @@ local function params()
             name = _("Radius") .. " B" .. "(m)",
             values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
             defaultIndex = 0
+        },
+        {
+            key = "curveLayout",
+            name = "",
+            values = {"--", "-+", "++"},
+            defaultIndex = 1
         },
         {
             key = "hPlatform",
@@ -287,7 +281,6 @@ end
 --         end
 --     end
 -- end
-
 local arcPacker = function(length, slope)
     return function(radiusA, oA, radiusB, oB, lengthVar, dislodgeA, dislodgeB)
         local length = lengthVar and (length * lengthVar) or length
@@ -352,7 +345,7 @@ local function trackGrouping(result, ar1, ar2, ar3, ...)
     return trackGrouping(result / {ar1}, ar2, ar3, ...)
 end
 
-local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, config, ignoreFst, ignoreLst)
+local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, config, hasFirst, hasCentral, hasLast)
     local pW = config.wPlatform
     local tW = config.wTrack
     local bandWidth = 0.8
@@ -398,19 +391,31 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         return preBuild
     end
     
-    local ptListA = preBuild(nbTracksA, false, false)(nbTracksA, pipe.new)
-    local ptListB = preBuild(nbTracksB, true, true)(nbTracksB, pipe.new)
+    local ptListA = preBuild(nbTracksA, not hasCentral, not hasFirst)(nbTracksA, pipe.new) * pipe.rev()
+    local ptListB = preBuild(nbTracksB, not hasCentral, not hasLast)(nbTracksB, pipe.new)
     
-    local ptListIA = ptListA * pipe.zip(func.seq(1, #ptListA), {"t", "i"}) * pipe.range(1, #ptListA - 1)
-    local ptListIB = ptListB * pipe.zip(func.seq(#ptListA + 1, #ptListA + #ptListB), {"t", "i"})
+    local ptListIA = ptListA * pipe.range(1, #ptListA - (hasCentral and 1 or 0)) * pipe.zip(func.seq(1, #ptListA), {"t", "i"})
+    local ptListIB = ptListB * pipe.range(hasCentral and 2 or 1, #ptListB) * pipe.zip(func.seq(#ptListA + 1, #ptListA + #ptListB + 1), {"t", "i"})
     
-    local middlePos = #ptListIA + 1
+    local middlePos = hasCentral and #ptListA or (#ptListA + 0.5)
     local leftGroup = ptListIA * pipe.rev()
-    local middleGroup = pipe.new * {{ i = #ptListIA + 1, t = false}}
-    local rightGroup = ptListIB * pipe.range(1, #ptListB - 1)
-    
-    local function platformArcGen(arcPacker) 
-        return function (rA, oA, rB, oB, lPct, oPct, pWe, isRight)
+    local middleGroup = pipe.new * (hasCentral and {{i = #ptListA, t = false}} or {})
+    local rightGroup = ptListIB
+  
+    dump.dump({
+        p = {
+            hasFirst,
+            hasCentral,
+            hasLast
+        },
+        k = {
+            leftGroup,
+            middleGroup, 
+            rightGroup
+        }
+    })
+    local function platformArcGen(arcPacker)
+        return function(rA, oA, rB, oB, lPct, oPct, pWe, isRight)
             local rInnerA = rA - (isRight and 1 or -1) * (0.5 * tW)
             local rOuterA = rA - (isRight and 1 or -1) * (0.5 * tW + pW)
             local rInnerB = rB - (isRight and 1 or -1) * (0.5 * tW)
@@ -528,51 +533,42 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         local oA = coor.xyz(config.rA, 0, 0)
         local oB = coor.xyz(config.rB, 0, 0)
         
-        if middleGroup and table.unpack(middleGroup).t then
-            return generateArcs(
-                {
-                    i = middlePos,
-                    a = {arcPacker(config.rA, oA, config.rB, oB)}
-                },
-                {config.rA}, {oA}, {config.rA}, {oA}
-        ) else
-            local isVar = config.varNbUnaffected == 0
-            -- if (not isVar) then
-                return generateArcs(
-                    {
-                        i = middlePos,
-                        a = {
-                            arcPackerA(config.rA + 0.5 * pW, oA, config.rA + 0.5 * pW, oA),
-                            arcPackerB(config.rB - 0.5 * pW, oB, config.rB - 0.5 * pW, oB)
-                        }
-                    },
-                    {
-                        config.rA - (-0.5 * pW + 0.5 * tW),
-                        config.rB - (0.5 * pW - 0.5 * tW)
-                    }, {oA, oB},
-                    {
-                        config.rA - (-0.5 * pW + 0.5 * tW),
-                        config.rB - (0.5 * pW - 0.5 * tW)
-                    }, {oA, oB}
-            )
-            -- else
-            --     local rAR, oAR, rBR, oBR, a = platformArcGen(config.rA + 0.5 * pW, oA, config.rA + 0.5 * pW, oA, 1, 0, widthFn(0), true)
-            --     return generateArcs(
-            --         {
-            --             i = middlePos,
-            --             a = a
-            --         },
-            --         {
-            --             config.rA - (-0.5 * pW + 0.5 * tW),
-            --             rAR
-            --         }, {oA, oAR},
-            --         {
-            --             config.rA - (-0.5 * pW + 0.5 * tW),
-            --             rAR
-            --         }, {oA, oAR}
-            -- )
-            -- end
-        end
+        local isVar = config.varNbUnaffected == 0
+        -- if (not isVar) then
+        return generateArcs(
+            {
+                i = middlePos,
+                a = {
+                    arcPackerA(config.rA + 0.5 * pW, oA, config.rA + 0.5 * pW, oA),
+                    arcPackerB(config.rB - 0.5 * pW, oB, config.rB - 0.5 * pW, oB)
+                }
+            },
+            {
+                config.rA - (-0.5 * pW + 0.5 * tW),
+                config.rB - (0.5 * pW - 0.5 * tW)
+            }, {oA, oB},
+            {
+                config.rA - (-0.5 * pW + 0.5 * tW),
+                config.rB - (0.5 * pW - 0.5 * tW)
+            }, {oA, oB}
+    )
+    -- else
+    --     local rAR, oAR, rBR, oBR, a = platformArcGen(config.rA + 0.5 * pW, oA, config.rA + 0.5 * pW, oA, 1, 0, widthFn(0), true)
+    --     return generateArcs(
+    --         {
+    --             i = middlePos,
+    --             a = a
+    --         },
+    --         {
+    --             config.rA - (-0.5 * pW + 0.5 * tW),
+    --             rAR
+    --         }, {oA, oAR},
+    --         {
+    --             config.rA - (-0.5 * pW + 0.5 * tW),
+    --             rAR
+    --         }, {oA, oAR}
+    -- )
+    -- end
     end
     
     local isLeftTrack = #allArcs[1] == 1
@@ -751,8 +747,13 @@ local updateFn = function()
         
         local nbTracksA = trackNumberList[params.nbTracksA + 1]
         local nbTracksB = trackNumberList[params.nbTracksB + 1]
-        local radiusA = (rList[params.radiusA + 1] * 1000) * (params.signA == 0 and 1 or -1)
-        local radiusB = (rList[params.radiusB + 1] * 1000) * (params.signB == 0 and 1 or -1)
+        local radiusA = (rList[params.radiusA + 1] * 1000) * (params.curveLayout == 2 and 1 or -1)
+        local radiusB = (rList[params.radiusB + 1] * 1000) * (params.curveLayout == 0 and -1 or 1)
+        
+        if (params.curveLayout == 0 and radiusA > radiusB) or (params.curveLayout == 2 and radiusA < radiusB) then
+            radiusA, radiusB = radiusB, radiusA
+        end
+        
         local slope = slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
         
         local lengthA = min(trackLengths[params.lengthA + 1], abs(radiusA * pi * 1.75))
@@ -802,8 +803,9 @@ local updateFn = function()
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
                     entries = entryConfig
                 },
-                ({true, false, true, false})[params.trackLayout + 1],
-                (nbTracksA % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
+                ({true, true, true, false, true, false, false})[params.platformLayout + 1],
+                ({false, true, true, true, false, true, false})[params.platformLayout + 1],
+                ({false, false, true, false, true, true, true})[params.platformLayout + 1]
         )
         return
             pipe.new
@@ -813,8 +815,8 @@ local updateFn = function()
                 -- + streetEdge
                 ,
                 models = terminals + models,
-                terminalGroups =  terminalsGroup,
-                -- terrainAlignmentLists = station.mergePoly(table.unpack(terrain))(),
+                terminalGroups = {}, -- terminalsGroup,
+                terrainAlignmentLists = station.mergePoly(table.unpack(terrain))()
                 -- groundFaces = terrain
                 -- * pipe.map(pipe.select("equal"))
                 -- * pipe.filter(pipe.noop())
