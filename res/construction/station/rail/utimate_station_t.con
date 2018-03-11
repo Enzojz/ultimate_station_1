@@ -74,7 +74,7 @@ local function params()
         {
             key = "platformLayout",
             name = _("Platform Layout"),
-            values = {_("L"), _("LC"), _("LCR"), _("C"), _("LR"), _("CR"), _("R")},
+            values = {_("L"), _("LC"), _("LCR"), _("0"), _("C"), _("LR"), _("CR"), _("R")},
             defaultIndex = 2
         },
         {
@@ -327,22 +327,26 @@ local function defaultParams(param)
 end
 
 
-local function trackGrouping(result, ar1, ar2, ar3, ...)
-    if (ar1 == nil) then return table.unpack(result) end
+local function trackGrouping(result, ar1, ar2, ar3, ar4, ...)
+    if (ar1 == nil) then dump.dump(result * pipe.map(function(x) return func.map(x, function(x) return #x end) end)) return table.unpack(result) end
     
     if (ar1 and ar2 and ar3) then
         if #ar1 == 1 and #ar2 == 2 and #ar3 == 1 then
-            return trackGrouping(result / {ar1, ar2, ar3}, ...)
+            if (ar4 and #ar4 == 2) then
+                return trackGrouping(result / {ar1, ar2} / {ar3, ar4}, ...)
+            else
+                return trackGrouping(result / {ar1, ar2, ar3}, ar4, ...)
+            end
         end
     end
     
     if (ar1 and ar2) then
         if (#ar1 + #ar2 == 3) then
-            return trackGrouping(result / {ar1, ar2}, ar3, ...)
+            return trackGrouping(result / {ar1, ar2}, ar3, ar4, ...)
         end
     end
     
-    return trackGrouping(result / {ar1}, ar2, ar3, ...)
+    return trackGrouping(result / {ar1}, ar2, ar3, ar4, ...)
 end
 
 local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, config, hasFirst, hasCentral, hasLast)
@@ -363,6 +367,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
             local t = true
             local transitSeq = pipe.new * pipe.rep(config.nbTransitTracks)(t)
             if (nbTracks == 0) then
+                local result = ignoreLst and result or (result[#result] and (result / p) or result)
                 if (#transitSeq > 0) then
                     if (config.posTransitTracks == -2) then
                         result = transitSeq + result
@@ -381,7 +386,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
             elseif (nbTracks == totalTracks and not ignoreFst) then
                 return preBuild(nbTracks - 1, result / p / t)
             elseif (nbTracks == 1 and ignoreLst) then
-                return preBuild(nbTracks - 1, result / p / t)
+                return preBuild(nbTracks - 1, ((not result) or result[#result]) and (result / p / t) or (result / t))
             elseif (nbTracks == 1 and not ignoreLst) then
                 return preBuild(nbTracks - 1, result / t / p)
             else
@@ -401,19 +406,12 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     local leftGroup = ptListIA * pipe.rev()
     local middleGroup = pipe.new * (hasCentral and {{i = #ptListA, t = false}} or {})
     local rightGroup = ptListIB
-  
     dump.dump({
-        p = {
-            hasFirst,
-            hasCentral,
-            hasLast
-        },
-        k = {
-            leftGroup,
-            middleGroup, 
-            rightGroup
-        }
+        l = leftGroup,
+        m = middleGroup,
+        r = rightGroup
     })
+    
     local function platformArcGen(arcPacker)
         return function(rA, oA, rB, oB, lPct, oPct, pWe, isRight)
             local rInnerA = rA - (isRight and 1 or -1) * (0.5 * tW)
@@ -525,7 +523,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     end
                 end
         end
-        local rs = arcGen(pipe.new / init, initDrA[1], initXA[1], initDrB[1], initXB[1])(table.unpack(leftGroup))
+        local rs = arcGen(init, initDrA[1], initXA[1], initDrB[1], initXB[1])(table.unpack(leftGroup))
         return rs
     end
     
@@ -533,42 +531,56 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         local oA = coor.xyz(config.rA, 0, 0)
         local oB = coor.xyz(config.rB, 0, 0)
         
-        local isVar = config.varNbUnaffected == 0
-        -- if (not isVar) then
-        return generateArcs(
-            {
-                i = middlePos,
-                a = {
-                    arcPackerA(config.rA + 0.5 * pW, oA, config.rA + 0.5 * pW, oA),
-                    arcPackerB(config.rB - 0.5 * pW, oB, config.rB - 0.5 * pW, oB)
-                }
-            },
-            {
-                config.rA - (-0.5 * pW + 0.5 * tW),
-                config.rB - (0.5 * pW - 0.5 * tW)
-            }, {oA, oB},
-            {
-                config.rA - (-0.5 * pW + 0.5 * tW),
-                config.rB - (0.5 * pW - 0.5 * tW)
-            }, {oA, oB}
-    )
-    -- else
-    --     local rAR, oAR, rBR, oBR, a = platformArcGen(config.rA + 0.5 * pW, oA, config.rA + 0.5 * pW, oA, 1, 0, widthFn(0), true)
-    --     return generateArcs(
-    --         {
-    --             i = middlePos,
-    --             a = a
-    --         },
-    --         {
-    --             config.rA - (-0.5 * pW + 0.5 * tW),
-    --             rAR
-    --         }, {oA, oAR},
-    --         {
-    --             config.rA - (-0.5 * pW + 0.5 * tW),
-    --             rAR
-    --         }, {oA, oAR}
-    -- )
-    -- end
+        if (hasCentral) then
+            local isVar = config.varNbUnaffected == 0
+            -- if (not isVar) then
+            return generateArcs(
+                pipe.new / {
+                    i = middlePos,
+                    a = {
+                        arcPackerA(config.rA + 0.5 * pW, oA, config.rA + 0.5 * pW, oA),
+                        arcPackerB(config.rB - 0.5 * pW, oB, config.rB - 0.5 * pW, oB)
+                    }
+                },
+                {
+                    config.rA - (-0.5 * pW + 0.5 * tW),
+                    config.rB - (0.5 * pW - 0.5 * tW)
+                }, {oA, oB},
+                {
+                    config.rA - (-0.5 * pW + 0.5 * tW),
+                    config.rB - (0.5 * pW - 0.5 * tW)
+                }, {oA, oB}
+        )
+        -- else
+        --     local rAR, oAR, rBR, oBR, a = platformArcGen(config.rA + 0.5 * pW, oA, config.rA + 0.5 * pW, oA, 1, 0, widthFn(0), true)
+        --     return generateArcs(
+        --         {
+        --             i = middlePos,
+        --             a = a
+        --         },
+        --         {
+        --             config.rA - (-0.5 * pW + 0.5 * tW),
+        --             rAR
+        --         }, {oA, oAR},
+        --         {
+        --             config.rA - (-0.5 * pW + 0.5 * tW),
+        --             rAR
+        --         }, {oA, oAR}
+        -- )
+        -- end
+        else
+            return generateArcs(
+                pipe.new * {},
+                {
+                    config.rA - (0.5 * tW),
+                    config.rB - (- 0.5 * tW)
+                }, {oA, oB},
+                {
+                    config.rA - (0.5 * tW),
+                    config.rB - ( - 0.5 * tW)
+                }, {oA, oB}
+        )
+        end
     end
     
     local isLeftTrack = #allArcs[1] == 1
@@ -713,6 +725,16 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                 + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1]),
                 ...)
+        elseif (#gr == 1 and #gr[1] > 1) then
+            return build(edges,
+                terminals,
+                terminalsGroup,
+                models
+                + generateModels(gr[1], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[1][1], false, false, entries[3].fenceFilter) or {}),
+                terrain + generateTerrain(gr[1]),
+                ...)
         else
             edges = generateEdges(edges, false, gr[1][1])
             return build(edges,
@@ -803,9 +825,9 @@ local updateFn = function()
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
                     entries = entryConfig
                 },
-                ({true, true, true, false, true, false, false})[params.platformLayout + 1],
-                ({false, true, true, true, false, true, false})[params.platformLayout + 1],
-                ({false, false, true, false, true, true, true})[params.platformLayout + 1]
+                ({true, true, true, false, false, true, false, false})[params.platformLayout + 1],
+                ({false, true, true, false, true, false, true, false})[params.platformLayout + 1],
+                ({false, false, true, false, false, true, true, true})[params.platformLayout + 1]
         )
         return
             pipe.new
@@ -817,15 +839,15 @@ local updateFn = function()
                 models = terminals + models,
                 terminalGroups = {}, -- terminalsGroup,
                 terrainAlignmentLists = station.mergePoly(table.unpack(terrain))()
-                -- groundFaces = terrain
-                -- * pipe.map(pipe.select("equal"))
-                -- * pipe.filter(pipe.noop())
-                -- * pipe.flatten()
-                -- * pipe.map(function(f) return {
-                --     {face = f, modes = {{type = "FILL", key = "industry_gravel_small_01"}}},
-                --     {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
-                -- } end)
-                -- * pipe.flatten()
+            -- groundFaces = terrain
+            -- * pipe.map(pipe.select("equal"))
+            -- * pipe.filter(pipe.noop())
+            -- * pipe.flatten()
+            -- * pipe.map(function(f) return {
+            --     {face = f, modes = {{type = "FILL", key = "industry_gravel_small_01"}}},
+            --     {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
+            -- } end)
+            -- * pipe.flatten()
             }
     end
 end
