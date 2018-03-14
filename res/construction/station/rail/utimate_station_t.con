@@ -248,39 +248,6 @@ local function params()
     }
 end
 
--- local arcPacker = function(length, slope)
---     return function(radiusA, oA, radiusB, oB, lengthVar, dislodgeA, dislodgeB)
---         local length = lengthVar and (length * lengthVar) or length
---         local dislodgeA = dislodgeA and (dislodgeA * length / radiusA) or 0
---         local dislodgeB = dislodgeB and (dislodgeB * length / radiusB) or 0
---         local initRadA = (radiusA > 0 and pi or 0)
---         local initRadB = (radiusB > 0 and pi or 0)
---         return function(z)
---             local z = z or 0
---             return function(lengthOverride)
---                 local l = lengthOverride and lengthOverride(length) or length
---                 return function(xDr)
---                     local dr = xDr or 0
---                     local arA = arc.byOR(oA + coor.xyz(0, 0, z), abs(radiusA - dr))
---                     local arB = arc.byOR(oB + coor.xyz(0, 0, z), abs(radiusB - dr))
---                     local radA = (radiusA > 0 and 1 or -1) * l / arA.r * 0.5
---                     local radB = (radiusB > 0 and 1 or -1) * l / arB.r * 0.5
---                     return pipe.new
---                         / arA:withLimits({
---                             sup = initRadA - radA + dislodgeA,
---                             inf = initRadA,
---                             slope = -slope
---                         })
---                         / arB:withLimits({
---                             inf = initRadB,
---                             sup = initRadB + radB + dislodgeB,
---                             slope = slope
---                         })
---                 end
---             end
---         end
---     end
--- end
 local arcPacker = function(length, slope)
     return function(radiusA, oA, radiusB, oB, lengthVar, dislodgeA, dislodgeB)
         local length = lengthVar and (length * lengthVar) or length
@@ -295,17 +262,18 @@ local arcPacker = function(length, slope)
                     local dr = xDr or 0
                     local arA = arc.byOR(oA + coor.xyz(0, 0, z), abs(radiusA - dr))
                     local arB = arc.byOR(oB + coor.xyz(0, 0, z), abs(radiusB - dr))
-                    local radA = (radiusA > 0 and 1 or -1) * l / arA.r * 0.5
-                    local radB = (radiusB > 0 and 1 or -1) * l / arB.r * 0.5
+                    local dRadA = (radiusA > 0 and 1 or -1) * l / arA.r * 0.5 
+                    local radA = (radiusA > 0 and 1 or -1) * length / arA.r * 0.5
+                    local radB = (radiusB > 0 and 1 or -1) * length / arB.r * 0.5
                     return pipe.new
                         / arA:withLimits({
-                            sup = initRad,
+                            sup = initRad + radA - dRadA,
                             inf = initRad + radA,
                             slope = -slope
                         })
                         / arA:withLimits({
                             inf = initRad + radA,
-                            sup = initRad + radA + radA,
+                            sup = initRad + radA + dRadA,
                             slope = slope
                         })
                 end
@@ -328,15 +296,17 @@ end
 
 
 local function trackGrouping(result, ar1, ar2, ar3, ar4, ...)
-    if (ar1 == nil) then dump.dump(result * pipe.map(function(x) return func.map(x, function(x) return #x end) end)) return table.unpack(result) end
+    if (ar1 == nil) then return table.unpack(result) end
     
     if (ar1 and ar2 and ar3) then
         if #ar1 == 1 and #ar2 == 2 and #ar3 == 1 then
-            if (ar4 and #ar4 == 2) then
+            if (ar4 and #ar4 == 2 and #{...} == 0) then
                 return trackGrouping(result / {ar1, ar2} / {ar3, ar4}, ...)
             else
                 return trackGrouping(result / {ar1, ar2, ar3}, ar4, ...)
             end
+        elseif #ar1 == 2 and #ar2 == 1 and #ar3 == 2 and not ar4 then
+            return trackGrouping(result / {ar1} / {ar2, ar3}, ar4, ...)
         end
     end
     
@@ -406,11 +376,6 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     local leftGroup = ptListIA * pipe.rev()
     local middleGroup = pipe.new * (hasCentral and {{i = #ptListA, t = false}} or {})
     local rightGroup = ptListIB
-    dump.dump({
-        l = leftGroup,
-        m = middleGroup,
-        r = rightGroup
-    })
     
     local function platformArcGen(arcPacker)
         return function(rA, oA, rB, oB, lPct, oPct, pWe, isRight)
@@ -573,11 +538,11 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                 pipe.new * {},
                 {
                     config.rA - (0.5 * tW),
-                    config.rB - (- 0.5 * tW)
+                    config.rB - (-0.5 * tW)
                 }, {oA, oB},
                 {
                     config.rA - (0.5 * tW),
-                    config.rB - ( - 0.5 * tW)
+                    config.rB - (-0.5 * tW)
                 }, {oA, oB}
         )
         end
@@ -834,20 +799,20 @@ local updateFn = function()
             * {
                 edgeLists = pipe.new
                 / (pipe.new * {edge * station.mergeEdges} * station.prepareEdges * trackBuilder.normal())
-                -- + streetEdge
+                + streetEdge
                 ,
                 models = terminals + models,
-                terminalGroups = {}, -- terminalsGroup,
-                terrainAlignmentLists = station.mergePoly(table.unpack(terrain))()
-            -- groundFaces = terrain
-            -- * pipe.map(pipe.select("equal"))
-            -- * pipe.filter(pipe.noop())
-            -- * pipe.flatten()
-            -- * pipe.map(function(f) return {
-            --     {face = f, modes = {{type = "FILL", key = "industry_gravel_small_01"}}},
-            --     {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
-            -- } end)
-            -- * pipe.flatten()
+                terminalGroups = terminalsGroup,
+                terrainAlignmentLists = station.mergePoly(table.unpack(terrain))(),
+                groundFaces = terrain
+                * pipe.map(pipe.select("equal"))
+                * pipe.filter(pipe.noop())
+                * pipe.flatten()
+                * pipe.map(function(f) return {
+                    {face = f, modes = {{type = "FILL", key = "industry_gravel_small_01"}}},
+                    {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
+                } end)
+                * pipe.flatten()
             }
     end
 end

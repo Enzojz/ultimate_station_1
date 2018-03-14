@@ -527,7 +527,8 @@ local buildSecondEntrySlope = function(config, entryConfig)
                     })
             end)
             * pipe.mapi(function(sizes, i)
-                return sizes
+                return 
+                sizes
                     * pipe.filter(pipe.noop())
                     * pipe.mapi(function(sizes, i)
                         local isLeftmost = i == 0
@@ -594,7 +595,8 @@ local buildEntry = function(config, entryConfig)
     local refPt, refVec, cpt, cupt = retriveRef()
     
     local laneBuilder = function()
-        return arcCoords
+        return 
+            arcCoords
             * pipe.map(function(p)
                 local pl, la = p.platform, p.lane
                 local flac = floor(la.c * 0.5)

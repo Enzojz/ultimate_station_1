@@ -12,8 +12,6 @@ local abs = math.abs
 local ceil = math.ceil
 local floor = math.floor
 
-local dump = require "datadumper"
-
 ust.infi = 1e8
 
 ust.varFn = function(base) return
