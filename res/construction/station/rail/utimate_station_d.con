@@ -251,10 +251,10 @@ local function params()
 end
 
 local arcPacker = function(length, slope)
-    return function(radiusA, oA, radiusB, oB, lengthVar, dislodgeA, dislodgeB)
+    return function(radiusA, oA, radiusB, oB, lengthVar, dislodge)
         local length = lengthVar and (length * lengthVar) or length
-        local dislodgeA = dislodgeA and (dislodgeA * length / radiusA) or 0
-        local dislodgeB = dislodgeB and (dislodgeB * length / radiusB) or 0
+        local dislodgeA = dislodge and (dislodge * length / radiusA) or 0
+        local dislodgeB = dislodge and (dislodge * length / radiusB) or 0
         local initRadA = (radiusA > 0 and pi or 0)
         local initRadB = (radiusB > 0 and pi or 0)
         return function(z)
@@ -376,9 +376,9 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         local rOuterA = rA - (isRight and 1 or -1) * (0.5 * tW + pW)
         local rInnerB = rB - (isRight and 1 or -1) * (0.5 * tW)
         local rOuterB = rB - (isRight and 1 or -1) * (0.5 * tW + pW)
-        local inner = arcPacker(rInnerA, oA, rInnerB, oB, lPct, oPct, oPct)
+        local inner = arcPacker(rInnerA, oA, rInnerB, oB, lPct, oPct)
         local li, ls = table.unpack(inner()()())
-        local ri, rs = table.unpack(arcPacker(rOuterA, oA, rOuterB, oB, lPct, oPct, oPct)()()())
+        local ri, rs = table.unpack(arcPacker(rOuterA, oA, rOuterB, oB, lPct, oPct)()()())
         
         local param = function(la, ra, rInner)
             local mlpt = la:pt(la.inf)
@@ -409,8 +409,8 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         local rB, oB = param(ls, rs, rInnerB)
         
         return rA + 0.5 * tW * (isRight and 1 or -1), oA, rB + 0.5 * tW * (isRight and 1 or -1), oB, {
-            isRight and inner or arcPacker(rA, oA, rB, oB, lPct, oPct, oPct),
-            isRight and arcPacker(rA, oA, rB, oB, lPct, oPct, oPct) or inner
+            isRight and inner or arcPacker(rA, oA, rB, oB, lPct, oPct),
+            isRight and arcPacker(rA, oA, rB, oB, lPct, oPct) or inner
         }
     end
     
@@ -430,15 +430,15 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         local lengthPct = isVar and lengthFn(posPct) or 1
                         local offsetPct = isVar and -posPct * config.yOffsetPlatform or 0
                         if t.t then
-                            return arcGen(result / {i = t.i, a = {arcPacker(rA - tW, oA, rB - tW, oB, isVar and lengthPct or 1, offsetPct, offsetPct)}},
+                            return arcGen(result / {i = t.i, a = {arcPacker(rA - tW, oA, rB - tW, oB, isVar and lengthPct or 1, offsetPct)}},
                                 rA - tW, oA, rB - tW, oB, true)(...)
                         else
                             if (not isVar or (config.wExtPlatform == 1)) then
                                 return arcGen(result / {
                                     i = t.i,
                                     a = {
-                                        arcPacker(rA - (0.5 * tW), oA, rB - (0.5 * tW), oB, lengthPct, offsetPct, offsetPct),
-                                        arcPacker(rA - (0.5 * tW + pW), oA, rB - (0.5 * tW + pW), oB, lengthPct, offsetPct, offsetPct)
+                                        arcPacker(rA - (0.5 * tW), oA, rB - (0.5 * tW), oB, lengthPct, offsetPct),
+                                        arcPacker(rA - (0.5 * tW + pW), oA, rB - (0.5 * tW + pW), oB, lengthPct, offsetPct)
                                     }},
                                 rA - pW, oA, rB - pW, oB, true)(...)
                             else
@@ -459,15 +459,15 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         local lengthPct = isVar and lengthFn(posPct) or 1
                         local offsetPct = isVar and posPct * config.yOffsetPlatform or 0
                         if t.t then
-                            return arcGen(result / {i = t.i, a = {arcPacker(rA + tW, oA, rB + tW, oB, lengthPct, offsetPct, offsetPct)}},
+                            return arcGen(result / {i = t.i, a = {arcPacker(rA + tW, oA, rB + tW, oB, lengthPct, offsetPct)}},
                                 rA + tW, oA, rB + tW, oB)(...)
                         else
                             if (not isVar or (config.wExtPlatform == 1)) then
                                 return arcGen(result / {
                                     i = t.i,
                                     a = {
-                                        arcPacker(rA + (0.5 * tW + pW), oA, rB + (0.5 * tW + pW), oB, lengthPct, offsetPct, offsetPct),
-                                        arcPacker(rA + (0.5 * tW), oA, rB + (0.5 * tW), oB, lengthPct, offsetPct, offsetPct)
+                                        arcPacker(rA + (0.5 * tW + pW), oA, rB + (0.5 * tW + pW), oB, lengthPct, offsetPct),
+                                        arcPacker(rA + (0.5 * tW), oA, rB + (0.5 * tW), oB, lengthPct, offsetPct)
                                     }},
                                 rA + pW, oA, rB + pW, oB)(...)
                             else
