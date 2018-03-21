@@ -273,7 +273,7 @@ local arcPacker = function(length, slope, rot, con)
                     local dr = xDr or 0
                     local ar = arc.byOR(o + coor.xyz(0, 0, z), abs(radius - dr))
                     local dRad = (radius > 0 and 1 or -1) * (l - length * lengthVar) / ar.r * 0.5
-                    local initRad = (radius > 0 and pi or 0) + rot
+                    local initRad = (radius > 0 and pi or 0) + rot + con
                     return pipe.new
                         / ar:withLimits({
                             sup = initRad - dislodge - dRad,
@@ -497,8 +497,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     
     local allArcs = pipe.exec * function()
         local oA = coor.xyz(config.rA, 0, 0)
-        local oB = coor.xyz(config.rB, 0, 0)
-        
+        local oB = coor.xyz(config.rB, 0, 0) + coor.xyz(cos(config.convRad) - 1 , sin(config.convRad), 0) * config.rB
         if (hasCentral) then
             return generateArcs(
                 pipe.new / {
@@ -745,6 +744,7 @@ local updateFn = function()
                     posTransitTracksA = params.posTransitTracksA,
                     nbTransitTracksB = params.nbTransitTracksB,
                     posTransitTracksB = params.posTransitTracksB,
+                    convRad = pi * convAngle[params.convAngle + 1] / 180,
                     rA = radiusA,
                     rB = radiusB,
                     hPlatform = hPlatform,
