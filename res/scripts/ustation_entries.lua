@@ -305,12 +305,12 @@ local buildSecondEntrySlope = function(config, entryConfig)
         local pl = isLeft and arcCoords[1].platform or arcCoords[#arcCoords].platform
         local co = isLeft and pl.lc or pl.rc
         local cfg = entryConfig.street[isLeft and 1 or 2]
-        local void = pipe.new 
-        / (cfg[1] and {co[pl.c - floor(pl.c * 0.5) - 3], co[pl.c - floor(pl.c * 0.5) - 4]})
-        / (cfg[2] and {co[pl.c], co[pl.c + 1]})
-        / (cfg[3] and {co[pl.c + floor(pl.c * 0.5) + 3], co[pl.c + floor(pl.c * 0.5) + 4]})
-        * pipe.filter(pipe.noop())
-
+        local void = pipe.new
+            / (cfg[1] and {co[pl.c - floor(pl.c * 0.5) - 3], co[pl.c - floor(pl.c * 0.5) - 4]})
+            / (cfg[2] and {co[pl.c], co[pl.c + 1]})
+            / (cfg[3] and {co[pl.c + floor(pl.c * 0.5) + 3], co[pl.c + floor(pl.c * 0.5) + 4]})
+            * pipe.filter(pipe.noop())
+        
         local checker = function(p)
             return #func.filter(void, function(v) return (p - v[1]):dot(p - v[2]:avg(v[1])) < 0 end) == 0
         end
@@ -323,11 +323,11 @@ local buildSecondEntrySlope = function(config, entryConfig)
             end
         end
     end
-
+    
     local edgeBuilder = function(isLeftmost, isRightmost)
         return function(platformEdgeO, c)
             local fc = floor(c * 0.5)
-
+            
             local enabler = func.map({
                 {entryConfig.street[1][1] and c - fc - 4, entryConfig.street[1][2] and c, entryConfig.street[1][3] and c + fc + 3},
                 {entryConfig.street[2][1] and c - fc - 4, entryConfig.street[2][2] and c, entryConfig.street[2][3] and c + fc + 3},
@@ -527,8 +527,8 @@ local buildSecondEntrySlope = function(config, entryConfig)
                     })
             end)
             * pipe.mapi(function(sizes, i)
-                return 
-                sizes
+                return
+                    sizes
                     * pipe.filter(pipe.noop())
                     * pipe.mapi(function(sizes, i)
                         local isLeftmost = i == 0
@@ -570,23 +570,23 @@ local buildEntry = function(config, entryConfig)
     local arcCoords = entryConfig.arcCoords
     
     local function retriveRef()
-        local pl, la = arcCoords[1].platform, arcCoords[1].lane
+        local pl, la, su = arcCoords[1].platform, arcCoords[1].lane, arcCoords[1].surface
         if (entryConfig.main.pos == 0 or not entryConfig.main.model) then
             local refPt = la.lc[la.c]
             return refPt,
-                la.l[1]:rad(refPt) - la.l[1]:rad(la.lc[la.c]),
+                ust.mRot(su.lc[su.c] - pl.lc[pl.c]),
                 la.rc[la.c],
                 pl.lc[pl.c]:avg(pl.rc[pl.c])
         elseif (entryConfig.main.pos < 0) then
             local refPt = la.lc[floor(la.c * 0.6)]
             return refPt,
-                la.l[1]:rad(refPt) - la.l[1]:rad(la.lc[la.c]),
+                ust.mRot(su.lc[floor(su.c * 0.6)] - pl.lc[floor(pl.c * 0.6)]),
                 la.rc[floor(la.c * 0.6)],
                 pl.lc[pl.c - 3 - floor(pl.c * 0.5)]:avg(pl.rc[pl.c - 3 - floor(pl.c * 0.5)])
         else
             local refPt = la.lc[ceil(la.c * 1.4)]
             return refPt,
-                la.l[2]:rad(refPt) - la.l[1]:rad(la.lc[la.c]),
+                ust.mRot(su.lc[ceil(su.c * 1.4)] - pl.lc[ceil(pl.c * 1.4)]),
                 la.rc[ceil(la.c * 1.4)],
                 pl.lc[pl.c + 3 + floor(pl.c * 0.5)]:avg(pl.rc[pl.c + 3 + floor(pl.c * 0.5)])
         end
@@ -595,7 +595,7 @@ local buildEntry = function(config, entryConfig)
     local refPt, refVec, cpt, cupt = retriveRef()
     
     local laneBuilder = function()
-        return 
+        return
             arcCoords
             * pipe.map(function(p)
                 local pl, la = p.platform, p.lane
@@ -642,7 +642,7 @@ local buildEntry = function(config, entryConfig)
     end
     
     local accessBuilder = function()
-        local mx = coor.transX(-config.buildingParams.xOffset) * coor.rotZ(refVec) * coor.trans(refPt)
+        local mx = coor.transX(-config.buildingParams.xOffset) * refVec * coor.trans(refPt)
         local m = coor.rotX(atan(-config.slope)) * mx
         return
             pipe.new
@@ -653,7 +653,7 @@ local buildEntry = function(config, entryConfig)
     end
     
     local streetBuilder = function()
-        local mVe = coor.rotZ(refVec)
+        local mVe = refVec
         local mPt = coor.transX(-config.buildingParams.xOffset) * mVe * coor.trans(refPt)
         local mainAccess = {
             edge = pipe.new / {
@@ -684,7 +684,7 @@ local buildEntry = function(config, entryConfig)
     local terrainBuilder = function()
         local z = -0.8
         local mRot = coor.rotX(atan(-config.slope))
-        local mX = coor.transX(-config.buildingParams.xOffset) * coor.rotZ(refVec) * coor.trans(refPt)
+        local mX = coor.transX(-config.buildingParams.xOffset) * refVec * coor.trans(refPt)
         local xMin = config.buildingParams.street.x
         local xMax = config.buildingParams.xOffset
         local yMin = -config.buildingParams.halfWidth

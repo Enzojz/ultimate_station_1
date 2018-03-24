@@ -497,7 +497,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     
     local allArcs = pipe.exec * function()
         local oA = coor.xyz(config.rA, 0, 0)
-        local oB = coor.xyz(config.rB, 0, 0) + coor.xyz(cos(config.convRad) - 1 , sin(config.convRad), 0) * config.rB
+        local oB = coor.xyz(config.rB, 0, 0) + coor.xyz(cos(config.convRad) - 1 , sin(config.convRad), 0) * config.rB + coor.xyz(1 - cos(config.convRad) , sin(config.convRad), 0) * pW
         if (hasCentral) then
             return generateArcs(
                 pipe.new / {
@@ -525,7 +525,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     
     local isLeftTrack = #allArcs[1] == 1
     local isRightTrack = #allArcs[#allArcs] == 1
-    
+    dump.dump(allArcs * pipe.map(pipe.map(function(a) return a()()() end)))
     allArcs = pipe.exec * function()
         local refZ = config.hPlatform + 0.53
         return allArcs
