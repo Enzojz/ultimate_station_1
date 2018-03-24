@@ -592,7 +592,7 @@ local buildEntry = function(config, entryConfig)
         end
     end
     
-    local refPt, refVec, cpt, cupt = retriveRef()
+    local refPt, refMRot, cpt, cupt = retriveRef()
     
     local laneBuilder = function()
         return
@@ -642,7 +642,7 @@ local buildEntry = function(config, entryConfig)
     end
     
     local accessBuilder = function()
-        local mx = coor.transX(-config.buildingParams.xOffset) * refVec * coor.trans(refPt)
+        local mx = coor.transX(-config.buildingParams.xOffset) * refMRot * coor.trans(refPt)
         local m = coor.rotX(atan(-config.slope)) * mx
         return
             pipe.new
@@ -653,7 +653,7 @@ local buildEntry = function(config, entryConfig)
     end
     
     local streetBuilder = function()
-        local mVe = refVec
+        local mVe = refMRot
         local mPt = coor.transX(-config.buildingParams.xOffset) * mVe * coor.trans(refPt)
         local mainAccess = {
             edge = pipe.new / {
@@ -684,7 +684,7 @@ local buildEntry = function(config, entryConfig)
     local terrainBuilder = function()
         local z = -0.8
         local mRot = coor.rotX(atan(-config.slope))
-        local mX = coor.transX(-config.buildingParams.xOffset) * refVec * coor.trans(refPt)
+        local mX = coor.transX(-config.buildingParams.xOffset) * refMRot * coor.trans(refPt)
         local xMin = config.buildingParams.street.x
         local xMax = config.buildingParams.xOffset
         local yMin = -config.buildingParams.halfWidth
