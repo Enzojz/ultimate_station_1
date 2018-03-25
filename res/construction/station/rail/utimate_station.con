@@ -259,11 +259,6 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local bandWidth = 0.8
     local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
     local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
-    local generateEdges = ust.generateEdges
-    local generateModels = ust.generateModels(fitModel, config)
-    local generateFences = ust.generateFences(fitModel, config)
-    local generateTerminals = ust.generateTerminals(config)
-    local generateTerrain = ust.generateTerrain(config)
     
     local function preBuild(nbTracks, result)
         local p = false
@@ -309,38 +304,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local middleGroup = ptListI * pipe.filter(function(p) return p.i == middlePos end)
     local rightGroup = ptListI * pipe.filter(function(p) return p.i > middlePos end)
     
-    local function platformArcGen(r, o, lPct, oPct, pWe, isRight)
-        local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
-        local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
-        local inner = arcPacker(rInner, o, lPct, oPct)
-        local li, ls = table.unpack(inner()()())
-        local ri, rs = table.unpack(arcPacker(rOuter, o, lPct, oPct * (rOuter / rInner))()()())
-        local mlpt = li:pt(li.inf)
-        local mrpt = ri:pt(ri.inf)
-        
-        local mvec = (mrpt - mlpt):normalized()
-        local f = mvec:dot(mlpt - li.o) > 0 and 1 or -1
-        
-        local elpt = li:pt(li.sup)
-        local erpt = (elpt - li.o):normalized() * f * pWe + elpt
-        
-        local mln = line.byVecPt(mvec, mrpt)
-        local pln = line.byVecPt(mvec .. coor.rotZ(pi * 0.5), erpt)
-        local xpt = (mln - pln):withZ(0)
-        
-        local rvec = (xpt - mrpt):dot(xpt - li.o) * rInner
-        
-        local lenP2 = (xpt - erpt):length2()
-        local lenT = (xpt - mrpt):length()
-        local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1)
-        
-        local o = mrpt + (xpt - mrpt):normalized() * abs(r)
-        
-        return r + 0.5 * tW * (isRight and 1 or -1), o, {
-            isRight and inner or arcPacker(r, o, lPct, oPct * (r / rInner)),
-            isRight and arcPacker(r, o, lPct, oPct * (r / rInner)) or inner
-        }
-    end
+    local platformArcGen = ust.platformArcGen(tW, pW)(arcPacker)
     
     local lengthFn = function(posPct) return 1 - (1 - config.lExtPlatform) * ust.varFn(config.lExtPlatform)[config.varModelLength](posPct) end
     local widthFn = function(posPct) return (1 - (1 - config.wExtPlatform) * ust.varFn(config.wExtPlatform)[config.varModelWidth](posPct)) * (pW - bandWidth * 2) + bandWidth * 2 end
@@ -452,80 +416,11 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
             end
         end
     end
+    * ust.allArcs(arcGen, config)
     
     local isLeftTrack = #allArcs[1] == 1
     local isRightTrack = #allArcs[#allArcs] == 1
 
-    allArcs = pipe.exec * function()
-        local refZ = config.hPlatform + 0.53
-        return allArcs
-            * pipe.map(function(p)
-                if (#p == 2) then
-                    local arcL, arcR = table.unpack(p)
-                    
-                    local lane = {
-                        l = arcL(refZ)(function(l) return l - 3 end),
-                        r = arcR(refZ)(function(l) return l - 3 end)
-                    }
-                    local general = {
-                        l = arcL(refZ)(),
-                        r = arcR(refZ)()
-                    }
-                    local roof = {
-                        l = arcL(refZ)(function(l) return l * config.roofLength end),
-                        r = arcR(refZ)(function(l) return l * config.roofLength end)
-                    }
-                    local terrain = {
-                        l = arcL()(function(l) return l + 5 end),
-                        r = arcR()(function(l) return l + 5 end)
-                    }
-                    
-                    local arcGen = function(p, o) return {
-                        l = p.l(o),
-                        r = p.r(-o)
-                    } end
-                    
-                    local arcs = {
-                        lane = arcGen(lane, 1),
-                        edge = arcGen(general, -0.5),
-                        surface = arcGen(general, 0.3),
-                        access = arcGen(general, -4.25),
-                        roof = {
-                            edge = arcGen(roof, -0.5),
-                            surface = arcGen(roof, 0.5)
-                        },
-                        terrain = arcGen(terrain, -0.5)
-                    }
-                    
-                    local lc, rc, c = ust.bitLatCoords(5)(arcs.lane.l, arcs.lane.r)
-                    local lsc, rsc, lac, rac, lsuc, rsuc, sc = ust.bitLatCoords(5)(arcs.edge.l, arcs.edge.r, arcs.access.l, arcs.access.r, arcs.surface.l, arcs.surface.r)
-                    local lcc, rcc, cc = ust.bitLatCoords(10)(arcs.edge.l, arcs.edge.r)
-                    local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
-                    local lppc, rppc, ppc = ust.bitLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
-                    local ltc, rtc, tc = ust.bitLatCoords(5)(arcs.terrain.l, arcs.terrain.r)
-                    return {
-                        [1] = arcL,
-                        [2] = arcR,
-                        lane = func.with(arcs.lane, {lc = lc, rc = rc, c = c}),
-                        platform = func.with(arcs.edge, {lc = lsc, rc = rsc, c = sc}),
-                        access = func.with(arcs.access, {lc = lac, rc = rac, c = sc}),
-                        surface = func.with(arcs.surface, {lc = lsuc, rc = rsuc, c = sc}),
-                        chair = func.with(arcs.edge, {lc = lcc, rc = rcc, c = cc}),
-                        roof = {
-                            edge = func.with(arcs.roof.edge, {lc = lpc, rc = rpc, c = pc}),
-                            surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, c = pc}),
-                            pole = func.with(arcs.roof.edge, {lc = lppc, rc = rppc, c = ppc})
-                        },
-                        terrain = func.with(arcs.terrain, {lc = ltc, rc = rtc, c = tc}),
-                        hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
-                        hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc)
-                    }
-                else
-                    return p
-                end
-            end)
-    end
-    
     local entryConfig = {
         main = isLeftTrack and {pos = false, model = false} or config.entries.main,
         street = {
@@ -542,71 +437,18 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
     }
 
-    local entries = pipe.new
+    local build = ust.build(
+        config,
+        pipe.new
         / uste.buildEntry(config, entryConfig)
         / uste.buildUndergroundEntry(config, entryConfig)
-        / uste.buildSecondEntrySlope(config, entryConfig)
-    
-    local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
-        local isLeftmost = #models == 0
-        local isRightmost = #{...} == 0
-        if (gr == nil) then
-            local buildEntryPath = entries * pipe.map(pipe.select("access")) * pipe.flatten()
-            local buildFace = entries * pipe.map(pipe.select("terrain")) * pipe.flatten()
-            local buildAccessRoad = entries * pipe.map(pipe.select("street")) * pipe.flatten()
-            local buildLanes = entries * pipe.map(pipe.select("lane")) * pipe.flatten()
-            
-            return edges, buildAccessRoad, terminals, terminalsGroup,
-                models + buildEntryPath + buildLanes,
-                terrain + buildFace
-        elseif (#gr == 3) then
-            edges = generateEdges(edges, true, gr[1][1])
-            edges = generateEdges(edges, false, gr[3][1])
-            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, true})
-            return build(
-                edges,
-                terminals,
-                terminalsGroup,
-                models + generateModels(gr[2])
-                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true) or {})
-                + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true) or {}),
-                terrain + generateTerrain(gr[2]),
-                ...)
-        elseif (#gr == 2 and #gr[1] == 1 and #gr[2] == 2) then
-            edges = generateEdges(edges, true, gr[1][1])
-            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, false})
-            return build(
-                edges,
-                terminals,
-                terminalsGroup,
-                models
-                + generateModels(gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost))
-                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true, entries[3].fenceFilter) or {})
-                + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
-                terrain + generateTerrain(gr[2]),
-                ...)
-        elseif (#gr == 2 and #gr[1] == 2 and #gr[2] == 1) then
-            edges = generateEdges(edges, false, gr[2][1])
-            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1], {false, true})
-            return build(edges,
-                terminals,
-                terminalsGroup,
-                models
-                + generateModels(gr[1], entries[3].edgeBuilder(isLeftmost, isRightmost))
-                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
-                + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
-                terrain + generateTerrain(gr[1]),
-                ...)
-        else
-            edges = generateEdges(edges, false, gr[1][1])
-            return build(edges,
-                terminals,
-                terminalsGroup,
-                models,
-                terrain,
-                ...)
-        end
-    end
+        / uste.buildSecondEntrySlope(config, entryConfig),
+        ust.generateEdges,
+        ust.generateModels(fitModel, config),
+        ust.generateTerminals(config),
+        ust.generateFences(fitModel, config),
+        ust.generateTerrain(config)
+    )
     
     return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, trackGrouping(pipe.new, table.unpack(allArcs)))
 end
