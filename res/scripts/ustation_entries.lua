@@ -565,31 +565,26 @@ local buildSecondEntrySlope = function(config, entryConfig)
     }
 end
 
-local buildEntry = function(config, entryConfig)
+local buildEntry = function(config, entryConfig, retriveRef)
     local allArcs = entryConfig.allArcs
     local arcCoords = entryConfig.arcCoords
     
-    local function retriveRef()
+    local retriveRef = retriveRef or function()
         local pl, la, su = arcCoords[1].platform, arcCoords[1].lane, arcCoords[1].surface
-        if (entryConfig.main.pos == 0 or not entryConfig.main.model) then
-            local refPt = la.lc[la.c]
-            return refPt,
-                ust.mRot(su.lc[su.c] - pl.lc[pl.c]),
-                la.rc[la.c],
-                pl.lc[pl.c]:avg(pl.rc[pl.c])
-        elseif (entryConfig.main.pos < 0) then
-            local refPt = la.lc[floor(la.c * 0.6)]
-            return refPt,
-                ust.mRot(su.lc[floor(su.c * 0.6)] - pl.lc[floor(pl.c * 0.6)]),
-                la.rc[floor(la.c * 0.6)],
-                pl.lc[pl.c - 3 - floor(pl.c * 0.5)]:avg(pl.rc[pl.c - 3 - floor(pl.c * 0.5)])
-        else
-            local refPt = la.lc[ceil(la.c * 1.4)]
-            return refPt,
-                ust.mRot(su.lc[ceil(su.c * 1.4)] - pl.lc[ceil(pl.c * 1.4)]),
-                la.rc[ceil(la.c * 1.4)],
-                pl.lc[pl.c + 3 + floor(pl.c * 0.5)]:avg(pl.rc[pl.c + 3 + floor(pl.c * 0.5)])
+        local f = pipe.exec * function()
+            if (entryConfig.main.pos == 0 or not entryConfig.main.model) then
+                return function(set) return set.c end
+            elseif (entryConfig.main.pos < 0) then
+                return function(set) return set.c - 3 - floor(set.c * 0.5) end
+            else
+                return function(set) return set.c + 3 + floor(set.c * 0.5) end
+            end
         end
+        local refPt = la.lc[f(la)]
+        return refPt,
+            ust.mRot((su.lc[f(su)] - pl.lc[f(pl)]):normalized()),
+            la.lc[f(la)],
+            pl.lc[f(pl)]:avg(pl.rc[f(pl)])
     end
     
     local refPt, refMRot, cpt, cupt = retriveRef()
