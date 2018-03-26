@@ -48,6 +48,8 @@ local buildingList, buildingParamsList = table.unpack(require("ustation_building
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
     return {
+        paramsutil.makeTrackTypeParam(),
+        paramsutil.makeTrackCatenaryParam(),
         {
             key = "nbTracks",
             name = _("Number of tracks"),
@@ -58,14 +60,6 @@ local function params()
             name = _("Platform length") .. "(m)",
             values = func.map(trackLengths, tostring),
             defaultIndex = 5
-        },
-        paramsutil.makeTrackTypeParam(),
-        paramsutil.makeTrackCatenaryParam(),
-        {
-            key = "trackLayout",
-            name = _("Track Layout"),
-            values = func.map({1, 2, 3, 4}, tostring),
-            defaultIndex = 1
         },
         {
             key = "nbTransitTracks",
@@ -113,6 +107,18 @@ local function params()
             key = "wPlatform",
             name = _("Width") .. "(m)",
             values = func.map(wPlatformList, tostring),
+            defaultIndex = 1
+        },
+        {
+            key = "hasLeftPlatform",
+            name = _("Leftmost Platform"),
+            values = {_("No"), _("Yes")},
+            defaultIndex = 1
+        },
+        {
+            key = "hasRightPlatform",
+            name = _("Rightmost Platform"),
+            values = {_("No"), _("Yes")},
             defaultIndex = 1
         },
         {
@@ -196,7 +202,7 @@ local function params()
         {
             key = "entryPos",
             name = _("Position"),
-            values = {_("A"), _("Default"), _("B")},
+            values = {_("A"), _("Central"), _("B")},
             defaultIndex = 1
         },
         {
@@ -220,19 +226,19 @@ local function params()
         {
             key = "fencesPos",
             name = sp .. "\n" .. _("Fences"),
-            values = {"None", "A", "B", "A+B"},
+            values = {_("None"), _("A"), _("B"), _("A").."+".._("B")},
             defaultIndex = 0
         },
         {
             key = "fencesStyle",
             name = _("Fences Style"),
-            values = {"A", "B", "C"},
+            values = {_("A"), _("B"), _("C")},
             defaultIndex = 0
         },
         {
             key = "fencesColor",
             name = _("Fences Color"),
-            values = {"White", "Green", "Yellow"},
+            values = {_("White"), _("Green"), _("Yellow")},
             defaultIndex = 0
         },
         {
@@ -322,36 +328,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
     local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
     
-    local function preBuild(nbTracks, result)
-        local p = false
-        local t = true
-        local transitSeq = pipe.new * pipe.rep(config.nbTransitTracks)(t)
-        if (nbTracks == 0) then
-            if (#transitSeq > 0) then
-                if (config.posTransitTracks == -2) then
-                    result = transitSeq + result
-                elseif (config.posTransitTracks == 1) then
-                    result = result + transitSeq
-                elseif (config.posTransitTracks == 0) then
-                    result = pipe.new * pipe.rep(ceil(config.nbTransitTracks * 0.5))(t) + result + pipe.new * pipe.rep(floor(config.nbTransitTracks * 0.5))(t)
-                else
-                    local idx = result * pipe.zip(func.seq(1, #result), {"t", "i"}) * pipe.filter(function(p) return not p.t end) * pipe.map(pipe.select("i"))
-                    result = result * pipe.range(1, idx[ceil(#idx * 0.5)]) + transitSeq + result * pipe.range(idx[ceil(#idx * 0.5)] + 1, #result)
-                end
-            end
-            return result
-        elseif (nbTracks == totalTracks and (not ignoreFst or totalTracks == 1)) then
-            return preBuild(nbTracks - 1, result / p / t)
-        elseif (nbTracks == 1 and ignoreLst) then
-            return preBuild(nbTracks - 1, result / p / t)
-        elseif (nbTracks == 1 and not ignoreLst) then
-            return preBuild(nbTracks - 1, result / t / p)
-        else
-            return preBuild(nbTracks - 2, result / t / p / t)
-        end
-    end
-    
-    local ptList = preBuild(totalTracks, pipe.new)
+    local ptList = ust.preBuild(totalTracks, config.nbTransitTracks, config.posTransitTracks, ignoreFst, ignoreLst)(totalTracks, pipe.new)
     local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})
     local refList = ptListI
         * pipe.filter(function(x) return config.varRefIsTrack and x.t or not x.t end)
@@ -477,11 +454,11 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                         a = a
                     },
                     {
-                        config.rA - (-0.5 * pW + 0.5 * tW),
+                        config.rA - (0.5 * tW),
                         rAR
                     }, {oA, oAR},
                     {
-                        config.rB - (-0.5 * pW + 0.5 * tW),
+                        config.rB - (0.5 * tW),
                         rBR
                     }, {oB, oBR}
             )
@@ -501,8 +478,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         },
         underground = {
             func.mapi(config.entries.underground[1], function(t, i) return
-                (t or (isLeftTrack and config.entries.street[1][i]))
-                    and not (config.entries.main.model and config.entries.main.pos + 2 == i) end),
+                (t or (isLeftTrack and config.entries.street[1][i])) end),
             func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
         },
         allArcs = allArcs,
@@ -594,8 +570,8 @@ local updateFn = function()
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
                     entries = entryConfig
                 },
-                ({true, false, true, false})[params.trackLayout + 1],
-                (nbTracks % 2 == 0 and {false, false, true, true} or {true, true, false, false})[params.trackLayout + 1]
+                params.hasLeftPlatform == 0,
+                params.hasRightPlatform == 0
         )
         return
             pipe.new

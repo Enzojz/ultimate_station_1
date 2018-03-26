@@ -194,12 +194,6 @@ local function params()
             defaultIndex = 0
         },
         {
-            key = "varRefType",
-            name = "",
-            values = {_("Track"), _("Platform")},
-            defaultIndex = 1
-        },
-        {
             key = "varNbUnaffected",
             name = "\n" .. _("Unaffected platforms") .. "(%)",
             values = func.map(varUnaffectedList, tostring),
@@ -226,7 +220,7 @@ local function params()
         {
             key = "entryPos",
             name = _("Position"),
-            values = {_("A"), _("Default"), _("B")},
+            values = {_("A"), _("Central"), _("B"), _("Auto")},
             defaultIndex = 1
         },
         {
@@ -250,19 +244,19 @@ local function params()
         {
             key = "fencesPos",
             name = sp .. "\n" .. _("Fences"),
-            values = {"None", "A", "B", "A+B"},
+            values = {_("None"), _("A"), _("B"), _("A").."+".._("B")},
             defaultIndex = 0
         },
         {
             key = "fencesStyle",
             name = _("Fences Style"),
-            values = {"A", "B", "C"},
+            values = {_("A"), _("B"), _("C")},
             defaultIndex = 0
         },
         {
             key = "fencesColor",
             name = _("Fences Color"),
-            values = {"White", "Green", "Yellow"},
+            values = {_("White"), _("Green"), _("Yellow")},
             defaultIndex = 0
         }
     }
@@ -368,39 +362,8 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
     local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
     
-    local function preBuild(totalTracks, nbTransitTracks, posTransitTracks, ignoreFst, ignoreLst)
-        local function preBuild(nbTracks, result)
-            local p = false
-            local t = true
-            local transitSeq = pipe.new * pipe.rep(nbTransitTracks)(t)
-            if (nbTracks == 0) then
-                local result = ignoreLst and result or (result[#result] and (result / p) or result)
-                if (#transitSeq > 0) then
-                    if (posTransitTracks == 1) then
-                        result = result + transitSeq
-                    else
-                        local idx = result * pipe.zip(func.seq(1, #result), {"t", "i"}) * pipe.filter(function(p) return not p.t end) * pipe.map(pipe.select("i"))
-                        result = result * pipe.range(1, idx[ceil(#idx * 0.5)]) + transitSeq + result * pipe.range(idx[ceil(#idx * 0.5)] + 1, #result)
-                    end
-                end
-                return result
-            elseif (nbTracks == totalTracks and ignoreFst) then
-                return preBuild(nbTracks - 1, result / t / p)
-            elseif (nbTracks == totalTracks and not ignoreFst) then
-                return preBuild(nbTracks - 1, result / p / t)
-            elseif (nbTracks == 1 and ignoreLst) then
-                return preBuild(nbTracks - 1, ((not result) or result[#result]) and (result / p / t) or (result / t))
-            elseif (nbTracks == 1 and not ignoreLst) then
-                return preBuild(nbTracks - 1, result / t / p)
-            else
-                return preBuild(nbTracks - 2, result / t / p / t)
-            end
-        end
-        return preBuild
-    end
-    
-    local ptListA = preBuild(nbTracksA, config.nbTransitTracksA, config.posTransitTracksA, not hasCentral, not hasFirst)(nbTracksA, pipe.new) * pipe.rev()
-    local ptListB = preBuild(nbTracksB, config.nbTransitTracksB, config.posTransitTracksB, not hasCentral, not hasLast)(nbTracksB, pipe.new)
+    local ptListA = ust.preBuild(nbTracksA, config.nbTransitTracksA, config.posTransitTracksA, not hasCentral, not hasFirst)(nbTracksA, pipe.new) * pipe.rev()
+    local ptListB = ust.preBuild(nbTracksB, config.nbTransitTracksB, config.posTransitTracksB, not hasCentral, not hasLast)(nbTracksB, pipe.new)
     
     local ptListIA = ptListA * pipe.range(1, #ptListA - (hasCentral and 1 or 0)) * pipe.zip(func.seq(1, #ptListA), {"t", "i"})
     local ptListIB = ptListB * pipe.range(hasCentral and 2 or 1, #ptListB) * pipe.zip(func.seq(#ptListA + 1, #ptListA + #ptListB + 1), {"t", "i"})
@@ -526,8 +489,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         },
         underground = {
             func.mapi(config.entries.underground[1], function(t, i) return
-                (t or (isLeftTrack and config.entries.street[1][i]))
-                    and not (config.entries.main.model and config.entries.main.pos + 2 == i and not retriveRef) end),
+                (t or (isLeftTrack and config.entries.street[1][i])) end),
             func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
         },
         allArcs = allArcs,
@@ -584,7 +546,7 @@ local updateFn = function()
         
         local entryConfig = {
             main = {
-                pos = mainBuilding and (params.entryPos - 1),
+                pos = mainBuilding and (({-1, 0, 1, 2})[params.entryPos + 1]),
                 model = mainBuilding,
             },
             street = {
@@ -613,7 +575,6 @@ local updateFn = function()
                     wExtPlatform = extWidthList[params.wExtPlatform + 1] * 0.01,
                     lExtPlatform = extLengthList[params.lExtPlatform + 1] * 0.01,
                     yOffsetPlatform = yOffsetList[params.yOffsetPlatform + 1] * (params.yOffsetPlatformSign == 0 and 0.01 or -0.01),
-                    varRefIsTrack = params.varRefType == 0,
                     varNbUnaffected = varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
                     varModelLength = params.varModelLength + 1,
                     varModelWidth = params.varModelWidth + 1,
