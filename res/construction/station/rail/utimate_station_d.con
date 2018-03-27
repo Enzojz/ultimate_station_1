@@ -56,12 +56,6 @@ local function params()
             values = func.map(trackNumberList, tostring),
         },
         {
-            key = "length",
-            name = _("Platform length") .. "(m)",
-            values = func.map(trackLengths, tostring),
-            defaultIndex = 5
-        },
-        {
             key = "nbTransitTracks",
             name = sp .. "\n" .. _("Transit Tracks"),
             values = func.map({0, 1, 2, 3, 4}, tostring),
@@ -81,7 +75,7 @@ local function params()
         },
         {
             key = "radiusA",
-            name = _("Radius") .. " A" .. "(m)",
+            name = _("Radius") .. " A" .. " " .. "(m)",
             values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
             defaultIndex = 0
         },
@@ -93,19 +87,25 @@ local function params()
         },
         {
             key = "radiusB",
-            name = _("Radius") .. " B" .. "(m)",
+            name = _("Radius") .. " B" .. " " .. "(m)",
             values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
             defaultIndex = 0
         },
         {
+            key = "length",
+            name = sp .. "\n" .. _("Platform") .. "\n\n" .. _("Length") .. " " .. "(m)",
+            values = func.map(trackLengths, tostring),
+            defaultIndex = 5
+        },
+        {
             key = "hPlatform",
-            name = sp .. "\n" .. _("Platform") .. "\n\n" .. _("Height") .. "(mm)",
+            name = _("Height") .. " " .. "(mm)",
             values = func.map(hPlatformList, tostring),
             defaultIndex = 3
         },
         {
             key = "wPlatform",
-            name = _("Width") .. "(m)",
+            name = _("Width") .. " " .. "(m)",
             values = func.map(wPlatformList, tostring),
             defaultIndex = 1
         },
@@ -123,7 +123,7 @@ local function params()
         },
         {
             key = "roofLength",
-            name = _("Roof length") .. "(%)",
+            name = _("Roof length") .. " " .. "(%)",
             values = func.map(roofLengthList, tostring),
             defaultIndex = 3
         },
@@ -135,7 +135,7 @@ local function params()
         },
         {
             key = "varModelWidth",
-            name = _("Narrowest Extremity Width") .. "(%)",
+            name = _("Narrowest Extremity Width") .. " " .. "(%)",
             values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussain"), _("Gaussain 2")},
             defaultIndex = 1
         },
@@ -147,7 +147,7 @@ local function params()
         },
         {
             key = "varModelLength",
-            name = _("Shortest Platform") .. "(%)",
+            name = _("Shortest Platform") .. " " .. "(%)",
             values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussain"), _("Gaussain 2")},
             defaultIndex = 1
         },
@@ -159,7 +159,7 @@ local function params()
         },
         {
             key = "yOffsetPlatform",
-            name = _("Offset Platform Max.") .. "(%)",
+            name = _("Offset Platform Max.") .. " " .. "(%)",
             values = func.map(yOffsetList, tostring),
             defaultIndex = 0
         },
@@ -177,7 +177,7 @@ local function params()
         },
         {
             key = "varNbUnaffected",
-            name = "\n" .. _("Unaffected platforms") .. "(%)",
+            name = "\n" .. _("Unaffected platforms") .. " " .. "(%)",
             values = func.map(varUnaffectedList, tostring),
             defaultIndex = 0
         },
@@ -189,7 +189,7 @@ local function params()
         },
         {
             key = "slope",
-            name = _("Slope") .. "(‰)",
+            name = _("Slope") .. " " .. "(‰)",
             values = func.map(slopeList, tostring),
             defaultIndex = 0
         },
@@ -202,7 +202,7 @@ local function params()
         {
             key = "entryPos",
             name = _("Position"),
-            values = {_("A"), _("Central"), _("B")},
+            values = {"A", _("Central"), "B"},
             defaultIndex = 1
         },
         {
@@ -226,13 +226,13 @@ local function params()
         {
             key = "fencesPos",
             name = sp .. "\n" .. _("Fences"),
-            values = {_("None"), _("A"), _("B"), _("A").."+".._("B")},
+            values = {_("None"), "A", "B", "A".."+".."B"},
             defaultIndex = 0
         },
         {
             key = "fencesStyle",
             name = _("Fences Style"),
-            values = {_("A"), _("B"), _("C")},
+            values = {"A", "B", _("C")},
             defaultIndex = 0
         },
         {
