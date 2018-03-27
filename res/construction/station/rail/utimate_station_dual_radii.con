@@ -580,8 +580,8 @@ function data()
     return {
         type = "RAIL_STATION",
         description = {
-            name = _("Ultimate Station D"),
-            description = _("One or many tracks with fix radious and signaling spacing.")
+            name = _("Progressive/Contre Curvature Station"),
+            description = _("Station that platform and track parameters can be fine-tuned, with two different radiis at two extremities of the platforms.")
         },
         availability = {
             yearFrom = 1850,
