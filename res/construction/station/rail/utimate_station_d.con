@@ -10,8 +10,6 @@ local pipe = require "ustation/pipe"
 local ust = require "ustation"
 local uste = require "ustation_entries"
 
-local dump = require "datadumper"
-
 local ma = math
 
 local abs = ma.abs
