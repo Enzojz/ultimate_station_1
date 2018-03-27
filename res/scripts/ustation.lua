@@ -780,4 +780,31 @@ ust.platformDualArcGen = function(tW, pW)
     end
 end
 
+
+local function trackGrouping(result, ar1, ar2, ar3, ar4, ...)
+    if (ar1 == nil) then return table.unpack(result) end
+    
+    if (ar1 and ar2 and ar3) then
+        if #ar1 == 1 and #ar2 == 2 and #ar3 == 1 then
+            if (ar4 and #ar4 == 2 and #{...} == 0) then
+                return trackGrouping(result / {ar1, ar2} / {ar3, ar4}, ...)
+            else
+                return trackGrouping(result / {ar1, ar2, ar3}, ar4, ...)
+            end
+        elseif #ar1 == 2 and #ar2 == 1 and #ar3 == 2 and not ar4 then
+            return trackGrouping(result / {ar1} / {ar2, ar3}, ar4, ...)
+        end
+    end
+    
+    if (ar1 and ar2) then
+        if (#ar1 + #ar2 == 3) then
+            return trackGrouping(result / {ar1, ar2}, ar3, ar4, ...)
+        end
+    end
+    
+    return trackGrouping(result / {ar1}, ar2, ar3, ar4, ...)
+end
+
+ust.trackGrouping = trackGrouping
+
 return ust

@@ -240,25 +240,6 @@ local function defaultParams(param)
         function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
 end
 
-
-local function trackGrouping(result, ar1, ar2, ar3, ...)
-    if (ar1 == nil) then return table.unpack(result) end
-    
-    if (ar1 and ar2 and ar3) then
-        if #ar1 == 1 and #ar2 == 2 and #ar3 == 1 then
-            return trackGrouping(result / {ar1, ar2, ar3}, ...)
-        end
-    end
-    
-    if (ar1 and ar2) then
-        if (#ar1 + #ar2 == 3) then
-            return trackGrouping(result / {ar1, ar2}, ar3, ...)
-        end
-    end
-    
-    return trackGrouping(result / {ar1}, ar2, ar3, ...)
-end
-
 local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst)
     local pW = config.wPlatform
     local tW = config.wTrack
@@ -426,7 +407,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         ust.generateTerrain(config)
     )
     
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, trackGrouping(pipe.new, table.unpack(allArcs)))
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
 end
 
 local updateFn = function()
