@@ -650,9 +650,9 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 models + buildEntryPath + buildLanes,
                 terrain + buildFace
         elseif (#gr == 3) then
-            edges = generateEdges(edges, true, gr[1][1])
-            edges = generateEdges(edges, false, gr[3][1])
-            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, true})
+            local edges = generateEdges(edges, true, gr[1][1])
+            local edges = generateEdges(edges, false, gr[3][1])
+            local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, true})
             return build(
                 edges,
                 terminals,
@@ -663,8 +663,8 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 terrain + generateTerrain(gr[2]),
                 ...)
         elseif (#gr == 2 and #gr[1] == 1 and #gr[2] > 1) then
-            edges = generateEdges(edges, true, gr[1][1])
-            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, false})
+            local edges = generateEdges(edges, true, gr[1][1])
+            local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, false})
             return build(
                 edges,
                 terminals,
@@ -676,8 +676,8 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 terrain + generateTerrain(gr[2]),
                 ...)
         elseif (#gr == 2 and #gr[1] > 1 and #gr[2] == 1) then
-            edges = generateEdges(edges, false, gr[2][1])
-            terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1], {false, true})
+            local edges = generateEdges(edges, false, gr[2][1])
+            local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1], {false, true})
             return build(edges,
                 terminals,
                 terminalsGroup,
@@ -688,6 +688,7 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 terrain + generateTerrain(gr[1]),
                 ...)
         elseif (#gr == 1 and #gr[1] > 1) then
+            local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1], {false, false})
             return build(edges,
                 terminals,
                 terminalsGroup,
@@ -698,7 +699,7 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 terrain + generateTerrain(gr[1]),
                 ...)
         else
-            edges = generateEdges(edges, false, gr[1][1])
+            local edges = generateEdges(edges, false, gr[1][1])
             return build(edges,
                 terminals,
                 terminalsGroup,
