@@ -827,7 +827,7 @@ ust.trackGrouping = trackGrouping
 ust.entryConfig = function(config, allArcs, arcCoords)
     local isLeftTrack = #allArcs[1] == 1
     local isRightTrack = #allArcs[#allArcs] == 1
-    
+        
     return {
         main = isLeftTrack and {pos = false, model = false} or config.entries.main,
         street = {
@@ -840,7 +840,7 @@ ust.entryConfig = function(config, allArcs, arcCoords)
             func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
         },
         allArcs = allArcs,
-        arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
+        arcCoords = arcCoords
     }
 end
 
