@@ -29,7 +29,7 @@ local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55,
 local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
 local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250, 1380}
 local wPlatformList = {4, 5, 6, 7, 8, 10, 12, 14, 15}
-local hStation = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16}
+local hStation = {0, 1, 2, 3, 4, 5, 6}
 local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
 local extWidthList = {100, 75, 50, 25, 10}
 local extLengthList = {100, 90, 80, 75, 70, 65, 60, 55, 50}
@@ -219,30 +219,48 @@ local function params()
         {
             key = "entrySize",
             name = sp .. "\n" .. _("Main Entry"),
-            values = {"None", "S", "M", "L", "XL"},
+            values = {_("None"), _("S"), _("M"), _("L"), _("XL")},
             defaultIndex = 2
         },
         {
             key = "entryPos",
             name = _("Position"),
-            values = {"A", _("Central"), "B"},
+            values = {"A", _("Central"), "C"},
             defaultIndex = 1
         },
         {
+            key = "entryASide",
+            name = "",
+            values = {_("Left"), _("Both"), _("Right")},
+            defaultIndex = 1,
+        },
+        {
             key = "entryAType",
-            name = _("Second Entry A Type"),
+            name = _("Entry") .. " " .. "A",
             values = {_("Underground"), _("Surface"), _("None")},
+            defaultIndex = 1,
+        },
+        {
+            key = "entryBSide",
+            name = "",
+            values = {_("Left"), _("Both"), _("Right")},
             defaultIndex = 1,
         },
         {
             key = "entryBType",
-            name = _("Second Entry B Type"),
+            name = _("Entry") .. " " .. "B",
             values = {_("Underground"), _("Surface"), _("None")},
             defaultIndex = 1,
         },
         {
+            key = "entryCSide",
+            name = "",
+            values = {_("Left"), _("Both"), _("Right")},
+            defaultIndex = 1,
+        },
+        {
             key = "entryCType",
-            name = _("Second Entry C Type"),
+            name = _("Entry") .. " " .. "C",
             values = {_("Underground"), _("Surface"), _("None")},
             defaultIndex = 1,
         },
@@ -472,24 +490,8 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     end
     * ust.allArcs(arcGen, config)
     
-    local isLeftTrack = #allArcs[1] == 1
-    local isRightTrack = #allArcs[#allArcs] == 1
-    
-    local entryConfig = {
-        main = isLeftTrack and {pos = false, model = false} or config.entries.main,
-        street = {
-            func.mapi(config.entries.street[1], function(t, i) return t and not (config.entries.main.model and config.entries.main.pos + 2 == i) and not isLeftTrack end),
-            func.mapi(config.entries.street[2], function(t, i) return t and not isRightTrack end),
-        },
-        underground = {
-            func.mapi(config.entries.underground[1], function(t, i) return
-                (t or (isLeftTrack and config.entries.street[1][i])) end),
-            func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
-        },
-        allArcs = allArcs,
-        arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
-    }
-    
+    local entryConfig = ust.entryConfig(config, allArcs, arcCoords)
+
     local build = ust.build(
         config,
         pipe.new
@@ -534,12 +536,24 @@ local updateFn = function()
                 model = mainBuilding,
             },
             street = {
-                {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
-                {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1}
+                pipe.mapn(
+                    {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
+                    {params.entryASide < 2, params.entryBSide < 2, params.entryCSide < 2}
+                )(function(t, v) return t and v end),
+                pipe.mapn(
+                    {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
+                    {params.entryASide > 0, params.entryBSide > 0, params.entryCSide > 0}
+                )(function(t, v) return t and v end)
             },
             underground = {
-                {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
-                {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0}
+                pipe.mapn(
+                    {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
+                    {params.entryASide < 2, params.entryBSide < 2, params.entryCSide < 2}
+                )(function(t, v) return t and v end),
+                pipe.mapn(
+                    {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
+                    {params.entryASide > 0, params.entryBSide > 0, params.entryCSide > 0}
+                )(function(t, v) return t and v end)
             }
         }
         
@@ -579,7 +593,7 @@ local updateFn = function()
             pipe.new
             * {
                 edgeLists = pipe.new
-                / (pipe.new * {edge * station.mergeEdges} * station.prepareEdges * trackBuilder.normal())
+                / (pipe.new * {edge * station.mergeEdges} * station.prepareEdges * trackBuilder.nonAligned())
                 + streetEdge,
                 models = terminals + models,
                 terminalGroups = terminalsGroup,

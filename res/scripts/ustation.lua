@@ -567,6 +567,23 @@ ust.generateTerrain = function(config)
     end
 end
 
+ust.generateTrackTerrain = function(config)
+    return function(arc)
+        local ar = arc()()
+        local arl = ar(-0.5 * config.wTrack)
+        local arr = ar(0.5 * config.wTrack)
+        local lc, rc, c = ust.bitLatCoords(5)(arl, arr)
+        return pipe.new
+            / {
+                equal = pipe.new
+                * pipe.mapn(il(lc), il(rc))
+                (function(lc, rc)
+                    local size = assembleSize(lc, rc)
+                    return pipe.new / size.lt / size.lb / size.rb / size.rt * station.finalizePoly
+                end)
+            }
+    end
+end
 
 ust.allArcs = function(arcGen, config)
     local refZ = config.hPlatform + 0.53
@@ -638,6 +655,7 @@ ust.allArcs = function(arcGen, config)
 end
 
 ust.build = function(config, entries, generateEdges, generateModels, generateTerminals, generateFences, generateTerrain)
+    local generateTrackTerrain = ust.generateTrackTerrain(config)
     local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
         local isLeftmost = #models == 0
         local isRightmost = #{...} == 0
@@ -660,7 +678,7 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 models + generateModels(gr[2])
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true) or {}),
-                terrain + generateTerrain(gr[2]),
+                terrain + generateTerrain(gr[2]) + generateTrackTerrain(gr[1][1]) + generateTrackTerrain(gr[3][1]),
                 ...)
         elseif (#gr == 2 and #gr[1] == 1 and #gr[2] > 1) then
             local edges = generateEdges(edges, true, gr[1][1])
@@ -673,7 +691,7 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 + generateModels(gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost))
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
-                terrain + generateTerrain(gr[2]),
+                terrain + generateTerrain(gr[2]) + generateTrackTerrain(gr[1][1]),
                 ...)
         elseif (#gr == 2 and #gr[1] > 1 and #gr[2] == 1) then
             local edges = generateEdges(edges, false, gr[2][1])
@@ -685,7 +703,7 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 + generateModels(gr[1], entries[3].edgeBuilder(isLeftmost, isRightmost))
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
-                terrain + generateTerrain(gr[1]),
+                terrain + generateTerrain(gr[1]) + generateTrackTerrain(gr[2][1]),
                 ...)
         elseif (#gr == 1 and #gr[1] > 1) then
             local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1], {false, false})
@@ -704,7 +722,7 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 terminals,
                 terminalsGroup,
                 models,
-                terrain,
+                terrain + generateTrackTerrain(gr[1][1]),
                 ...)
         end
     end
@@ -805,5 +823,25 @@ local function trackGrouping(result, ar1, ar2, ar3, ar4, ...)
 end
 
 ust.trackGrouping = trackGrouping
+
+ust.entryConfig = function(config, allArcs, arcCoords)
+    local isLeftTrack = #allArcs[1] == 1
+    local isRightTrack = #allArcs[#allArcs] == 1
+    
+    return {
+        main = isLeftTrack and {pos = false, model = false} or config.entries.main,
+        street = {
+            func.mapi(config.entries.street[1], function(t, i) return t and not (config.entries.main.model and config.entries.main.pos + 2 == i) and not isLeftTrack end),
+            func.mapi(config.entries.street[2], function(t, i) return t and not isRightTrack end),
+        },
+        underground = {
+            func.mapi(config.entries.underground[1], function(t, i) return
+                (t or (isLeftTrack and config.entries.street[1][i])) and not (config.entries.main.model and config.entries.main.pos + 2 == i) end),
+            func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
+        },
+        allArcs = allArcs,
+        arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
+    }
+end
 
 return ust

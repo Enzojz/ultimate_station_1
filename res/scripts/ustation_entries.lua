@@ -108,14 +108,14 @@ local buildUndergroundEntry = function(config, entryConfig)
                     {
                         ls[1].pt + vec1 + ls[1].vec * ((fst - 1) * config.wTrack - 2),
                         ls[1].pt - vec1 + ls[1].vec * ((fst - 1) * config.wTrack - 2),
-                        ls[1].pt - vec1 + ls[1].vec * ((fst - 1) * config.wTrack + 15),
-                        ls[1].pt + vec1 + ls[1].vec * ((fst - 1) * config.wTrack + 15)
+                        ls[1].pt - vec1 + ls[1].vec * ((fst - 1) * config.wTrack + 18),
+                        ls[1].pt + vec1 + ls[1].vec * ((fst - 1) * config.wTrack + 18)
                     })
                     / (ls[2] and {
                         ls[2].pt + vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack - 2),
                         ls[2].pt - vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack - 2),
-                        ls[2].pt - vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack + 15),
-                        ls[2].pt + vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack + 15)
+                        ls[2].pt - vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack + 18),
+                        ls[2].pt + vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack + 18)
                     })
                     * pipe.filter(pipe.noop())
             end)
@@ -124,7 +124,8 @@ local buildUndergroundEntry = function(config, entryConfig)
                 return pipe.new /
                     {
                         less = f * pipe.map(pipe.map(function(c) return c .. coor.transZ(0.53 + 7.5) end)) * pipe.map(station.finalizePoly),
-                        slot = f * pipe.map(station.finalizePoly)
+                        slot = f * pipe.map(station.finalizePoly),
+                        greater = f * pipe.map(station.finalizePoly)
                     }
             end
     end
