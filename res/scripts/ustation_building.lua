@@ -1,10 +1,10 @@
 local coor = require "ustation/coor"
 
 local buildingList = {
-    "main_building_size1.mdl",
-    "main_building_size2.mdl",
-    "main_building_size4.mdl",
-    "main_building_size5.mdl",
+    "ust/1990/building/main_building_size1.mdl",
+    "ust/1990/building/main_building_size2.mdl",
+    "ust/1990/building/main_building_size4.mdl",
+    "ust/1990/building/main_building_size5.mdl",
 }
 
 local bZ = 0.8

@@ -295,7 +295,7 @@ end
 
 local il = pipe.interlace({"s", "i"})
 
-ust.unitLane = function(f, t) return station.newModel("person_lane.mdl", ust.mRot(t - f), coor.trans(f)) end
+ust.unitLane = function(f, t) return station.newModel("ust/person_lane.mdl", ust.mRot(t - f), coor.trans(f)) end
 
 ust.generateEdges = function(edges, isLeft, arcPacker)
     local arcs = arcPacker()()()
@@ -325,9 +325,9 @@ ust.generateTerminals = function(config)
         local newTerminals = pipe.new
             * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
-                    l = station.newModel(enablers[1] and "terminal_lane.mdl" or "standard_lane.mdl", ust.mRot(lc.i - lc.s), coor.trans(lc.s)),
-                    r = station.newModel(enablers[2] and "terminal_lane.mdl" or "standard_lane.mdl", ust.mRot(rc.s - rc.i), coor.trans(rc.i)),
-                    link = (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
+                    l = station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.i - lc.s), coor.trans(lc.s)),
+                    r = station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(rc.s - rc.i), coor.trans(rc.i)),
+                    link = (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
                 }
             end)
             * function(ls)
@@ -415,31 +415,31 @@ ust.generateModels = function(fitModel, config)
         local lcc, rcc, cc = arcs.chair.lc, arcs.chair.rc, arcs.chair.c
         
         local platformSurface = pipe.new
-            * pipe.rep(c - 2)("platform_surface")
-            * pipe.mapi(function(p, i) return (i == (c > 5 and 4 or 2) or i == floor(c * 0.5) + 4) and "platform_stair" or "platform_surface" end)
-            / "platform_extremity"
+            * pipe.rep(c - 2)(config.models.surface)
+            * pipe.mapi(function(p, i) return (i == (c > 5 and 4 or 2) or i == floor(c * 0.5) + 4) and config.models.stair or config.models.surface end)
+            / config.models.extremity
             * (function(ls) return ls * pipe.rev() + ls end)
         
         local platformSurfaceEx = pipe.new
-            * pipe.rep(c - 2)("platform_surface")
-            / "platform_extremity"
+            * pipe.rep(c - 2)(config.models.surface)
+            / config.models.extremity
             * (function(ls) return ls * pipe.rev() + ls end)
         
         local platformEdgeO = pipe.new
-            * pipe.rep(c - 2)("platform_edge")
-            / "platform_corner"
+            * pipe.rep(c - 2)(config.models.edge)
+            / config.models.corner
             * (function(ls) return ls * pipe.rev() + ls end)
         
         local platformEdgeL, platformEdgeR = edgeBuilder(platformEdgeO, c)
         
         local roofSurface = pipe.new
-            * pipe.rep(pc - 2)("platform_roof_top")
-            / "platform_roof_extremity"
+            * pipe.rep(pc - 2)(config.models.roofTop)
+            / config.models.roofExtremity
             * (function(ls) return ls * pipe.rev() + ls end)
         
         local roofEdge = pipe.new
-            * pipe.rep(pc - 2)("platform_roof_edge")
-            / "platform_roof_corner"
+            * pipe.rep(pc - 2)(config.models.roofEdge)
+            / config.models.roofCorner
             * (function(ls) return ls * pipe.rev() + ls end)
         
         local newModels = pipe.mapn(platformEdgeL, platformEdgeR, platformSurface, platformSurfaceEx, il(lc), il(rc), il(lic), il(ric), func.seq(1, c * 2 - 1))
@@ -503,9 +503,9 @@ ust.generateModels = function(fitModel, config)
             * func.seq(1, cc - 1)
             * pipe.map(function(i)
                 return cc > 3 and i ~= 2 and i % floor(cc * 0.5) ~= 2 and i ~= cc - 1 and (i % 6 == 4 or (i - 1) % 6 == 4 or (i + 1) % 6 == 4) and
-                    (i % 3 ~= 1 and "platform_chair.mdl" or "platform_trash.mdl")
+                    (i % 3 ~= 1 and config.models.chair .. ".mdl" or config.models.trash .. ".mdl")
             end)
-            * (function(ls) return ls * pipe.rev() + {cc < 6 and "platform_chair.mdl"} + ls end)
+            * (function(ls) return ls * pipe.rev() + {cc < 6 and config.models.chair .. ".mdl"} + ls end)
         
         local chairs = pipe.mapn(lcc, rcc, platformChairs)
             (function(lc, rc, m)
@@ -543,7 +543,7 @@ ust.generateModels = function(fitModel, config)
                 local lc = i >= ppc and lc or {s = lc.i, i = lc.s}
                 local rc = i >= ppc and rc or {s = rc.i, i = rc.s}
                 local vecPo = lc.i:avg(rc.i) - lc.s:avg(rc.s)
-                return station.newModel("platform_roof_pole.mdl", tZ, coor.flipY(),
+                return station.newModel(config.models.roofPole .. ".mdl", tZ, coor.flipY(),
                     coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, 5, 0), vecPo):mRot(),
                     coor.trans(lc.i:avg(rc.i, lc.s, rc.s)), coor.transZ(-platformZ))
             end)
@@ -718,7 +718,7 @@ local platformArcGenParam = function(la, ra, rInner, pWe)
     local f = mvec:dot(mlpt - la.o) > 0 and 1 or -1
     
     mvec = (mlpt - la.o):normalized()
-
+    
     local elpt = la:pt(la.sup)
     local erpt = (elpt - la.o):normalized() * f * pWe + elpt
     

@@ -59,13 +59,13 @@ local buildUndergroundEntry = function(config, entryConfig)
             * pipe.map(function(ls)
                 return pipe.new
                     / (
-                    ls[1] and station.newModel("underground_entry.mdl",
+                    ls[1] and station.newModel(config.models.underground,
                         coor.rotZ(-0.5 * pi),
                         coor.transX(fst == 1 and -0.5 or (fst - 1) * config.wTrack),
                         ust.mRot(ls[1].vec),
                         coor.trans(ls[1].pt)
                     ))
-                    / (ls[2] and station.newModel("underground_entry.mdl",
+                    / (ls[2] and station.newModel(config.models.underground,
                         coor.rotZ(-0.5 * pi),
                         coor.transX(#allArcs == lst and -0.5 or -0.5 + (#allArcs - lst) * config.wTrack),
                         ust.mRot(ls[2].vec),
@@ -215,7 +215,7 @@ local buildUndergroundEntry = function(config, entryConfig)
                                 edgeTypeName = "ust_void.lua",
                                 params =
                                 {
-                                    type = "station_pass.lua",
+                                    type = "ust_pass.lua",
                                     tramTrackType = "NO"
                                 }
                             }
@@ -226,7 +226,7 @@ local buildUndergroundEntry = function(config, entryConfig)
                                 alignTerrain = false,
                                 params =
                                 {
-                                    type = "station_pass.lua",
+                                    type = "ust_pass.lua",
                                     tramTrackType = "NO"
                                 }
                             }
@@ -237,7 +237,7 @@ local buildUndergroundEntry = function(config, entryConfig)
                                 alignTerrain = false,
                                 params =
                                 {
-                                    type = "station_pass_2.lua",
+                                    type = "ust_pass_2.lua",
                                     tramTrackType = "NO"
                                 }
                             }
@@ -333,8 +333,8 @@ local buildSecondEntrySlope = function(config, entryConfig)
                 {entryConfig.street[2][1] and c - fc - 4, entryConfig.street[2][2] and c, entryConfig.street[2][3] and c + fc + 3},
             }, pipe.filter(pipe.noop()))
             
-            local platformEdgeL = isLeftmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[1], i) and i ~= 1 and i ~= #platformEdgeO and "platform_edge_open" or e end) or platformEdgeO
-            local platformEdgeR = isRightmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[2], i) and i ~= 1 and i ~= #platformEdgeO and "platform_edge_open" or e end) or platformEdgeO
+            local platformEdgeL = isLeftmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[1], i) and i ~= 1 and i ~= #platformEdgeO and config.models.edgeOpen or e end) or platformEdgeO
+            local platformEdgeR = isRightmost and platformEdgeO * pipe.mapi(function(e, i) return func.contains(enabler[2], i) and i ~= 1 and i ~= #platformEdgeO and config.models.edgeOpen or e end) or platformEdgeO
             return platformEdgeL, platformEdgeR
         end
     end
@@ -394,7 +394,7 @@ local buildSecondEntrySlope = function(config, entryConfig)
                     * pipe.filter(pipe.noop())
                     * pipe.mapi(function(sizes, i)
                         local isLeftmost = i == 0
-                        return func.map2({"platform_access_t_upper", "platform_access_t_lower"}, sizes, function(s, size)
+                        return func.map2({config.models.access .. "_upper", config.models.access .. "_lower"}, sizes, function(s, size)
                             return {
                                 station.newModel(s .. (isLeftmost and "_br.mdl" or "_bl.mdl"),
                                     coor.transZ(-1.93) * coor.scaleZ(platformZ / 1.93) * coor.transZ(1.93), tZ,
@@ -466,7 +466,7 @@ local buildSecondEntrySlope = function(config, entryConfig)
                     type = "STREET",
                     params =
                     {
-                        type = "station_entry.lua",
+                        type = "ust_entry.lua",
                         tramTrackType = "NO"
                     }
                 }
@@ -533,7 +533,7 @@ local buildSecondEntrySlope = function(config, entryConfig)
                     * pipe.mapi(function(sizes, i)
                         local isLeftmost = i == 0
                         return func.map(sizes.pt, function(p)
-                            return station.newModel("person_lane.mdl", ust.mRot(sizes.ac - p), coor.trans(p))
+                            return station.newModel("ust/person_lane.mdl", ust.mRot(sizes.ac - p), coor.trans(p))
                         end)
                     end)
                     +
@@ -546,8 +546,8 @@ local buildSecondEntrySlope = function(config, entryConfig)
                         local pt1 = p + (v .. coor.rotZ(0.5 * pi)) * 3
                         local pt2 = p + (v .. coor.rotZ(-0.5 * pi)) * 3
                         return {
-                            station.newModel("person_lane.mdl", ust.mRot(e - pt1), coor.trans(pt1)),
-                            station.newModel("person_lane.mdl", ust.mRot(e - pt2), coor.trans(pt2))
+                            station.newModel("ust/person_lane.mdl", ust.mRot(e - pt1), coor.trans(pt1)),
+                            station.newModel("ust/person_lane.mdl", ust.mRot(e - pt2), coor.trans(pt2))
                         }
                     end)
             end)
@@ -615,7 +615,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
                         local b = lc.i:avg(rc.i)
                         local t = lc.s:avg(rc.s)
                         local vec = t - b
-                        return station.newModel("person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
+                        return station.newModel("ust/person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
                     end)
             end)
             * pipe.flatten()
@@ -632,7 +632,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
             * (function(ls) return {ls * pipe.map(pipe.select(1)), ls * pipe.map(pipe.select(2)), ls * pipe.map(pipe.select(3))} end)
             * pipe.map(pipe.filter(pipe.noop()))
             * pipe.map(pipe.interlace({"l", "r"}))
-            * pipe.map(pipe.map(function(pt) return station.newModel("person_lane.mdl", ust.mRot((pt.l - pt.r)), coor.trans(pt.r)) end))
+            * pipe.map(pipe.map(function(pt) return station.newModel("ust/person_lane.mdl", ust.mRot((pt.l - pt.r)), coor.trans(pt.r)) end))
             * pipe.flatten()
     end
     

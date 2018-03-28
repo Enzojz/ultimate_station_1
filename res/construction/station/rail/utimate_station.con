@@ -41,6 +41,33 @@ local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55,
 local fencesLengthList = {2, 2.5, 2}
 local buildingList, buildingParamsList = table.unpack(require("ustation_building"))
 
+local fencesGen = function(colorCode, styleCode)
+    return {
+        "ust/fences/" .. tostring(colorCode) .. "/platform_fences_" .. tostring(styleCode) .. ".mdl",
+        "ust/fences/" .. tostring(colorCode) .. "/platform_fences_pole_" .. tostring(styleCode) .. ".mdl",
+    }
+end
+
+
+local prefixM = function(p) return "ust/1990/platform/" .. p end
+local models = {
+    surface = prefixM("platform_surface"),
+    extremity = prefixM("platform_extremity"),
+    corner = prefixM("platform_corner"),
+    edge = prefixM("platform_edge"),
+    edgeOpen = prefixM("platform_edge_open"),
+    roofTop = prefixM("platform_roof_top"),
+    roofExtremity = prefixM("platform_roof_extremity"),
+    roofEdge = prefixM("platform_roof_edge"),
+    roofCorner = prefixM("platform_roof_corner"),
+    roofPole = prefixM("platform_roof_pole"),
+    stair = prefixM("platform_stair"),
+    trash = prefixM("platform_trash"),
+    chair = prefixM("platform_chair"),
+    underground = "ust/1990/underground_entry.mdl",
+    access = "ust/1990/platform/platform_access_t"
+}
+
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
     return {
@@ -422,10 +449,7 @@ local updateFn = function()
         local roofLength = roofLengthList[params.roofLength + 1] * 0.01
         local mainBuilding = params.entrySize > 0 and buildingList[params.entrySize]
         local fencesLength = fencesLengthList[params.fencesStyle + 1]
-        local fencesModel = {
-            "fences/" .. tostring(params.fencesColor + 1) .. "/platform_fences_" .. tostring(params.fencesStyle + 1) .. ".mdl",
-            "fences/" .. tostring(params.fencesColor + 1) .. "/platform_fences_pole_" .. tostring(params.fencesStyle + 1) .. ".mdl",
-        }
+        local fencesModel = fencesGen(params.fencesColor + 1, params.fencesStyle + 1)
         
         local nbTracks = trackNumberList[params.nbTracks + 1]
         local radius = (rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
@@ -473,7 +497,8 @@ local updateFn = function()
                     fencesLength = fencesLength,
                     leftFences = params.fencesPos == 1 or params.fencesPos == 3,
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
-                    entries = entryConfig
+                    entries = entryConfig,
+                    models = models
                 },
                 params.hasLeftPlatform == 0,
                 params.hasRightPlatform == 0
