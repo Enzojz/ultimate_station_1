@@ -458,36 +458,62 @@ ust.generateModels = function(fitModel, config)
                         top = sizeS.rt - sizeS.lt,
                         bottom = sizeS.rb - sizeS.lb
                     }
-                    if (vecs.top:length() < 8 and vecs.bottom:length() < 8) then
+                    if (vecs.top:length() < 7 and vecs.bottom:length() < 7) then
                         return pipe.new
                             / station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, false, false))
                             / station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, true, true))
                     else
-                        local sizeS1 = {
-                            lb = sizeS.lb,
-                            lt = sizeS.lt,
-                            rb = sizeS.lb + vecs.bottom / 3,
-                            rt = sizeS.lt + vecs.top / 3,
-                        }
+                        local n = (function(l)
+                            return
+                            (l - floor(l) < 0.5)
+                                and (function(n) return n % 2 == 0 and n - 1 or n end)(floor(l))
+                                or (function(n) return n % 2 == 0 and n + 1 or n end)(ceil(l))
+                        end)((vecs.top:length() + vecs.bottom:length()) / 14)
+                        
+                        local h = (n - 1) * 0.5
+                        
                         local sizeS2 = {
-                            lb = sizeS1.rb,
-                            lt = sizeS1.rt,
-                            rb = sizeS1.rb + vecs.bottom / 3,
-                            rt = sizeS1.rt + vecs.top / 3,
+                            lb = sizeS.lb + vecs.bottom * h / n,
+                            lt = sizeS.lt + vecs.top * h / n,
+                            rb = sizeS.rb - vecs.bottom * h / n,
+                            rt = sizeS.rt - vecs.top * h / n,
                         }
-                        local sizeS3 = {
-                            lb = sizeS2.rb,
-                            lt = sizeS2.rt,
-                            rb = sizeS.rb,
-                            rt = sizeS.rt,
-                        }
+                        
                         return pipe.new
-                            / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS1, false, false))
-                            / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS1, true, true))
-                            / station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, false, false))
-                            / station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, true, true))
-                            / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS3, false, false))
-                            / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS3, true, true))
+                            * func.seq(1, h)
+                            * pipe.map(function(i)
+                                local size = {
+                                    lb = sizeS.lb + vecs.bottom * (i - 1) / n,
+                                    lt = sizeS.lt + vecs.top * (i - 1) / n,
+                                    rb = sizeS.lb + vecs.bottom * i / n,
+                                    rt = sizeS.lt + vecs.top * i / n,
+                                }
+                                
+                                return pipe.new
+                                    / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, size, false, false))
+                                    / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, size, true, true))
+                            end)
+                            * pipe.flatten()
+                            + {
+                                station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, false, false)),
+                                station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, true, true))
+                            }
+                            +
+                            pipe.new
+                            * func.seq(1, h)
+                            * pipe.map(function(i)
+                                local size = {
+                                    lb = sizeS.rb - vecs.bottom * i / n,
+                                    lt = sizeS.rt - vecs.top * i / n,
+                                    rb = sizeS.rb - vecs.bottom * (i - 1) / n,
+                                    rt = sizeS.rt - vecs.top * (i - 1) / n,
+                                }
+                                
+                                return pipe.new
+                                    / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, size, false, false))
+                                    / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, size, true, true))
+                            end)
+                            * pipe.flatten()
                     end
                 end
                 
@@ -529,9 +555,41 @@ ust.generateModels = function(fitModel, config)
                 local sizeL = assembleSize(lc, lic)
                 local sizeR = assembleSize(ric, rc)
                 local sizeS = assembleSize(lic, ric)
-                return {
-                    station.newModel(s .. "_br.mdl", tZ, fitModel(3, 5, platformZ, sizeS, false, false)),
-                    station.newModel(s .. "_tl.mdl", tZ, fitModel(3, 5, platformZ, sizeS, true, true)),
+
+
+                local roof = pipe.exec * function()
+                    local vecs = {
+                        top = sizeS.rt - sizeS.lt,
+                        bottom = sizeS.rb - sizeS.lb
+                    }
+                    if (vecs.top:length() < 7 and vecs.bottom:length() < 7) then
+                        return pipe.new
+                            / station.newModel(s .. "_br.mdl", tZ, fitModel(3, 5, platformZ, sizeS, false, false))
+                            / station.newModel(s .. "_tl.mdl", tZ, fitModel(3, 5, platformZ, sizeS, true, true))
+                    else
+                        local n = (function(l)
+                            return (l - floor(l) < 0.5) and floor(l) or ceil(l)
+                        end)((vecs.top:length() + vecs.bottom:length()) / 14)
+                        
+                        return pipe.new
+                            * func.seq(1, n)
+                            * pipe.map(function(i)
+                                local size = {
+                                    lb = sizeS.lb + vecs.bottom * (i - 1) / n,
+                                    lt = sizeS.lt + vecs.top * (i - 1) / n,
+                                    rb = sizeS.lb + vecs.bottom * i / n,
+                                    rt = sizeS.lt + vecs.top * i / n,
+                                }
+                                
+                                return pipe.new
+                                    / station.newModel(s .. "_br.mdl", tZ, fitModel(3, 5, platformZ, size, false, false))
+                                    / station.newModel(s .. "_tl.mdl", tZ, fitModel(3, 5, platformZ, size, true, true))
+                            end)
+                            * pipe.flatten()
+                    end
+                end
+
+                return roof + {
                     station.newModel(e .. "_br.mdl", tZ, fitModel(1, 5, platformZ, sizeL, false, false)),
                     station.newModel(e .. "_tl.mdl", tZ, fitModel(1, 5, platformZ, sizeL, true, true)),
                     station.newModel(e .. "_br.mdl", tZ, coor.flipX(), fitModel(1, 5, platformZ, sizeR, false, true)),
@@ -824,19 +882,19 @@ end
 
 ust.trackGrouping = trackGrouping
 
-ust.entryConfig = function(config, allArcs, arcCoords)
+ust.entryConfig = function(config, allArcs, arcCoords, ignoreMain)
     local isLeftTrack = #allArcs[1] == 1
     local isRightTrack = #allArcs[#allArcs] == 1
-        
+    local withoutMain = function(i) return ignoreMain or (not config.entries.main.model) or config.entries.main.pos + 2 ~= i end
     return {
         main = isLeftTrack and {pos = false, model = false} or config.entries.main,
         street = {
-            func.mapi(config.entries.street[1], function(t, i) return t and not (config.entries.main.model and config.entries.main.pos + 2 == i) and not isLeftTrack end),
+            func.mapi(config.entries.street[1], function(t, i) return t and withoutMain(i) and not isLeftTrack end),
             func.mapi(config.entries.street[2], function(t, i) return t and not isRightTrack end),
         },
         underground = {
             func.mapi(config.entries.underground[1], function(t, i) return
-                (t or (isLeftTrack and config.entries.street[1][i])) and not (config.entries.main.model and config.entries.main.pos + 2 == i) end),
+                (t or (isLeftTrack and config.entries.street[1][i])) and withoutMain(i) end),
             func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
         },
         allArcs = allArcs,
