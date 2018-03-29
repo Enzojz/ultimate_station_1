@@ -902,4 +902,32 @@ ust.entryConfig = function(config, allArcs, arcCoords, ignoreMain)
     }
 end
 
+ust.models = function(prefixM)
+    local prefixM = function(p) return prefixM .. p end
+    return {
+        surface = prefixM("platform/platform_surface"),
+        extremity = prefixM("platform/platform_extremity"),
+        corner = prefixM("platform/platform_corner"),
+        edge = prefixM("platform/platform_edge"),
+        edgeOpen = prefixM("platform/platform_edge_open"),
+        roofTop = prefixM("platform/platform_roof_top"),
+        roofExtremity = prefixM("platform/platform_roof_extremity"),
+        roofEdge = prefixM("platform/platform_roof_edge"),
+        roofCorner = prefixM("platform/platform_roof_corner"),
+        roofPole = prefixM("platform/platform_roof_pole"),
+        stair = prefixM("platform/platform_stair"),
+        trash = prefixM("platform/platform_trash"),
+        chair = prefixM("platform/platform_chair"),
+        access = prefixM("platform/platform_access_t"),
+        underground = prefixM("underground_entry.mdl")
+    }
+end
+
+ust.fencesGen = function(colorCode, styleCode)
+    return {
+        "ust/fences/" .. tostring(colorCode) .. "/platform_fences_" .. tostring(styleCode) .. ".mdl",
+        "ust/fences/" .. tostring(colorCode) .. "/platform_fences_pole_" .. tostring(styleCode) .. ".mdl",
+    }
+end
+
 return ust

@@ -9,6 +9,7 @@ local quat = require "ustation/quaternion"
 local pipe = require "ustation/pipe"
 local ust = require "ustation"
 local uste = require "ustation_entries"
+local ustm = require "ustation_menu"
 
 local ma = math
 
@@ -25,276 +26,71 @@ local e = ma.exp(1)
 local log = ma.log
 local log10 = log(10)
 
-local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
-local rList = {ust.infi * 0.001, 5, 3.5, 2, 1, 4 / 5, 2 / 3, 3 / 5, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 8, 1 / 10, 1 / 20}
-local hPlatformList = {200, 280, 380, 550, 680, 760, 915, 960, 1100, 1219, 1250, 1380}
-local wPlatformList = {4, 5, 6, 6.5, 7, 8, 9, 10, 12, 14, 15}
-local hStation = {0, 1, 2, 3, 4, 5, 6}
-local roofLengthList = {100, 95, 80, 75, 50, 25, 0}
-local extWidthList = {100, 75, 50, 25, 10}
-local extLengthList = {100, 90, 80, 75, 70, 65, 60, 55, 50}
-local varUnaffectedList = {0, 10, 25, 50, 75, 90}
-local yOffsetList = {0, 10, 20, 30, 40}
+local prefixM = "ust/1990/"
+local buildingList, buildingParamsList = require("ustation_building")(prefixM)
+local models = ust.models(prefixM)
 
-local trackLengths = {40, 60, 80, 100, 140, 160, 200, 240, 320, 400, 480, 500, 550, 850, 1050, 1750}
-local trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20}
-local slopeList = {0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 90, 100}
-
-local fencesLengthList = {2, 2.5, 2}
-local buildingList, buildingParamsList = table.unpack(require("ustation_building"))
-
-local fencesGen = function(colorCode, styleCode)
-    return {
-        "ust/fences/" .. tostring(colorCode) .. "/platform_fences_" .. tostring(styleCode) .. ".mdl",
-        "ust/fences/" .. tostring(colorCode) .. "/platform_fences_pole_" .. tostring(styleCode) .. ".mdl",
-    }
-end
-
-local prefixM = function(p) return "ust/1990/platform/" .. p end
-local models = {
-    surface = prefixM("platform_surface"),
-    extremity = prefixM("platform_extremity"),
-    corner = prefixM("platform_corner"),
-    edge = prefixM("platform_edge"),
-    edgeOpen = prefixM("platform_edge_open"),
-    roofTop = prefixM("platform_roof_top"),
-    roofExtremity = prefixM("platform_roof_extremity"),
-    roofEdge = prefixM("platform_roof_edge"),
-    roofCorner = prefixM("platform_roof_corner"),
-    roofPole = prefixM("platform_roof_pole"),
-    stair = prefixM("platform_stair"),
-    trash = prefixM("platform_trash"),
-    chair = prefixM("platform_chair"),
-    underground = "ust/1990/underground_entry.mdl",
-    access = "ust/1990/platform/platform_access_t"
-}
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
-    return {
-        paramsutil.makeTrackTypeParam(),
-        paramsutil.makeTrackCatenaryParam(),
+    return
+        pipe.new
+        + ustm.trackType
+        +
         {
-            key = "nbTracks",
-            name = _("Number of tracks"),
-            values = func.map(trackNumberList, tostring),
-        },
-        {
-            key = "nbTransitTracks",
-            name = sp .. "\n" .. _("Transit Tracks"),
-            values = func.map({0, 1, 2, 3, 4}, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "posTransitTracks",
-            name = _("Position"),
-            values = {_("Left"), _("Centre"), _("Sides"), _("Right")},
-            defaultIndex = 1
-        },
-        {
-            key = "signA",
-            name = sp,
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "radiusA",
-            name = _("Radius") .. " A" .. " " .. "(m)",
-            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
-            defaultIndex = 0
-        },
-        {
-            key = "signB",
-            name = "",
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "radiusB",
-            name = _("Radius") .. " B" .. " " .. "(m)",
-            values = pipe.from("∞") + func.map(func.range(rList, 2, #rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
-            defaultIndex = 0
-        },
-        {
-            key = "length",
-            name = sp .. "\n" .. _("Platform") .. "\n\n" .. _("Length") .. " " .. "(m)",
-            values = func.map(trackLengths, tostring),
-            defaultIndex = 5
-        },
-        {
-            key = "hPlatform",
-            name = _("Height") .. " " .. "(mm)",
-            values = func.map(hPlatformList, tostring),
-            defaultIndex = 3
-        },
-        {
-            key = "wPlatform",
-            name = _("Width") .. " " .. "(m)",
-            values = func.map(wPlatformList, tostring),
-            defaultIndex = 1
-        },
-        {
-            key = "hasLeftPlatform",
-            name = _("Leftmost Platform"),
-            values = {_("No"), _("Yes")},
-            defaultIndex = 1
-        },
-        {
-            key = "hasRightPlatform",
-            name = _("Rightmost Platform"),
-            values = {_("No"), _("Yes")},
-            defaultIndex = 1
-        },
-        {
-            key = "roofLength",
-            name = _("Roof length") .. " " .. "(%)",
-            values = func.map(roofLengthList, tostring),
-            defaultIndex = 3
-        },
-        {
-            key = "wExtPlatform",
-            name = sp .. "\n" .. _("Platform Variation") .. "\n",
-            values = func.map(extWidthList, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "varModelWidth",
-            name = _("Narrowest Extremity Width") .. " " .. "(%)",
-            values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussain"), _("Gaussain 2")},
-            defaultIndex = 1
-        },
-        {
-            key = "lExtPlatform",
-            name = "",
-            values = func.map(extLengthList, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "varModelLength",
-            name = _("Shortest Platform") .. " " .. "(%)",
-            values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussain"), _("Gaussain 2")},
-            defaultIndex = 1
-        },
-        {
-            key = "yOffsetPlatformSign",
-            name = "",
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "yOffsetPlatform",
-            name = _("Offset Platform Max.") .. " " .. "(%)",
-            values = func.map(yOffsetList, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "varRefType",
-            name = "",
-            values = {_("Track"), _("Platform")},
-            defaultIndex = 1
-        },
-        {
-            key = "varRefPos",
-            name = _("Reference"),
-            values = {_("Left"), _("Center"), _("Right")},
-            defaultIndex = 0
-        },
-        {
-            key = "varNbUnaffected",
-            name = "\n" .. _("Unaffected platforms") .. " " .. "(%)",
-            values = func.map(varUnaffectedList, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "slopeSign",
-            name = sp,
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "slope",
-            name = _("Slope") .. " " .. "(‰)",
-            values = func.map(slopeList, tostring),
-            defaultIndex = 0
-        },
-        {
-            key = "entrySize",
-            name = sp .. "\n" .. _("Main Entry"),
-            values = {_("None"), _("S"), _("M"), _("L"), _("XL")},
-            defaultIndex = 2
-        },
-        {
-            key = "entryPos",
-            name = _("Position"),
-            values = {"A", _("Central"), "C"},
-            defaultIndex = 1
-        },
-        {
-            key = "entryASide",
-            name = "",
-            values = {_("Left"), _("Both"), _("Right")},
-            defaultIndex = 1,
-        },
-        {
-            key = "entryAType",
-            name = _("Entry") .. " " .. "A",
-            values = {_("Underground"), _("Surface"), _("None")},
-            defaultIndex = 1,
-        },
-        {
-            key = "entryBSide",
-            name = "",
-            values = {_("Left"), _("Both"), _("Right")},
-            defaultIndex = 1,
-        },
-        {
-            key = "entryBType",
-            name = _("Entry") .. " " .. "B",
-            values = {_("Underground"), _("Surface"), _("None")},
-            defaultIndex = 1,
-        },
-        {
-            key = "entryCSide",
-            name = "",
-            values = {_("Left"), _("Both"), _("Right")},
-            defaultIndex = 1,
-        },
-        {
-            key = "entryCType",
-            name = _("Entry") .. " " .. "C",
-            values = {_("Underground"), _("Surface"), _("None")},
-            defaultIndex = 1,
-        },
-        {
-            key = "fencesPos",
-            name = sp .. "\n" .. _("Fences"),
-            values = {_("None"), "A", "B", "A".."+".."B"},
-            defaultIndex = 0
-        },
-        {
-            key = "fencesStyle",
-            name = _("Fences Style"),
-            values = {"A", "B", _("C")},
-            defaultIndex = 0
-        },
-        {
-            key = "fencesColor",
-            name = _("Fences Color"),
-            values = {_("White"), _("Green"), _("Yellow")},
-            defaultIndex = 0
-        },
-        {
-            key = "altitudeSign",
-            name = sp,
-            values = {"+", "-"},
-            defaultIndex = 0
-        },
-        {
-            key = "altitude",
-            name = _("General Altitude").."(m)",
-            values = func.map(hStation, tostring),
-            defaultIndex = 0
+            {
+                key = "nbTracks",
+                name = _("Number of tracks"),
+                values = func.map(ustm.trackNumberList, tostring),
+            },
+            {
+                key = "nbTransitTracks",
+                name = sp .. "\n" .. _("Transit Tracks"),
+                values = func.map({0, 1, 2, 3, 4}, tostring),
+                defaultIndex = 0
+            },
+            {
+                key = "posTransitTracks",
+                name = _("Position"),
+                values = {_("Left"), _("Centre"), _("Sides"), _("Right")},
+                defaultIndex = 1
+            },
+            {
+                key = "signA",
+                name = sp,
+                values = {"+", "-"},
+                defaultIndex = 0
+            },
+            {
+                key = "radiusA",
+                name = _("Radius") .. " A" .. " " .. "(m)",
+                values = pipe.from("∞") + func.map(func.range(ustm.rList, 2, #ustm.rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
+                defaultIndex = 0
+            },
+            {
+                key = "signB",
+                name = "",
+                values = {"+", "-"},
+                defaultIndex = 0
+            },
+            {
+                key = "radiusB",
+                name = _("Radius") .. " B" .. " " .. "(m)",
+                values = pipe.from("∞") + func.map(func.range(ustm.rList, 2, #ustm.rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
+                defaultIndex = 0
+            },
+            {
+                key = "length",
+                name = sp .. "\n" .. _("Platform") .. "\n\n" .. _("Length") .. " " .. "(m)",
+                values = func.map(ustm.trackLengths, tostring),
+                defaultIndex = 5
+            }
         }
-    }
+        + ustm.exclu("hasMiddlePlatform", "convAngle")(ustm.platform)
+        + ustm.var
+        + ustm.slope
+        + ustm.entry
+        + ustm.fence
+        + ustm.alt
 end
 
 local arcPacker = function(length, slope)
@@ -492,7 +288,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
     local entryConfig = ust.entryConfig(config, allArcs, arcCoords)
-
+    
     local build = ust.build(
         config,
         pipe.new
@@ -505,7 +301,6 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         ust.generateFences(fitModel, config),
         ust.generateTerrain(config)
     )
-
     return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
 end
 
@@ -516,20 +311,20 @@ local updateFn = function()
         local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
-        local hPlatform = hPlatformList[params.hPlatform + 1] * 0.001
-        local wPlatform = wPlatformList[params.wPlatform + 1]
-        local roofLength = roofLengthList[params.roofLength + 1] * 0.01
+        local hPlatform = ustm.hPlatformList[params.hPlatform + 1] * 0.001
+        local wPlatform = ustm.wPlatformList[params.wPlatform + 1]
+        local roofLength = ustm.roofLengthList[params.roofLength + 1] * 0.01
         local mainBuilding = params.entrySize > 0 and buildingList[params.entrySize]
-        local fencesLength = fencesLengthList[params.fencesStyle + 1]
-        local fencesModel = fencesGen(params.fencesColor + 1, params.fencesStyle + 1)        
+        local fencesLength = ustm.fencesLengthList[params.fencesStyle + 1]
+        local fencesModel = ust.fencesGen(params.fencesColor + 1, params.fencesStyle + 1)
         
-        local nbTracks = trackNumberList[params.nbTracks + 1]
-        local radiusA = (rList[params.radiusA + 1] * 1000) * (params.signA == 0 and 1 or -1)
-        local radiusB = (rList[params.radiusB + 1] * 1000) * (params.signB == 0 and 1 or -1)
-        local slope = slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
-        local alt = hStation[params.altitude + 1] * (params.altitudeSign == 0 and 1 or -1)
+        local nbTracks = ustm.trackNumberList[params.nbTracks + 1]
+        local radiusA = (ustm.rList[params.radiusA + 1] * 1000) * (params.signA == 0 and 1 or -1)
+        local radiusB = (ustm.rList[params.radiusB + 1] * 1000) * (params.signB == 0 and 1 or -1)
+        local slope = ustm.slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
+        local alt = ustm.hStation[params.altitude + 1] * (params.altitudeSign == 0 and 1 or -1)
         
-        local length = min(trackLengths[params.length + 1], abs(radiusA * pi * 0.75) + abs(radiusB * pi * 0.75))
+        local length = min(ustm.trackLengths[params.length + 1], abs(radiusA * pi * 0.75) + abs(radiusB * pi * 0.75))
         
         local entryConfig = {
             main = {
@@ -568,12 +363,12 @@ local updateFn = function()
                     rB = radiusB,
                     hPlatform = hPlatform,
                     wPlatform = wPlatform,
-                    wExtPlatform = extWidthList[params.wExtPlatform + 1] * 0.01,
-                    lExtPlatform = extLengthList[params.lExtPlatform + 1] * 0.01,
-                    yOffsetPlatform = yOffsetList[params.yOffsetPlatform + 1] * (params.yOffsetPlatformSign == 0 and 0.01 or -0.01),
+                    wExtPlatform = ustm.extWidthList[params.wExtPlatform + 1] * 0.01,
+                    lExtPlatform = ustm.extLengthList[params.lExtPlatform + 1] * 0.01,
+                    yOffsetPlatform = ustm.yOffsetList[params.yOffsetPlatform + 1] * (params.yOffsetPlatformSign == 0 and 0.01 or -0.01),
                     varRefPos = params.varRefPos - 1,
                     varRefIsTrack = params.varRefType == 0,
-                    varNbUnaffected = varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
+                    varNbUnaffected = ustm.varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
                     varModelLength = params.varModelLength + 1,
                     varModelWidth = params.varModelWidth + 1,
                     wTrack = 5,

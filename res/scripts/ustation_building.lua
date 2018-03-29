@@ -1,11 +1,13 @@
 local coor = require "ustation/coor"
 
-local buildingList = {
-    "ust/1990/building/main_building_size1.mdl",
-    "ust/1990/building/main_building_size2.mdl",
-    "ust/1990/building/main_building_size4.mdl",
-    "ust/1990/building/main_building_size5.mdl",
-}
+local buildingList = function(prefixB)
+    return {
+        prefixB("/main_building_size1.mdl"),
+        prefixB("/main_building_size2.mdl"),
+        prefixB("/main_building_size4.mdl"),
+        prefixB("/main_building_size5.mdl"),
+    }
+end
 
 local bZ = 0.8
 local buildingParamsList = {
@@ -75,4 +77,8 @@ local buildingParamsList = {
     }
 }
 
-return {buildingList, buildingParamsList}
+return function(prefixB)
+    return 
+        buildingList(function(n) return prefixB .. "building/" .. n end),
+        buildingParamsList
+end
