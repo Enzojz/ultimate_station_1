@@ -1,0 +1,177 @@
+local laneutil = require "laneutil"
+local vec3 = require "vec3"
+local transf = require "transf"
+
+function data()
+return {
+	boundingInfo = {
+		bbMax = {
+			13.46, 5.9, 9.15, 
+		},
+		bbMin = {
+			-13.46, -9.28, -2, 
+		},
+	},
+	collider = {
+		params = {
+			
+		},
+		type = "BOX",
+		
+	},
+	lods = {
+		{
+			animations = {
+				
+			},
+			children = {
+
+				{
+					id = "station/train/passenger/1920/lod_0_station_small.msh",
+					transf = {
+						1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0.1, 0, 1, 
+					},
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_station_small.msh",
+					transf = {
+						-1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0.1, 0, 1, 
+					},
+					type = "MESH",
+				}, 
+				
+							
+				{
+					id = "station/train/passenger/1920/lod_0_station_d1.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(-6.23, -3.825, 0.8)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_station_d2.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(-90.0, 0.0, 0.0), vec3.new(-4.03, -3.825, 0.8)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_station_d1.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(4.03, -3.825, 0.8)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_station_d2.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(-90.0, 0.0, 0.0), vec3.new(6.23, -3.825, 0.8)),
+					type = "MESH",
+				},
+				
+				
+				{
+					id = "station/train/passenger/1920/lod_0_station_d1.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(-90.0, 0.0, 0.0), vec3.new(-6.23, 3.825, 0.8)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_station_d2.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(-4.03, 3.825, 0.8)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_station_d1.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(-90.0, 0.0, 0.0), vec3.new(4.03, 3.825, 0.8)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_station_d2.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(6.23, 3.825, 0.8)),
+					type = "MESH",
+				},
+				
+				
+				{
+					id = "station/train/passenger/1920/lod_0_trashcan.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(-1.8, -4.7, 0)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_trashcan.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(1.8, -4.7, 0)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_single_chair.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(-11.7, -5.0, 0)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_single_chair.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(11.7, -5.0, 0)),
+					type = "MESH",
+				}, {
+					id = "station/train/passenger/1920/lod_0_single_chair.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(-0.0, -4.6, 0)),
+					type = "MESH",
+				}, {
+					id = "asset/tree_bed_old_lod_0.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(-10.0, -8.0, 0)),
+					type = "MESH",
+				}, {
+					id = "asset/tree_bed_old_lod_0.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(10.0, -8.0, 0)),
+					type = "MESH",
+				}, {
+					id = "tree/japanesemaple_rt_1_lod0.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(90.0, 0.0, 0.0), vec3.new(-10.0, -8.0, 0)),
+					type = "MESH",
+				}, {
+					id = "tree/japanesemaple_rt_3_lod0.msh",
+					transf = transf.rotZYXTransl(transf.degToRad(220.0, 0.0, 0.0), vec3.new(10.0, -8.0, 0)),
+					type = "MESH",
+				},
+				
+				
+	
+				
+			},
+			events = {
+				
+			},
+			matConfigs = {
+				{
+					0, 0, 0, 
+				}, 
+			},
+			static = false,
+			visibleFrom = 0,
+			visibleTo = 4040,
+			
+		}, 
+	},
+	
+	metadata = {
+		transportNetworkProvider = {
+			laneLists = {
+				{
+					transportModes = { "PERSON" },
+					nodes  = laneutil.makeLanes({
+						-- lanes
+						
+						{ {  0.0, 5.0, .80 }, {  1.5, 5.0, .80 },   { 1.5, 0.0, .0 },  { 1.5, 0.0, .0 }, 1.5 },
+						{ {  0.0, 5.0, .80 }, {  -1.5, 5.0, .80 },   { -1.5, 0.0, .0 },  { -1.5, 0.0, .0 }, 1.5 },
+						
+						{ {  0.0, 7.0, .80 }, {  1.5, 5.0, .80 },   { 0.0, -2.0, .0 },  { 0.0, -2.0, .0 }, 1.5 },
+						
+						{ {  1.5, 5.0, .80 }, {  5.0, 5.0, .80 },   { 3.0, 0.0, .0 },  { 3.0, 0.0, .0 }, 1.5 },
+						{ {  5.0, 5.0, .80 }, {  5.0, 0.0, .80 },   { 0.0, -5.0, .0 },  { 0.0, -5.0, .0 }, 1.5 },
+						{ {  5.0, 0.0, .80 }, {  5.0, -3.0, .80 },   { 0.0, -3.0, .0 },  { 0.0, -3.0, .0 }, 1.5 },
+						{ {  5.0, -3.0, .80 }, {  5.0, -5.0, .0 },   { 0.0, -2.0, .0 },  { 0.0, -2.0, .0 }, 1.5 },
+						{ {  5.0, -5.0, .0 }, {  5.0, -9.0, .0 },   { 0.0, -4.0, .0 },  { 0.0, -4.0, .0 }, 1.5 },
+						{ {  5.0, -9.0, .0 }, {  4.5, -10.0, .0 },   { 0.0, -4.0, .0 },  { 0.0, -4.0, .0 }, 1.5 },
+						
+						
+						{ {  0.0, 7.0, .80 }, {  -1.5, 5.0, .80 },   { 0.0, -2.0, .0 },  { 0.0, -2.0, .0 }, 1.5 },
+						
+						{ {  -1.5, 5.0, .80 }, {  -5.0, 5.0, .80 },   { -3.0, 0.0, .0 },  { -3.0, 0.0, .0 }, 1.5 },
+						{ {  -5.0, 5.0, .80 }, {  -5.0, 0.0, .80 },   { 0.0, -5.0, .0 },  { 0.0, -5.0, .0 }, 1.5 },
+						{ {  -5.0, 0.0, .80 }, {  -5.0, -3.0, .80 },   { 0.0, -3.0, .0 },  { 0.0, -3.0, .0 }, 1.5 },
+						{ {  -5.0, -3.0, .80 }, { -5.0, -5.0, .0 },   { 0.0, -2.0, .0 },  { 0.0, -2.0, .0 }, 1.5 },
+						{ {  -5.0, -5.0, .0 }, {  -5.0, -9.0, .0 },   { 0.0, -4.0, .0 },  { 0.0, -4.0, .0 }, 1.5 },
+						{ {  -5.0, -9.0, .0 }, {  -4.5, -10.0, .0 },   { 0.0, -4.0, .0 },  { 0.0, -4.0, .0 }, 1.5 },
+						
+					})
+				}
+			},
+		}
+	}	
+	
+}
+end
+				

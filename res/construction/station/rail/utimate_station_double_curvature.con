@@ -412,14 +412,14 @@ function data()
     return {
         type = "RAIL_STATION",
         description = {
-            name = _("Progressive/Contre Curvature Station"),
+            name = _("Progressive/Counter Curvature Station"),
             description = _("Station that platform and track parameters can be fine-tuned, with two different radii at two extremities of the platforms.")
         },
         availability = {
             yearFrom = 1850,
             yearTo = 0,
         },
-        order = 27218,
+        order = 5012,
         params = params(),
         updateFn = updateFn()
     }

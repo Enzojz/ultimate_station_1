@@ -1,7 +1,6 @@
 ﻿function data()
     return {
         info = {
-            minorVersion = 1,
             severityAdd = "NONE",
             severityRemove = "CRITICAL",
             name = _("name"),
@@ -13,9 +12,16 @@
                     text = "Idea, Scripting, Modeling",
                     steamProfile = "enzojz",
                     tfnetId = 27218,
-                }
+                },
+                {
+                    name = "RPGFabi",
+                    role = "GERMAIN TRANSLATOR",
+                    text = "Germin translation",
+                    steamProfile = "RPGFabi",
+                    tfnetId = 27570,
+                },
             },
-            tags = {"Train Station"},
+            tags = {"Train Station", "Station"},
         },
     }
 end

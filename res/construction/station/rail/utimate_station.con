@@ -26,7 +26,6 @@ local log = ma.log
 local log10 = log(10)
 
 local prefixM = "ust/1990/"
-local buildingList, buildingParamsList = require("ustation_building")(prefixM)
 local models = ust.models(prefixM)
 
 local function params()
@@ -250,6 +249,7 @@ local updateFn = function()
     return function(params)
         defaultParams(params)
         
+        local buildingList, buildingParamsList = require("ustation_building")("ust/1990/")
         local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
@@ -260,6 +260,7 @@ local updateFn = function()
         local fencesLength = ustm.fencesLengthList[params.fencesStyle + 1]
         local fencesModel = ust.fencesGen(params.fencesColor + 1, params.fencesStyle + 1)
         
+
         local nbTracks = ustm.trackNumberList[params.nbTracks + 1]
         local radius = (ustm.rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         local slope = ustm.slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
@@ -357,7 +358,7 @@ function data()
             yearFrom = 1850,
             yearTo = 0,
         },
-        order = 27218,
+        order = 5011,
         params = params(),
         updateFn = updateFn()
     }

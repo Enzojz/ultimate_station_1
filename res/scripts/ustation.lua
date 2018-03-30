@@ -11,6 +11,8 @@ local pi = math.pi
 local abs = math.abs
 local ceil = math.ceil
 local floor = math.floor
+local pow = math.pow
+local e = math.exp(1)
 
 ust.infi = 1e8
 
