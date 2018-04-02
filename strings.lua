@@ -81,6 +81,7 @@ Changelog:
 1.1
 - Fixed crash when R = 50
 - Fixed wrong passenger standing orientation
+- Added Germain description
 * Note: For R = 50, you need to change the reference to the "right track" to avoid "too much curvature error".
 
 Credit:
@@ -88,6 +89,95 @@ RPGFabi for German translation.
 
 Credits for resources:
 The fences B/C models are based on models from https://3dwarehouse.sketchup.com/, with modification and adaptations.
+https://3dwarehouse.sketchup.com/model/b877336b50d9f04b6c5b8009db95f66f/FENSYS-SPORT2D1500
+https://3dwarehouse.sketchup.com/model/485809566dba074eb43063bc39f0ebb/Curved-security-fence
+]]
+
+local descDE = [[Der Ultimate Station Mod wurde entwickelt um Bahnhöfe mit verschiedenen Bahnsteigtypen zu bauen. Er beinhaltet 4 Arten::
+1. Generischer Bahnhof
+2. Bahhof mit 2 Kurven
+3. Dreieckiger Bahnhof
+4. Halb-dreieckiger Bahnhof
+
+Alle 4 Typen haben fast alle Optionen und Variationen gemeinsam. Diese beinhalten:
+* Kurvenradius
+* Bahnsteigbreite
+* Bahnsteighöhe
+* Bahnsteig mit dünnem Ende
+* Bahnsteig mit kurzen Ende
+* dezentralisierte Bahnsteige
+* Durchfahrtsgleise
+* Aktivierung / Deaktivierung der äußeren Bahnsteige
+* Länge des Bahnsteigdach
+* Lineare Steigung
+* zusätzliche Eingänge
+* Zäune 
+* Höhenanpassung
+
+Mit den Standarteinstellungen haben alle Bahnsteige die gleiche Länge.
+
+1. Generischer Bahnhof
+
+Bahnhof mit einem Radius für alle Bahnsteige
+Zudem kannst du den Mod nutzen um dir einen Kreis zu bauen. Dazu muss der Radius klein und die Bahnsteiglänge lang genug sein.
+
+2. Bahhof mit 2 Kurven
+Bahnhof mit 2 Radien für alle Bahnsteige
+Es können 2 verschiedene Radien in die Gleiche Richtung sein (Progressive Kurve), oder 2 Radien in unterschiedliche Richtung (Gegenkurve).
+
+3. Dreieckiger Bahnhof
+Bahnhof mit 2 unterschiedlichen Radien für 2 unterschiedliche Gruppen an Bahnsteigen.
+Wird überlicherweise dazu verwendet, einen Bahnhof an einer Gabelung zu bauen. Sie kann jedoch auch an Kreuzungen als Eckstation gebaut werden.
+
+4. Halb-dreieckiger Bahnhof
+Eine Mischung aus dem Dreieckigen Bahnhof und dem Generischen Bahhof. Er hat drei Radien, wovon zwei für zwei unterschiedliche Bahnsteiggruppen sind und der dritte für alle Bahnsteige.
+Er wird normalerweise an einer Gabelung gebaut oder aufgrund von räumlchen Einschränkungen auch an Flying Junctions.
+
+Optionen:
+* Bahnsteighöhe: Du kannst eine einheitliche Höhe für alle Bahnsteige einstellen. Die Höhen sind von Fahrzeugen aus aller Welt.
+* Bahnsteigbreite: Du kannst die Breite aller Bahnsteige einstellen.
+* Durchgangsgleise: Du kannst bis zu vier Durchgangsgleise für jede Gleisgruppe bauen. Dabei kannst du auswählen, ob sie Links, Rechts oder Mittig in der Gruppe platziert werden.
+* Linke/Rechte/Mittlere Bahnsteige: Du kannst die Äusersten Bahnsteige weglasse. Beim dreieckigen Bahnhof besteht die Möglichkeit für den mittleren.
+* Dachlänge: Du kannst die Dachlänge in Prozent bezogen auf die Bahnsteiglänge auswählen.
+* Steigung: Die Steigung ist linear auf alle Gleise angewendet.
+* Haupteingang: Der Haupteingang ist immer auf der linken Seite des Bahnhofes. Wenn der linke Bahnsteig nicht existiert, ist der Haupteingang deaktiviert. Du kannst die Position entlang des Bahnsteiges einstellen. Der Eingang ist auf dem mittleren Bahnsteig des dreieckigen Bahnhofes, solange genug Platz da ist.
+* Nebeneingänge: Es gibt entlang des Bahnhofes drei Positionen für Nebeneingänge, die entweder links, recht oder beidseitig des Bahnhofes gebaut werden können. Die Eingänge können unter- wie auch oberirdisch sein. Wenn der äußerste Bahnsteig nicht existiert, wird der oberirdische Eingang automatisch zum unterirdischen.
+* Unterirdische Eingänge: Diese Eingänge werden nur von Fußgängern genutzt.
+* Zäune: Du kannst Zäune links, rechts oder beidseitig bauen, egal ob es dort einen Bahnsteig gibt oder nicht.Zudem kannst du die Farbe und den Typ des Zaunes bestimmen.
+* Höhe: Du kannst die Gleishöhe des Bahnhofes einstellen. Damit kann man die Untergrundeingänge auf die Höhe des normalen Bodens einstellen. Aus technischen Gründen ist eine maximale Anpassung von +/- 6 Metern möglich.
+
+Bahnsteig Variationen:
+* kleinste Bahnsteigbreite: Du kannst gleiche Bahnsteige mit schmaleren Enden als der mittlere Teil bauen. Die Option wird in Prozent angegeben.
+* kürzester Bahnsteig: Du kannst gleiche Bahnsteige prozentual kürzer bauen als die eingestellte Länge.
+* maximaler Bahnsteig Versatz: Du kannst die Bahnsteige entlang der Gleise  verschieben. Die Option arbeitet prozentual zur Länge der Station.
+* Du musst eine Regel für alle drei Optionen anwenden. Die Regel bestimmt die prozentuale Distanz des aktuellen Bahnsteiges zum Referenzbahnsteige /-gleis.
+ - Einheitlich: Alle Variationen sind gleich, unabhänging von der Distanz zwischen dem aktuellen Bahnsteig und der Referenz
+ - Linear: Alle Variationen folgen der Funktion (y = x)
+ - Quadratisch: Alle Variationen folgen der quadratischen Funktion  y = x * x
+ - Bi-Quadratisch:  Alle Variationen folgen der Bi-Quadratischen Funktion  y = x * x * x * x
+ - Gaussian: Alle Variationen folgen der Gaussianischen Funktion.
+ - Gaussian 2: Eine weitere Gaussian Funktion, jedoch wirt kein Wert mit 0 erwartet. Mit dieser Regel lassen sich Bahnsteige bauen, wo der kürzeste nicht auf zwei Seiten ist.
+* Referenz: Die Referenz, welche nicht durch irgendwelche Variationseinstellungen beinflusst wird, kann ein Gleis oder Bahnsteig sein, der ganz links, rechts oder mittig ist.
+* Unbeeinflusster Bahnsteig: Der Prozentuale Wert von unbeeinflussten Bahnsteigen entlang aller Bahnsteige, die alle um die Referenz sind.
+
+Unterschied zwischen den 4 Bahnhöfen:
+Das folgende Wissen wird dir helfen die Eigenschaften der Bahnhöfe zu verstehen.
+Der Generische Bahnhof und der Bahnhof mit 2 Kurven sind auf zwei unterschiedliche Kurvenberechnungs Algorythmen basiert. Um es einfach zu sagen, beim generischen Bahnhof hat jeder Bahnsteig sein lineares Zentum als Referenzpunkt, in dem Bahnhof mit 2 Kurven  ist der Referenzpunkt für jeden Bahnsteig der Ausgangspunkt des Bahnhofes. Der Unterschied kann bemerkt werden, wenn man den Versatz der Bahnsteige aktiviert.
+Der Halb-dreieckige Bahnhof arbeitet nach dem gleichen Algorythmus wie der Bahnhof mit 2 Kurven.
+Jeder Bahnsteig des Dreieckigen Bahnsteig hat seinen Refernzpunkt an der Stelle, wo zwei Gruppen sich treffen.
+
+Was ist als nächstes  geplant?
+Der Mod ist nicht fertig, auch wenn ich bis jetzt 5 Montage daran gearbeitet habe. Die veröffentlichung ist ein Erfolg. Die Mod kann benutzt werden und das meiste der Arbeit ist erledigt. Der nächste Schritt wird sein, den Mod zu erweitern / verbessern, z.B. Die Gebäude und Bahnsteige der älteren Era einzubauen. Auch werde ich eine Terminal Version und Güter version bauen.
+Durch due Komplexität des Algorythmus, den ich verwendet habe, kann es zu crashes unter bestimmten Bedingungen kommen. BITTE DIESE CRASHES MIT DEN SETTINGS MELDEN.
+Ich werde die Elevated Station und den Untergrund Bahnhof auf die selbe Basis updaten, und vileicht auch die Track Design Patterns und Flying Junktions updaten.
+
+Meine Ostereier, Ich hoffe es gefällt euch :D
+
+Credit:
+RPGFabi für die deutsche Übersetzung.
+
+Credits für verwendete Ressourcen:
+Die Zäune B/C basieren auf die Modelle von https://3dwarehouse.sketchup.com/. Sie wurden modifiziert und erweitert.
 https://3dwarehouse.sketchup.com/model/b877336b50d9f04b6c5b8009db95f66f/FENSYS-SPORT2D1500
 https://3dwarehouse.sketchup.com/model/485809566dba074eb43063bc39f0ebb/Curved-security-fence
 ]]
@@ -100,7 +190,7 @@ function data()
         },
         de = {
             ["name"] = "Ultimate Station",
-            ["desc"] = descEN,
+            ["desc"] = descDE,
             ["Number of tracks"] = "Anzahl an Gleisen",
             ["Transit Tracks"] = "Durchfahrtsgleise",
             ["Position"] = "Position",
