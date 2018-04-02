@@ -327,8 +327,8 @@ ust.generateTerminals = function(config)
         local newTerminals = pipe.new
             * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
-                    l = station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.i - lc.s), coor.trans(lc.s)),
-                    r = station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(rc.s - rc.i), coor.trans(rc.i)),
+                    l = station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i)),
+                    r = station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(rc.i - rc.s), coor.trans(rc.s)),
                     link = (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
                 }
             end)
@@ -806,10 +806,11 @@ local platformArcGenParam = function(la, ra, rInner, pWe)
     local xpt = (mln - pln):withZ(0)
     
     local rvec = (xpt - mrpt):dot(xpt - la.o) * rInner
+    local cvec = (elpt - la.o):dot(mlpt - la.o)
     
     local lenP2 = (xpt - erpt):length2()
     local lenT = (xpt - mrpt):length()
-    local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1)
+    local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1) * (cvec > 0 and 1 or -1)
     
     local o = mrpt + (xpt - mrpt):normalized() * abs(r)
     

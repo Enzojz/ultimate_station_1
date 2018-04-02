@@ -77,6 +77,12 @@ I will upgrade the elevated station and the underground station on the same base
 
 My Easter eggs, hope you like it.
 
+Changelog:
+1.1
+- Fixed crash when R = 50
+- Fixed wrong passenger standing orientation
+* Note: For R = 50, you need to change the reference to the "right track" to avoid "too much curvature error".
+
 Credit:
 RPGFabi for German translation.
 
