@@ -139,7 +139,7 @@ end
 
 
 function arc.intersectionLine(arc, line)
-    if (line.a ~= 0) then
+    if (abs(line.a) > 1e-10) then
         
         -- a.x + b.y + c = 0
         -- x + m.y + c/a = 0
