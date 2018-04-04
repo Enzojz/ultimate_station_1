@@ -297,7 +297,7 @@ end
 
 local il = pipe.interlace({"s", "i"})
 
-ust.unitLane = function(f, t) return station.newModel("ust/person_lane.mdl", ust.mRot(t - f), coor.trans(f)) end
+ust.unitLane = function(f, t) return ((t - f):length2() > 1e-2) and station.newModel("ust/person_lane.mdl", ust.mRot(t - f), coor.trans(f)) or nil end
 
 ust.generateEdges = function(edges, isLeft, arcPacker)
     local arcs = arcPacker()()()
@@ -725,7 +725,7 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
             local buildAccessRoad = entries * pipe.map(pipe.select("street")) * pipe.flatten()
             local buildLanes = entries * pipe.map(pipe.select("lane")) * pipe.flatten()
             return edges, buildAccessRoad, terminals, terminalsGroup,
-                models + buildEntryPath + buildLanes,
+                (models + buildEntryPath + buildLanes) * pipe.filter(pipe.noop()),
                 terrain + buildFace
         elseif (#gr == 3) then
             local edges = generateEdges(edges, true, gr[1][1])
