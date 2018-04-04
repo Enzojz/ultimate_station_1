@@ -352,7 +352,7 @@ function data()
         },
         zh_CN = {
             ["name"] = "终极车站",
-            ["desc"] = descEN,
+            ["desc"] = descCN,
             ["Number of tracks"] = "轨道数",
             ["Transit Tracks"] = "正线数",
             ["Position"] = "位置",
