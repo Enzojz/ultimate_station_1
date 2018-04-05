@@ -248,8 +248,6 @@ end
 local updateFn = function()
     return function(params)
         defaultParams(params)
-        local dump = require "datadumper"
-
         
         local buildingList, buildingParamsList = require("ustation_building")("ust/1990/")
         local trackType = ustm.trackList[params.trackType + 1]
