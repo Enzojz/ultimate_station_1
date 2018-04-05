@@ -16,87 +16,96 @@ ustm.yOffsetList = {0, 10, 20, 30, 40}
 ustm.trackLengths = {40, 60, 80, 100, 140, 160, 200, 240, 320, 400, 480, 500, 550, 850, 1050, 1750}
 ustm.trackNumberList = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20}
 ustm.convAngle = {0, 5, 15, 30, 45, 60, 75, 90}
-
+ustm.trackList = {"standard.lua", "high_speed.lua"}
+ustm.trackWidthList = {5, 5}
 ustm.fencesLengthList = {2, 2.5, 2}
+
 
 local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
 
-ustm.trackType = 
-{
-    {
-		key = "trackType",
-		name = _("Track type"),
-		values = { _("Standard"), _("High-speed") },
-		yearFrom = 1925,
-		yearTo = 0
-    },
-    {
-		key = "catenary",
-		name = _("Catenary"),
-		values = { _("No"), _("Yes") },
-		defaultIndex = 1,
-		yearFrom = 1910,
-		yearTo = 0
-	}
-}
-
-ustm.var = 
-{
-    {
-        key = "wExtPlatform",
-        name = sp .. "\n" .. _("Platform Variation") .. "\n",
-        values = func.map(ustm.extWidthList, tostring),
-        defaultIndex = 0
-    },
-    {
-        key = "varModelWidth",
-        name = _("Narrowest Extremity Width") .. " " .. "(%)",
-        values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussian"), _("Gaussian 2")},
-        defaultIndex = 1
-    },
-    {
-        key = "lExtPlatform",
-        name = "",
-        values = func.map(ustm.extLengthList, tostring),
-        defaultIndex = 0
-    },
-    {
-        key = "varModelLength",
-        name = _("Shortest Platform") .. " " .. "(%)",
-        values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussian"), _("Gaussian 2")},
-        defaultIndex = 1
-    },
-    {
-        key = "yOffsetPlatformSign",
-        name = "",
-        values = {"+", "-"},
-        defaultIndex = 0
-    },
-    {
-        key = "yOffsetPlatform",
-        name = _("Offset Platform Max.") .. " " .. "(%)",
-        values = func.map(ustm.yOffsetList, tostring),
-        defaultIndex = 0
-    },
-    {
-        key = "varRefType",
-        name = "",
-        values = {_("Track"), _("Platform")},
-        defaultIndex = 1
-    },
-    {
-        key = "varRefPos",
-        name = _("Reference"),
-        values = {_("Left"), _("Center"), _("Right")},
-        defaultIndex = 0
-    },
-    {
-        key = "varNbUnaffected",
-        name = "\n" .. _("Unaffected platforms") .. " " .. "(%)",
-        values = func.map(ustm.varUnaffectedList, tostring),
-        defaultIndex = 0
+ustm.trackType = pipe.exec * function()
+    local list = {
+        {
+            key = "trackType",
+            name = _("Track type"),
+            values = {_("Standard"), _("High-speed")},
+            yearFrom = 1925,
+            yearTo = 0
+        },
+        {
+            key = "catenary",
+            name = _("Catenary"),
+            values = {_("No"), _("Yes")},
+            defaultIndex = 1,
+            yearFrom = 1910,
+            yearTo = 0
+        }
     }
-}
+    if (commonapi and commonapi.uiparameter) then
+        commonapi.uiparameter.modifyTrackCatenary(list, {selectionlist = ustm.trackList})
+        ustm.trackWidthList = func.map(commonapi.repos.track.getEntries(), function(e) return e.data.trackDistance end)
+    end
+    
+    return list
+end
+
+ustm.var =
+    {
+        {
+            key = "wExtPlatform",
+            name = sp .. "\n" .. _("Platform Variation") .. "\n",
+            values = func.map(ustm.extWidthList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "varModelWidth",
+            name = _("Narrowest Extremity Width") .. " " .. "(%)",
+            values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussian"), _("Gaussian 2")},
+            defaultIndex = 1
+        },
+        {
+            key = "lExtPlatform",
+            name = "",
+            values = func.map(ustm.extLengthList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "varModelLength",
+            name = _("Shortest Platform") .. " " .. "(%)",
+            values = {_("Uniform"), _("Linear"), _("Quadratic"), _("Quartic"), _("Gaussian"), _("Gaussian 2")},
+            defaultIndex = 1
+        },
+        {
+            key = "yOffsetPlatformSign",
+            name = "",
+            values = {"+", "-"},
+            defaultIndex = 0
+        },
+        {
+            key = "yOffsetPlatform",
+            name = _("Offset Platform Max.") .. " " .. "(%)",
+            values = func.map(ustm.yOffsetList, tostring),
+            defaultIndex = 0
+        },
+        {
+            key = "varRefType",
+            name = "",
+            values = {_("Track"), _("Platform")},
+            defaultIndex = 1
+        },
+        {
+            key = "varRefPos",
+            name = _("Reference"),
+            values = {_("Left"), _("Center"), _("Right")},
+            defaultIndex = 0
+        },
+        {
+            key = "varNbUnaffected",
+            name = "\n" .. _("Unaffected platforms") .. " " .. "(%)",
+            values = func.map(ustm.varUnaffectedList, tostring),
+            defaultIndex = 0
+        }
+    }
 
 ustm.entry = {
     {
@@ -194,7 +203,7 @@ ustm.alt = {
     },
     {
         key = "altitude",
-        name = _("General Altitude").."(m)",
+        name = _("General Altitude") .. "(m)",
         values = func.map(ustm.hStation, tostring),
         defaultIndex = 0
     }

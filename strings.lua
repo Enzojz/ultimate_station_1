@@ -78,6 +78,8 @@ I will upgrade the elevated station and the underground station on the same base
 My Easter eggs, hope you like it.
 
 Changelog:
+1.3
+- CommonAPI support added
 1.2
 - Fixed crash on "assertion failure"
 - Fixed some crashed without any messages
@@ -262,6 +264,8 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 太多了！所有你想到要增加的一些变种比如更老年代的车站还有货站blablabla……不翻译！
 
 更新日志： 
+1.3
+- 增加了CommonAPI支持
 1.2
 - 修正了断言失败导致的游戏退出
 - 修正了某些没有任何提示的游戏退出

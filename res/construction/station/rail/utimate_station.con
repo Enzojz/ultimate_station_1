@@ -248,9 +248,12 @@ end
 local updateFn = function()
     return function(params)
         defaultParams(params)
+        local dump = require "datadumper"
+
         
         local buildingList, buildingParamsList = require("ustation_building")("ust/1990/")
-        local trackType = ({"standard.lua", "high_speed.lua"})[params.trackType + 1]
+        local trackType = ustm.trackList[params.trackType + 1]
+        local trackWidth = ustm.trackWidthList[params.trackType + 1]
         local catenary = params.catenary == 1
         local trackBuilder = trackEdge.builder(catenary, trackType)
         local hPlatform = ustm.hPlatformList[params.hPlatform + 1] * 0.001
@@ -311,7 +314,7 @@ local updateFn = function()
                     varNbUnaffected = ustm.varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
                     varModelLength = params.varModelLength + 1,
                     varModelWidth = params.varModelWidth + 1,
-                    wTrack = 5,
+                    wTrack = trackWidth,
                     roofLength = roofLength,
                     buildingParams = buildingParamsList[params.entrySize],
                     slope = slope,
