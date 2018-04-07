@@ -305,9 +305,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
 end
 
 local updateFn = function()
-    return function(params)
-        defaultParams(params)
-        
+    return ust.safeBuild(params, function(params)
         local trackType = ustm.trackList[params.trackType + 1]
         local trackWidth = ustm.trackWidthList[params.trackType + 1]
         local catenary = params.catenary == 1
@@ -406,7 +404,7 @@ local updateFn = function()
                 * pipe.flatten()
             }
             * station.setHeight(alt)
-    end
+    end)
 end
 
 function data()

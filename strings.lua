@@ -1,4 +1,11 @@
-local descEN = [[This Ultimate Station mod is designed to create station with various type of platforms, it includes 4 basic types:
+local descEN = [[=== Failure detection and bug report ===
+Due to the complicity of the algorithm of the mod, you may face to calculate failure that lead to game crash.
+After version 1.4, all crashes are avoid but the mod will use default parameter to build the station.
+Once you find any case like this, it will be kind to send a bug report helping to debugging the failure out.
+The information about the failure is under stdout.txt which can be found under 446800\local\crash_dump of your Steam user folder, only the last chapiter called "Ultimate Station failure" is needed for report.
+=== End of Failure detection and bug report ===
+
+This Ultimate Station mod is designed to create station with various type of platforms, it includes 4 basic types:
 1. Generic Station
 2. Double Curvature Station
 3. Triangle Station
@@ -78,6 +85,8 @@ I will upgrade the elevated station and the underground station on the same base
 My Easter eggs, hope you like it.
 
 Changelog:
+1.4 
+- Crash information dump and auto-recovery
 1.3
 - CommonAPI support added
 1.2
@@ -264,6 +273,8 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 太多了！所有你想到要增加的一些变种比如更老年代的车站还有货站blablabla……不翻译！
 
 更新日志： 
+1.4
+- 增加了避免游戏退出的措施和帮助Bug报告的信息记录
 1.3
 - 增加了CommonAPI支持
 1.2

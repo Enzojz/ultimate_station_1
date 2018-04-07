@@ -141,19 +141,6 @@ local arcPacker = function(length, slope, rot, con)
     end
 end
 
-local function defaultParams(param)
-    local function limiter(d, u)
-        return function(v) return v and v < u and v or d end
-    end
-    param.trackType = param.trackType or 0
-    param.catenary = param.catenary or 0
-    
-    func.forEach(
-        func.filter(params({}), function(p) return p.key ~= "tramTrack" end),
-        function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
-end
-
-
 local function retriveRef(config, arcCoords)
     if (not config.buildingParams) then return false end
     
@@ -320,9 +307,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
 end
 
 local updateFn = function()
-    return function(params)
-        defaultParams(params)
-        
+    return ust.safeBuild(params, function(params)
         local trackType = ustm.trackList[params.trackType + 1]
         local trackWidth = ustm.trackWidthList[params.trackType + 1]
         local catenary = params.catenary == 1
@@ -346,8 +331,8 @@ local updateFn = function()
         
         local slope = ustm.slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
         
-        local lengthA = min(ustm.trackLengths[params.lengthA + 1], abs(radiusA * pi * 1.75))
-        local lengthB = min(ustm.trackLengths[params.lengthB + 1], abs(radiusB * pi * 1.75))
+        local lengthA = min(ustm.trackLengths[params.lengthA + 1], abs(radiusA * pi * 1.5))
+        local lengthB = min(ustm.trackLengths[params.lengthB + 1], abs(radiusB * pi * 1.5))
         
         local entryConfig = {
             main = {
@@ -431,7 +416,7 @@ local updateFn = function()
                 } end)
                 * pipe.flatten()
             }
-    end
+    end)
 end
 
 function data()

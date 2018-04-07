@@ -79,18 +79,6 @@ local function params()
         + ustm.alt
 end
 
-local function defaultParams(param)
-    local function limiter(d, u)
-        return function(v) return v and v < u and v or d end
-    end
-    param.trackType = param.trackType or 0
-    param.catenary = param.catenary or 0
-    
-    func.forEach(
-        func.filter(params({}), function(p) return p.key ~= "tramTrack" end),
-        function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
-end
-
 local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst)
     local pW = config.wPlatform
     local tW = config.wTrack
@@ -246,9 +234,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
 end
 
 local updateFn = function()
-    return function(params)
-        defaultParams(params)
-        
+    return ust.safeBuild(params, function(params)
         local buildingList, buildingParamsList = require("ustation_building")("ust/1990/")
         local trackType = ustm.trackList[params.trackType + 1]
         local trackWidth = ustm.trackWidthList[params.trackType + 1]
@@ -261,7 +247,7 @@ local updateFn = function()
         local fencesLength = ustm.fencesLengthList[params.fencesStyle + 1]
         local fencesModel = ust.fencesGen(params.fencesColor + 1, params.fencesStyle + 1)
         
-
+        
         local nbTracks = ustm.trackNumberList[params.nbTracks + 1]
         local radius = (ustm.rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1)
         local slope = ustm.slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
@@ -345,7 +331,7 @@ local updateFn = function()
                 } end)
                 * pipe.flatten()
             }
-    end
+    end)
 end
 
 function data()

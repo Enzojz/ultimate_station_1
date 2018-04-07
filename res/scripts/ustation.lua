@@ -557,8 +557,8 @@ ust.generateModels = function(fitModel, config)
                 local sizeL = assembleSize(lc, lic)
                 local sizeR = assembleSize(ric, rc)
                 local sizeS = assembleSize(lic, ric)
-
-
+                
+                
                 local roof = pipe.exec * function()
                     local vecs = {
                         top = sizeS.rt - sizeS.lt,
@@ -590,7 +590,7 @@ ust.generateModels = function(fitModel, config)
                             * pipe.flatten()
                     end
                 end
-
+                
                 return roof + {
                     station.newModel(e .. "_br.mdl", tZ, fitModel(1, 5, platformZ, sizeL, false, false)),
                     station.newModel(e .. "_tl.mdl", tZ, fitModel(1, 5, platformZ, sizeL, true, true)),
@@ -931,6 +931,48 @@ ust.fencesGen = function(colorCode, styleCode)
         "ust/fences/" .. tostring(colorCode) .. "/platform_fences_" .. tostring(styleCode) .. ".mdl",
         "ust/fences/" .. tostring(colorCode) .. "/platform_fences_pole_" .. tostring(styleCode) .. ".mdl",
     }
+end
+
+ust.defaultParams = function(params)
+    local defParams = params()
+    return function(param)
+        local function limiter(d, u)
+            return function(v) return v and v < u and v or d end
+        end
+        param.trackType = param.trackType or 0
+        param.catenary = param.catenary or 0
+        
+        func.forEach(
+            func.filter(defParams, function(p) return p.key ~= "tramTrack" end),
+            function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
+        return param
+    end
+end
+
+ust.safeBuild = function(params, updateFn)
+    local defaultParams = ust.defaultParams(params)
+    local paramsOnFail = params() *
+        pipe.mapPair(function(i) return i.key, i.defaultIndex or 0 end)
+    
+    return function(param)
+        local r, result = xpcall(
+            updateFn,
+            function(e)
+                print("========================")
+                print("Ultimate Station failure")
+                print("Algorithm failure:", debug.traceback())
+                print("Params:")
+                func.forEach(
+                    params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
+                    function(i)print(i.key .. ": " .. param[i.key]) end)
+                    
+                print("End of Ultimate Station failure")
+                print("========================")
+            end,
+            defaultParams(param)
+        )
+        return r and result or updateFn(defaultParams(paramsOnFail))
+    end
 end
 
 return ust
