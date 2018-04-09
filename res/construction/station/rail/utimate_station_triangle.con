@@ -9,7 +9,6 @@ local pipe = require "ustation/pipe"
 local ust = require "ustation"
 local uste = require "ustation_entries"
 local ustm = require "ustation_menu"
-
 local ma = math
 
 local abs = ma.abs
@@ -160,10 +159,12 @@ local function retriveRef(config, arcCoords)
         local le, re = la.lc[#la.lc], la.rc[#la.rc]
         local refVec = (le - re):normalized() .. coor.rotZ(-0.5 * pi)
         local refPt = le:avg(re)
+        local stairSurface = (central.hasLower or central.hasUpper) and (la.c + 4 + flac) or (la.c + (la.c > 5 and 4 or 2))
+        local stairUnderground = (central.hasLower or central.hasUpper) and (pl.c + 3 + fplc) or (la.c + 3)
         return refPt,
             ust.mRot(refVec),
-            la.lc[la.c + 4 + flac]:avg(la.rc[la.c + 4 + flac], la.lc[la.c + 5 + flac], la.rc[la.c + 5 + flac]),
-            pl.lc[pl.c + 3 + fplc]:avg(pl.rc[pl.c + 3 + fplc])
+            la.lc[stairSurface]:avg(la.rc[stairSurface], la.lc[stairSurface + 1], la.rc[stairSurface + 1]),
+            pl.lc[stairUnderground]:avg(pl.rc[stairUnderground])
     end
 end
 

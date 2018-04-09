@@ -418,7 +418,7 @@ ust.generateModels = function(fitModel, config)
         
         local platformSurface = pipe.new
             * pipe.rep(c - 2)(config.models.surface)
-            * pipe.mapi(function(p, i) return (i == (c > 5 and 4 or 2) or i == floor(c * 0.5) + 4) and config.models.stair or config.models.surface end)
+            * pipe.mapi(function(p, i) return (i == (c > 5 and 4 or 2) or (i == floor(c * 0.5) + 4) and (arcs.hasLower or arcs.hasUpper)) and config.models.stair or config.models.surface end)
             / config.models.extremity
             * (function(ls) return ls * pipe.rev() + ls end)
         
