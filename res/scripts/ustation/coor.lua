@@ -76,7 +76,8 @@ function coor.xy(x, y)
         length = vecXyLength,
         normalized = vecXyNormalized,
         withZ = vecXyZ,
-        avg = vecXyAvg
+        avg = vecXyAvg,
+        dot = function(self, other) return self.x * other.x + self.y * other.y end
     }
     setmetatable(result, vecXyMeta)
     return result

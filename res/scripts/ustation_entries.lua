@@ -1,5 +1,6 @@
 local func = require "ustation/func"
 local coor = require "ustation/coor"
+local line = require "ustation/coorline"
 local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
 local ust = require "ustation"
@@ -311,14 +312,19 @@ local buildSecondEntrySlope = function(config, entryConfig)
             / (cfg[2] and {co[pl.c], co[pl.c + 1]})
             / (cfg[3] and {co[pl.c + floor(pl.c * 0.5) + 3], co[pl.c + floor(pl.c * 0.5) + 4]})
             * pipe.filter(pipe.noop())
-        
+
+        local checkCross = function(l, r, p) 
+            local x = line.byPtPt(l, r) - line.byVecPt((l - r) .. coor.rotZ(0.5 * pi), p)
+            return (x - l):dot(x - r) < 0
+         end
+
         local checker = function(p)
-            return #func.filter(void, function(v) return (p - v[1]):dot(p - v[2]:avg(v[1])) < 0 end) == 0
+            return #func.filter(void, function(v) return checkCross(v[1], v[2]:avg(v[1]), p) end) == 0
         end
         
         return isTrack and function(_) return true end or function(c)
             if c.i then
-                return c.i and checker(c.i) and checker(c.s)
+                return checker(c.i) and checker(c.s)
             else
                 return checker(c)
             end
