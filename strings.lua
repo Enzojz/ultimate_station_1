@@ -85,6 +85,9 @@ I will upgrade the elevated station and the underground station on the same base
 My Easter eggs, hope you like it.
 
 Changelog:
+1.5
+- Fixed unusable main entry on triangle station when the converging angle close to 90°
+- Fixed visual fences bug 
 1.4 
 - Crash information dump and auto-recovery
 1.3
@@ -108,7 +111,19 @@ https://3dwarehouse.sketchup.com/model/b877336b50d9f04b6c5b8009db95f66f/FENSYS-S
 https://3dwarehouse.sketchup.com/model/485809566dba074eb43063bc39f0ebb/Curved-security-fence
 ]]
 
-local descDE = [[Der Ultimate Station Mod wurde entwickelt um Bahnhöfe mit verschiedenen Bahnsteigtypen zu bauen. Er beinhaltet 4 Arten::
+local descDE = [[=== Fehler Erkennung und Absturzbericht ===
+Durch die Komplexität der Algorythmen kann es noch zu Abstürzen durch Berechnungsfehler kommen.
+Nach der Version 1.4 werden alle Abstürze verhindert, jedoch werden die Standartparameter genutzt um den Bahnhof zu bauen.
+Wenn dieser Fall eintritt, bitte den Absturzbericht (stdout) einsenden. Dies erleichtert das Debuggen und die Fehlersuche um einiges.
+Die Informationen werden in der stdout.txt gespeichert, welche im Ordner 446800\local\crash_dump deines Steam-Benutzerordners.Bitte nur den letzten Abschnitt, "Ultimate Station failure" einschicken, da nur dieser benötigt wird.
+=== Ende der Fehler Erkennung und Absturzbericht ===
+
+== Sprachenbarriere ==
+Noch ein Hinweis an alle deutschsprachigen. Da Enzojz kein deutsch spricht, bittet er euch als Anwender ihm auf Englisch zu schreiben.
+Dies erleichtert die Kommunikation, da die Übersetzer gerne Fehler einbauen und die Nachricht oft falsch rüberkommt.
+== Ende Sprachbarriere ==
+
+Der Ultimate Station Mod wurde entwickelt um Bahnhöfe mit verschiedenen Bahnsteigtypen zu bauen. Er beinhaltet 4 Arten::
 1. Generischer Bahnhof
 2. Bahhof mit 2 Kurven
 3. Dreieckiger Bahnhof
@@ -187,6 +202,25 @@ Durch due Komplexität des Algorythmus, den ich verwendet habe, kann es zu crash
 Ich werde die Elevated Station und den Untergrund Bahnhof auf die selbe Basis updaten, und vileicht auch die Track Design Patterns und Flying Junktions updaten.
 
 Meine Ostereier, Ich hoffe es gefällt euch :D
+
+Versionsänderungen:
+1.5
+- Unbenutzbarer Haupteingang beim Dreieckigen Bahnhof (Winkel annähernd 90°) gefixxt
+- Visuellen Zaunbug behoben
+1.4 
+- Informationsspeicherung im Crashfall & Automatische Widerherstellung
+1.3
+- Unterstützung der Common API
+1.2
+- Absturz bei Assertionsfehler behoben
+- Absturz ohne Fehlermeldung behoben
+- Chinesische Übersetzung hinzugefügt
+1.1
+- Absturz mit R = 50 behoben
+- Falsche Passagierblickrichtung behoben
+- Deutsche Übersetzung hinzugefügt
+* Wichtig: Um R=50 zu nutzen, muss die Refferenz auf das rechte Gleis gestellt werden, da sonst der Kurvenradius zu klein ist.
+
 
 Credit:
 RPGFabi für die deutsche Übersetzung.
@@ -273,6 +307,9 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 太多了！所有你想到要增加的一些变种比如更老年代的车站还有货站blablabla……不翻译！
 
 更新日志： 
+1.5
+- 修正了三角车站在接近大角度时主入口失效的问题
+- 修正了一个围栏显示错误
 1.4
 - 增加了避免游戏退出的措施和帮助Bug报告的信息记录
 1.3
