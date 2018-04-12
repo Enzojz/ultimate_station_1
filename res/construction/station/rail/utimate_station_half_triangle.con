@@ -174,9 +174,8 @@ local function retriveRef(config, arcCoords)
     if (not config.buildingParams) then return false end
     
     local central = arcCoords * pipe.filter(function(ar)
-        local lm, rm = ar.platform.lc[ar.platform.c], ar.platform.rc[ar.platform.c]
         local le, re = ar.platform.lc[#ar.platform.lc], ar.platform.rc[#ar.platform.rc]
-        return ((le - re):length() - (lm - rm):length()) >= (config.buildingParams.halfWidth)
+        return (le - re):length() > (config.buildingParams.halfWidth) * 2
     end)
     
     if (#central == 0) then return false end
@@ -186,13 +185,15 @@ local function retriveRef(config, arcCoords)
         local pl, la, su = central.platform, central.lane, central.surface
         local fplc = floor(pl.c * 0.5)
         local flac = floor(la.c * 0.5)
-        local le, re = la.lc[#la.lc], la.rc[#la.rc]
+        local le, re = pl.lc[#pl.lc], pl.rc[#pl.rc]
         local refVec = (le - re):normalized() .. coor.rotZ(-0.5 * pi)
-        local refPt = le:avg(re)
+        local refPt = le:avg(re) + refVec
+        local stairSurface = (central.hasLower or central.hasUpper) and (la.c + 4 + flac) or (la.c + (la.c > 5 and 4 or 2))
+        local stairUnderground = (central.hasLower or central.hasUpper) and (pl.c + 3 + fplc) or (la.c + 3)
         return refPt,
             ust.mRot(refVec),
-            la.lc[la.c + 4 + flac]:avg(la.rc[la.c + 4 + flac], la.lc[la.c + 5 + flac], la.rc[la.c + 5 + flac]),
-            pl.lc[pl.c + 3 + fplc]:avg(pl.rc[pl.c + 3 + fplc])
+            la.lc[stairSurface]:avg(la.rc[stairSurface], la.lc[stairSurface + 1], la.rc[stairSurface + 1]),
+            pl.lc[stairUnderground]:avg(pl.rc[stairUnderground])
     end
 end
 
