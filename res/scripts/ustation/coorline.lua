@@ -50,6 +50,10 @@ function line.vec(l)
     return coor.xy(-l.b, l.a):normalized()
 end
 
+function line.pend(l, pt)
+    return line.byVecPt(coor.xy(l.a, l.b), pt)
+end
+
 function line.intersection(l1, l2)
     local a11 = l1.a
     local a12 = l1.b

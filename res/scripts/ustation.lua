@@ -297,7 +297,7 @@ end
 
 local il = pipe.interlace({"s", "i"})
 
-ust.unitLane = function(f, t) return ((t - f):length2() > 1e-2) and station.newModel("ust/person_lane.mdl", ust.mRot(t - f), coor.trans(f)) or nil end
+ust.unitLane = function(f, t) return ((t - f):length2() > 1e-2 and (t - f):length2() < 562500) and station.newModel("ust/person_lane.mdl", ust.mRot(t - f), coor.trans(f)) or nil end
 
 ust.generateEdges = function(edges, isLeft, arcPacker)
     local arcs = arcPacker()()()
@@ -318,6 +318,95 @@ ust.generateEdges = function(edges, isLeft, arcPacker)
             edge = pipe.new / eInf / eSup + arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end,
             snap = pipe.new / {false, false} / {false, false} / {false, true} / {false, true}
         }
+end
+
+ust.generateTerminalsDual = function(config)
+    local platformZ = config.hPlatform + 0.53
+    return function(edges, terminals, terminalsGroup, arcsL, arcsR, enablers)
+        local function xI(seq, seq2)
+            local ln2 = seq2 * il * pipe.map(function(s) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i)} end)
+            return seq * il
+                * pipe.zip(func.seq(1, #seq - 1), {"c", "i"})
+                * pipe.fold(1,
+                    function(rs, c)
+                        local ln = line.byPtPt(c.c.s, c.c.i)
+                        local r = ln2 * pipe.map(function(s)
+                            local x = s.l - ln
+                            return (x - s.i):dot(x - s.s) <= 0 and (x - c.c.i):dot(x - c.c.s) <= 0
+                        end)
+                        * pipe.filter(pipe.noop())
+                        
+                        return r and (c.i + 1) or rs
+                    end)
+        end
+        
+        local seqL = func.mapi(il(arcsL.lane.rc), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+        local seqR = func.mapi(il(arcsR.lane.lc), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+        
+        local llx, rlx = (function()
+            local r = func.fold(seqL, false, function(result, l)
+                local r = func.fold(seqR, false, function(result, r)
+                    local x = l.l - r.l
+                    return (x - l.s):dot(x - l.i) <= 0 and (x - r.s):dot(x - r.i) <= 0 and (r.index + 1) or result
+                end)
+                return r and {(l.index + 1), r} or result
+            end)
+            return table.unpack(r or {1, 1})
+        end)()
+        
+        local lc, rc = arcsL.lane.lc * pipe.range(1, llx), arcsR.lane.rc * pipe.range(1, rlx)
+        local llc, lrc = arcsL.lane.lc * pipe.range(llx, #arcsL.lane.lc), arcsL.lane.rc * pipe.range(llx, #arcsL.lane.rc)
+        local rlc, rrc = arcsR.lane.lc * pipe.range(rlx, #arcsR.lane.lc), arcsR.lane.rc * pipe.range(rlx, #arcsR.lane.rc)
+        
+        
+        local terminalsL = arcsL.lane.lc * il * pipe.map(function(lc)
+            station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i))
+        end)
+        
+        local terminalsR = arcsR.lane.rc * il * pipe.map(function(lc)
+            station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i))
+        end)
+        
+        dump({
+            l = arcsL.lane.lc * il,
+            r = arcsR.lane.rc * il
+        })
+
+        local links = pipe.new * {}
+            -- + pipe.mapn(il(lc), il(rc))(function(lc, rc) return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s))) end)
+            -- + pipe.mapn(il(llc), il(lrc))(function(lc, rc) return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s))) end)
+            -- + pipe.mapn(il(rlc), il(rrc))(function(lc, rc) return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s))) end)
+        
+        local newTerminals = pipe.new
+            / terminalsL
+            / terminalsR
+            / links
+        
+        return terminals + newTerminals * pipe.flatten(),
+            terminalsGroup
+            + (
+            (enablers[1] and enablers[2]) and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
+                    vehicleNodeOverride = #edges * 8 - 16
+                },
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
+                    vehicleNodeOverride = #edges * 8 - 7
+                }
+            } or enablers[1] and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
+                    vehicleNodeOverride = #edges * 8 - 8
+                }
+            } or enablers[2] and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
+                    vehicleNodeOverride = #edges * 8 - 7
+                }
+            } or {}
+    )
+    end
 end
 
 ust.generateTerminals = function(config)
@@ -714,7 +803,12 @@ ust.allArcs = function(arcGen, config)
     end)
 end
 
-ust.build = function(config, entries, generateEdges, generateModels, generateTerminals, generateFences, generateTerrain)
+ust.build = function(config, fitModel, entries, generateTerminalsDual)
+    local generateEdges = ust.generateEdges
+    local generateModels = ust.generateModels(fitModel, config)
+    local generateTerminals = ust.generateTerminals(config)
+    local generateFences = ust.generateFences(fitModel, config)
+    local generateTerrain = ust.generateTerrain(config)
     local generateTrackTerrain = ust.generateTrackTerrain(config)
     local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
         local isLeftmost = #models == 0
@@ -727,7 +821,7 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
             return edges, buildAccessRoad, terminals, terminalsGroup,
                 (models + buildEntryPath + buildLanes) * pipe.filter(pipe.noop()),
                 terrain + buildFace
-        elseif (#gr == 3) then
+        elseif (#gr == 3 and #gr[1] == 1 and #gr[2] > 1 and #gr[3] == 1) then
             local edges = generateEdges(edges, true, gr[1][1])
             local edges = generateEdges(edges, false, gr[3][1])
             local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, true})
@@ -775,6 +869,33 @@ ust.build = function(config, entries, generateEdges, generateModels, generateTer
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[1][1], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1]),
+                ...)
+        elseif (#gr == 2 and #gr[1] > 1 and #gr[2] > 1) then
+            local terminals, terminalsGroup = generateTerminalsDual(edges, terminals, terminalsGroup, gr[1], gr[2], {false, false})
+            return build(edges,
+                terminals,
+                terminalsGroup,
+                models,
+                terrain,
+                ...)
+        elseif (#gr == 3 and #gr[1] > 1 and #gr[2] > 1 and #gr[3] == 1) then
+            local edges = generateEdges(edges, false, gr[3][1])
+            local terminals, terminalsGroup = generateTerminalsDual(edges, terminals, terminalsGroup, gr[1], gr[2], {false, true})
+            return build(edges,
+                terminals,
+                terminalsGroup,
+                models,
+                terrain,
+                ...)
+        elseif (#gr == 4 and #gr[1] == 1 and #gr[2] > 1 and #gr[3] > 1 and #gr[4] == 1) then
+            local edges = generateEdges(edges, true, gr[1][1])
+            local edges = generateEdges(edges, false, gr[4][1])
+            local terminals, terminalsGroup = generateTerminalsDual(edges, terminals, terminalsGroup, gr[2], gr[3], {true, true})
+            return build(edges,
+                terminals,
+                terminalsGroup,
+                models,
+                terrain,
                 ...)
         else
             local edges = generateEdges(edges, false, gr[1][1])
@@ -871,6 +992,12 @@ local function trackGrouping(result, ar1, ar2, ar3, ar4, ...)
             end
         elseif #ar1 == 2 and #ar2 == 1 and #ar3 == 2 and not ar4 then
             return trackGrouping(result / {ar1} / {ar2, ar3}, ar4, ...)
+        elseif #ar1 == 1 and #ar2 == 2 and #ar3 == 2 and ar4 and #ar4 == 1 then
+            return trackGrouping(result / {ar1, ar2, ar3, ar4}, ...)
+        elseif #ar1 == 2 and #ar2 == 2 and #ar3 == 1 and ar4 and #ar4 == 2 then
+            return trackGrouping(result / {ar1, ar2} / {ar3, ar4}, ...)
+        elseif #ar1 == 2 and #ar2 == 2 and #ar3 == 1 then
+            return trackGrouping(result / {ar1, ar2, ar3}, ar4, ...)
         end
     end
     
@@ -965,13 +1092,14 @@ ust.safeBuild = function(params, updateFn)
                 func.forEach(
                     params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
                     function(i)print(i.key .. ": " .. param[i.key]) end)
-                    
+                
                 print("End of Ultimate Station failure")
                 print("========================")
             end,
             defaultParams(param)
         )
         return r and result or updateFn(defaultParams(paramsOnFail))
+        -- return updateFn(defaultParams(param))
     end
 end
 

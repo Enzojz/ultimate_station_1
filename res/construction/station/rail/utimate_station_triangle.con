@@ -109,6 +109,90 @@ local function params()
         + ustm.fence
         + ustm.alt
 end
+local il = pipe.interlace({"s", "i"})
+local generateTerminalsDual = function(config)
+    local platformZ = config.hPlatform + 0.53
+    return function(edges, terminals, terminalsGroup, arcsL, arcsR, enablers)
+        local function xI(seq, seq2)
+            local ln2 = seq2 * il * pipe.map(function(s) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i)} end)
+            return seq * il
+                * pipe.zip(func.seq(1, #seq - 1), {"c", "i"})
+                * pipe.fold(1,
+                    function(rs, c)
+                        local ln = line.byPtPt(c.c.s, c.c.i)
+                        local r = ln2 * pipe.map(function(s)
+                            local x = s.l - ln
+                            return (x - s.i):dot(x - s.s) <= 0 and (x - c.c.i):dot(x - c.c.s) <= 0
+                        end)
+                        * pipe.filter(pipe.noop())
+                        
+                        return r and (c.i + 1) or rs
+                    end)
+        end
+        
+        local seqL = func.mapi(il(arcsL.lane.rc), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+        local seqR = func.mapi(il(arcsR.lane.lc), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+        
+        local llx, rlx = (function()
+            local r = func.fold(seqL, false, function(result, l)
+                local r = func.fold(seqR, false, function(result, r)
+                    local x = l.l - r.l
+                    return (x - l.s):dot(x - l.i) <= 0 and (x - r.s):dot(x - r.i) <= 0 and (r.index + 1) or result
+                end)
+                return r and {(l.index + 1), r} or result
+            end)
+            return table.unpack(r or {1, 1})
+        end)()
+        
+        local lc, rc = arcsL.lane.lc * pipe.range(1, llx), arcsR.lane.rc * pipe.range(1, rlx)
+        local llc, lrc = arcsL.lane.lc * pipe.range(llx, #arcsL.lane.lc), arcsL.lane.rc * pipe.range(llx, #arcsL.lane.rc)
+        local rlc, rrc = arcsR.lane.lc * pipe.range(rlx, #arcsR.lane.lc), arcsR.lane.rc * pipe.range(rlx, #arcsR.lane.rc)
+        
+        local terminalsL = arcsL.lane.lc * il * pipe.map(function(lc)
+            return station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i))
+        end)
+        
+        local terminalsR = arcsR.lane.rc * il * pipe.map(function(lc)
+            return station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i))
+        end)
+        
+        local links = pipe.new
+            + pipe.mapn(lc * il + llc * il + rlc * il, rc * il + lrc * il + rrc * il)
+            (function(lc, rc) return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s))) end)
+            + func.map(il(lrc), function(c) return station.newModel("ust/standard_lane.mdl", ust.mRot(c.s - c.i), coor.trans(c.i)) end)
+            + func.map(il(rlc), function(c) return station.newModel("ust/standard_lane.mdl", ust.mRot(c.s - c.i), coor.trans(c.i)) end)
+        
+        local newTerminals = pipe.new
+            / terminalsL
+            / terminalsR
+            / links
+        
+        return terminals + newTerminals * pipe.flatten(),
+            terminalsGroup
+            + (
+            (enablers[1] and enablers[2]) and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
+                    vehicleNodeOverride = #edges * 8 - 16
+                },
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
+                    vehicleNodeOverride = #edges * 8 - 7
+                }
+            } or enablers[1] and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
+                    vehicleNodeOverride = #edges * 8 - 8
+                }
+            } or enablers[2] and {
+                {
+                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
+                    vehicleNodeOverride = #edges * 8 - 7
+                }
+            } or {}
+    )
+    end
+end
 
 local arcPacker = function(length, slope, rot, con)
     return function(radius, o, lengthVar, dislodge)
@@ -197,6 +281,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                 and function(t, ...)
                     if t == nil then
                         return result * pipe.sort(function(l, r) return l.i < r.i end) * pipe.map(pipe.select("a"))
+                            * pipe.fold(pipe.new, function(r, a) return #a == 4 and (r / {a[1], a[3]} / {a[4], a[2]}) or (r / a) end)
                     else
                         local posPct = abs(t.i - middlePos) / (#rightGroup)
                         local isVar = posPct >= config.varNbUnaffected
@@ -256,17 +341,22 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         local rs = arcGen(init, initDr[1], initX[1])(table.unpack(leftGroup))
         return rs
     end
-    
     local allArcs = pipe.exec * function()
         local oA = coor.xyz(config.rA, 0, 0)
         local oB = coor.xyz(config.rB, 0, 0) + coor.xyz(cos(config.convRad) - 1, sin(config.convRad), 0) * config.rB + coor.xyz(1 - cos(config.convRad), sin(config.convRad), 0) * pW
         if (hasCentral) then
+            local arcA = arcPackerA(config.rA + 0.5 * pW, oA)
+            local arcB = arcPackerB(config.rB - 0.5 * pW, oB)
+            local _, _, arcAi = platformArcGen(arcPackerA)(config.rA + 0.5 * pW + 0.5 * tW, oA, 1, 0, pWe, true)
+            local _, _, arcBi = platformArcGen(arcPackerB)(config.rB - 0.5 * pW + 0.5 * tW, oB, 1, 0, pWe, false)
             return generateArcs(
                 pipe.new / {
                     i = middlePos,
                     a = {
-                        arcPackerA(config.rA + 0.5 * pW, oA),
-                        arcPackerB(config.rB - 0.5 * pW, oB)
+                        arcA,
+                        arcB,
+                        arcAi[2],
+                        arcBi[2]
                     }
                 },
                 {
@@ -293,15 +383,12 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     
     local build = ust.build(
         config,
+        fitModel,
         pipe.new
         / uste.buildEntry(config, entryConfig, retriveRef)
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig),
-        ust.generateEdges,
-        ust.generateModels(fitModel, config),
-        ust.generateTerminals(config),
-        ust.generateFences(fitModel, config),
-        ust.generateTerrain(config)
+        generateTerminalsDual(config)
     )
     return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
 end
