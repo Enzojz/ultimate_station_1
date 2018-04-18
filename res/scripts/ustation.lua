@@ -803,7 +803,20 @@ ust.allArcs = function(arcGen, config)
     end)
 end
 
-ust.build = function(config, fitModel, entries, generateTerminalsDual)
+ust.coordIntersection = function(coordL, coordR)
+    local seqL = func.mapi(il(coordL), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+    local seqR = func.mapi(il(coordR), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+    local r = func.fold(seqL, false, function(result, l)
+        local r = func.fold(seqR, false, function(result, r)
+            local x = l.l - r.l
+            return (x - l.s):dot(x - l.i) <= 0 and (x - r.s):dot(x - r.i) <= 0 and (r.index + 1) or result
+        end)
+        return r and {(l.index + 1), r} or result
+    end)
+    return table.unpack(r or {#seqL, #seqR})
+end
+
+ust.build = function(config, fitModel, entries, generateTerminalsDual, generateModelsDual)
     local generateEdges = ust.generateEdges
     local generateModels = ust.generateModels(fitModel, config)
     local generateTerminals = ust.generateTerminals(config)
@@ -875,7 +888,8 @@ ust.build = function(config, fitModel, entries, generateTerminalsDual)
             return build(edges,
                 terminals,
                 terminalsGroup,
-                models,
+                models
+                + generateModelsDual(gr[1], gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost)),
                 terrain,
                 ...)
         elseif (#gr == 3 and #gr[1] > 1 and #gr[2] > 1 and #gr[3] == 1) then
@@ -884,7 +898,8 @@ ust.build = function(config, fitModel, entries, generateTerminalsDual)
             return build(edges,
                 terminals,
                 terminalsGroup,
-                models,
+                models
+                + generateModelsDual(gr[1], gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost)),
                 terrain,
                 ...)
         elseif (#gr == 4 and #gr[1] == 1 and #gr[2] > 1 and #gr[3] > 1 and #gr[4] == 1) then
@@ -894,7 +909,8 @@ ust.build = function(config, fitModel, entries, generateTerminalsDual)
             return build(edges,
                 terminals,
                 terminalsGroup,
-                models,
+                models
+                + generateModelsDual(gr[2], gr[3], entries[3].edgeBuilder(isLeftmost, isRightmost)),
                 terrain,
                 ...)
         else
@@ -1082,24 +1098,24 @@ ust.safeBuild = function(params, updateFn)
         pipe.mapPair(function(i) return i.key, i.defaultIndex or 0 end)
     
     return function(param)
-        local r, result = xpcall(
-            updateFn,
-            function(e)
-                print("========================")
-                print("Ultimate Station failure")
-                print("Algorithm failure:", debug.traceback())
-                print("Params:")
-                func.forEach(
-                    params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
-                    function(i)print(i.key .. ": " .. param[i.key]) end)
+        -- local r, result = xpcall(
+        --     updateFn,
+        --     function(e)
+        --         print("========================")
+        --         print("Ultimate Station failure")
+        --         print("Algorithm failure:", debug.traceback())
+        --         print("Params:")
+        --         func.forEach(
+        --             params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
+        --             function(i)print(i.key .. ": " .. param[i.key]) end)
                 
-                print("End of Ultimate Station failure")
-                print("========================")
-            end,
-            defaultParams(param)
-        )
-        return r and result or updateFn(defaultParams(paramsOnFail))
-        -- return updateFn(defaultParams(param))
+        --         print("End of Ultimate Station failure")
+        --         print("========================")
+        --     end,
+        --     defaultParams(param)
+        -- )
+        -- return r and result or updateFn(defaultParams(paramsOnFail))
+        return updateFn(defaultParams(param))
     end
 end
 

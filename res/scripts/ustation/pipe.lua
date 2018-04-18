@@ -163,12 +163,14 @@ function pipe.contains(e)
 end
 
 function pipe.max(less)
+    local less = less or (function(x, y) return x < y end)
     return function(ls)
         return pipe.fold(ls[1], function(l, r) return less(l, r) and r or l end)(ls)
     end
 end
 
 function pipe.min(less)
+    local less = less or (function(x, y) return x < y end)
     return function(ls)
         return pipe.fold(ls[1], function(l, r) return less(l, r) and l or r end)(ls)
     end
@@ -260,7 +262,7 @@ end
 local pipeMeta = {
     __mul = function(lhs, rhs)
         local result = rhs(lhs)
-        setmetatable(result, getmetatable(lhs))
+        if (type(result) == "table") then setmetatable(result, getmetatable(lhs)) end
         return result
     end
     ,
