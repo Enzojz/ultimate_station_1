@@ -734,6 +734,19 @@ ust.generateTrackTerrain = function(config)
     end
 end
 
+ust.coordIntersection = function(coordL, coordR)
+    local seqL = func.mapi(il(coordL), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+    local seqR = func.mapi(il(coordR), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+    local r = func.fold(seqL, false, function(result, l)
+        local r = func.fold(seqR, false, function(result, r)
+            local x = l.l - r.l
+            return (x - l.s):dot(x - l.i) <= 0 and (x - r.s):dot(x - r.i) <= 0 and (r.index + 1) or result
+        end)
+        return r and {(l.index + 1), r} or result
+    end)
+    return table.unpack(r or {#seqL, #seqR})
+end
+
 ust.allArcs = function(arcGen, config)
     local refZ = config.hPlatform + 0.53
     return pipe.map(function(p)
@@ -801,19 +814,6 @@ ust.allArcs = function(arcGen, config)
             return p
         end
     end)
-end
-
-ust.coordIntersection = function(coordL, coordR)
-    local seqL = func.mapi(il(coordL), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
-    local seqR = func.mapi(il(coordR), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
-    local r = func.fold(seqL, false, function(result, l)
-        local r = func.fold(seqR, false, function(result, r)
-            local x = l.l - r.l
-            return (x - l.s):dot(x - l.i) <= 0 and (x - r.s):dot(x - r.i) <= 0 and (r.index + 1) or result
-        end)
-        return r and {(l.index + 1), r} or result
-    end)
-    return table.unpack(r or {#seqL, #seqR})
 end
 
 ust.build = function(config, fitModel, entries, generateTerminalsDual, generateModelsDual)
@@ -1055,6 +1055,9 @@ ust.models = function(prefixM)
         extremity = prefixM("platform/platform_extremity"),
         corner = prefixM("platform/platform_corner"),
         edge = prefixM("platform/platform_edge"),
+        edgeSurface = prefixM("platform/platform_edge_surface"),
+        edgeSurfaceCorner = prefixM("platform/platform_edge_surface_corner"),
+        edgeSurfaceExtreme = prefixM("platform/platform_edge_surface_extreme"),
         edgeOpen = prefixM("platform/platform_edge_open"),
         roofTop = prefixM("platform/platform_roof_top"),
         roofExtremity = prefixM("platform/platform_roof_extremity"),

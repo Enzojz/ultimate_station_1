@@ -103,6 +103,15 @@ local function params()
             }
         }
         + ustm.platform
+        +
+        {
+            {
+                key = "lengthMiddlePlatform",
+                name = _("Central Platform Length") .. "(%)",
+                values = func.map(ustm.middlePlatformLength, tostring),
+                defaultIndex = 3
+            },
+        }
         + ustm.exclu("varRefType", "varRefPos")(ustm.var)
         + ustm.slope
         + ustm.entry
@@ -189,10 +198,10 @@ local generateModelsDual = function(config, fitModel)
     return function(arcsL, arcsR, edgeBuilder)
         local edgeBuilder = edgeBuilder or function(platformEdgeO, _) return platformEdgeO, platformEdgeO end
         
-        local greater = function(x, y) return x > y and x or y end
-        local intersection = greater(ust.coordIntersection(arcsL.platform.rc, arcsR.platform.lc))
+        local intersection = arcsL.intersection
+        local commonLength = arcsL.commonLength
         
-        local function modelSeq(arcs)
+        local function modelSeq(arcs, intersection, commonLength, isLeft)
             local lc, rc, lic, ric, c = arcs.platform.lc, arcs.platform.rc, arcs.surface.lc, arcs.surface.rc, arcs.surface.c
             local lpc, rpc, lpic, rpic, pc = arcs.roof.edge.lc, arcs.roof.edge.rc, arcs.roof.surface.lc, arcs.roof.surface.rc, arcs.roof.edge.c
             local lpp, rpp, ppc = arcs.roof.pole.lc, arcs.roof.pole.rc, arcs.roof.pole.c
@@ -216,6 +225,23 @@ local generateModelsDual = function(config, fitModel)
             
             local platformEdgeL, platformEdgeR = edgeBuilder(platformEdgeO, c)
             
+            local fn = pipe.mapi(function(m, i) return
+                i >= intersection and i < commonLength and config.models.edgeSurface
+                or i ~= commonLength and m
+                or commonLength == 2 * (c - 1) and config.models.edgeSurfaceExtreme
+                or config.models.edgeSurfaceCorner
+            end)
+            
+            if isLeft then
+                platformEdgeR = platformEdgeR * fn
+            else
+                platformEdgeL = platformEdgeL * fn
+            end
+            
+            local platformEdgeSurface = pipe.new
+                * pipe.rep(c - 1)(config.models.edgeSurface)
+                * (function(ls) return ls * pipe.rev() + ls end)
+            
             local roofSurface = pipe.new
                 * pipe.rep(pc - 2)(config.models.roofTop)
                 / config.models.roofExtremity
@@ -229,6 +255,7 @@ local generateModelsDual = function(config, fitModel)
             return {
                 platformSurface = platformSurface,
                 platformSurfaceEx = platformSurfaceEx,
+                platformEdgeSurface = platformEdgeSurface,
                 platformEdgeO = platformEdgeO,
                 platformEdgeL = platformEdgeL,
                 platformEdgeR = platformEdgeR,
@@ -237,9 +264,85 @@ local generateModelsDual = function(config, fitModel)
             }
         end
         
-        local platformModels = function(c, hasLeft, hasRight)
+        local platformSurface = function(c)
+            return function(i, s, sx, lic, ric)
+                local lic = i >= c and lic or {s = lic.i, i = lic.s}
+                local ric = i >= c and ric or {s = ric.i, i = ric.s}
+                
+                local sizeS = ust.assembleSize(lic, ric)
+                
+                local surfaces = pipe.exec * function()
+                    local vecs = {
+                        top = sizeS.rt - sizeS.lt,
+                        bottom = sizeS.rb - sizeS.lb
+                    }
+                    if (vecs.top:length() < 7 and vecs.bottom:length() < 7) then
+                        return pipe.new
+                            / station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, false, false))
+                            / station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, true, true))
+                    else
+                        local n = (function(l)
+                            return
+                            (l - floor(l) < 0.5)
+                                and (function(n) return n % 2 == 0 and n - 1 or n end)(floor(l))
+                                or (function(n) return n % 2 == 0 and n + 1 or n end)(ceil(l))
+                        end)((vecs.top:length() + vecs.bottom:length()) / 14)
+                        
+                        local h = (n - 1) * 0.5
+                        
+                        local sizeS2 = {
+                            lb = sizeS.lb + vecs.bottom * h / n,
+                            lt = sizeS.lt + vecs.top * h / n,
+                            rb = sizeS.rb - vecs.bottom * h / n,
+                            rt = sizeS.rt - vecs.top * h / n,
+                        }
+                        
+                        return pipe.new
+                            * func.seq(1, h)
+                            * pipe.map(function(i)
+                                local size = {
+                                    lb = sizeS.lb + vecs.bottom * (i - 1) / n,
+                                    lt = sizeS.lt + vecs.top * (i - 1) / n,
+                                    rb = sizeS.lb + vecs.bottom * i / n,
+                                    rt = sizeS.lt + vecs.top * i / n,
+                                }
+                                
+                                return pipe.new
+                                    / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, size, false, false))
+                                    / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, size, true, true))
+                            end)
+                            * pipe.flatten()
+                            + {
+                                station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, false, false)),
+                                station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, true, true))
+                            }
+                            +
+                            pipe.new
+                            * func.seq(1, h)
+                            * pipe.map(function(i)
+                                local size = {
+                                    lb = sizeS.rb - vecs.bottom * i / n,
+                                    lt = sizeS.rt - vecs.top * i / n,
+                                    rb = sizeS.rb - vecs.bottom * (i - 1) / n,
+                                    rt = sizeS.rt - vecs.top * (i - 1) / n,
+                                }
+                                
+                                return pipe.new
+                                    / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, size, false, false))
+                                    / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, size, true, true))
+                            end)
+                            * pipe.flatten()
+                    end
+                end
+                return surfaces
+            end
+        end
+        
+        local platformModels = function(c)
+            local platformSurface = platformSurface(c)
             return
                 function(i, el, er, s, sx, lc, rc, lic, ric)
+                    local surface = platformSurface(i, s, sx, lic, ric)
                     local lc = i >= c and lc or {s = lc.i, i = lc.s}
                     local rc = i >= c and rc or {s = rc.i, i = rc.s}
                     local lic = i >= c and lic or {s = lic.i, i = lic.s}
@@ -247,108 +350,42 @@ local generateModelsDual = function(config, fitModel)
                     
                     local sizeL = ust.assembleSize(lc, lic)
                     local sizeR = ust.assembleSize(ric, rc)
-                    local sizeS = ust.assembleSize(lic, ric)
                     
-                    local surfaces = pipe.exec * function()
-                        local vecs = {
-                            top = sizeS.rt - sizeS.lt,
-                            bottom = sizeS.rb - sizeS.lb
-                        }
-                        if (vecs.top:length() < 7 and vecs.bottom:length() < 7) then
-                            return pipe.new
-                                / station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, false, false))
-                                / station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, true, true))
-                        else
-                            local n = (function(l)
-                                return
-                                (l - floor(l) < 0.5)
-                                    and (function(n) return n % 2 == 0 and n - 1 or n end)(floor(l))
-                                    or (function(n) return n % 2 == 0 and n + 1 or n end)(ceil(l))
-                            end)((vecs.top:length() + vecs.bottom:length()) / 14)
-                            
-                            local h = (n - 1) * 0.5
-                            
-                            local sizeS2 = {
-                                lb = sizeS.lb + vecs.bottom * h / n,
-                                lt = sizeS.lt + vecs.top * h / n,
-                                rb = sizeS.rb - vecs.bottom * h / n,
-                                rt = sizeS.rt - vecs.top * h / n,
-                            }
-                            
-                            return pipe.new
-                                * func.seq(1, h)
-                                * pipe.map(function(i)
-                                    local size = {
-                                        lb = sizeS.lb + vecs.bottom * (i - 1) / n,
-                                        lt = sizeS.lt + vecs.top * (i - 1) / n,
-                                        rb = sizeS.lb + vecs.bottom * i / n,
-                                        rt = sizeS.lt + vecs.top * i / n,
-                                    }
-                                    
-                                    return pipe.new
-                                        / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, size, false, false))
-                                        / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, size, true, true))
-                                end)
-                                * pipe.flatten()
-                                + {
-                                    station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, false, false)),
-                                    station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS2, true, true))
-                                }
-                                +
-                                pipe.new
-                                * func.seq(1, h)
-                                * pipe.map(function(i)
-                                    local size = {
-                                        lb = sizeS.rb - vecs.bottom * i / n,
-                                        lt = sizeS.rt - vecs.top * i / n,
-                                        rb = sizeS.rb - vecs.bottom * (i - 1) / n,
-                                        rt = sizeS.rt - vecs.top * (i - 1) / n,
-                                    }
-                                    
-                                    return pipe.new
-                                        / station.newModel(sx .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, size, false, false))
-                                        / station.newModel(sx .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, size, true, true))
-                                end)
-                                * pipe.flatten()
-                        end
-                    end
-                    
-                    return surfaces
-                        / (hasLeft and station.newModel(el .. "_br.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, false, false)))
-                        / (hasLeft and station.newModel(el .. "_tl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, true, true)))
-                        / (hasRight and station.newModel(er .. "_bl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, false, true)))
-                        / (hasRight and station.newModel(er .. "_tr.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, true, false)))
-                        * pipe.filter(pipe.noop())
+                    return surface
+                        / station.newModel(el .. "_br.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, false, false))
+                        / station.newModel(el .. "_tl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, true, true))
+                        / station.newModel(er .. "_bl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, false, true))
+                        / station.newModel(er .. "_tr.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, true, false))
                 end
         end
         
         local models = {
-            l = modelSeq(arcsL),
-            r = modelSeq(arcsR)
+            l = modelSeq(arcsL, intersection, commonLength, true),
+            r = modelSeq(arcsR, intersection, commonLength, false)
         }
-        
-        local lengthRange = function()
-            local max = #models.l.platformEdgeR > #models.r.platformEdgeL and #models.r.platformEdgeL or #models.l.platformEdgeR
-            return pipe.new
-                * (pipe.mapn(func.seq(intersection, max), arcsL.platform.rc * pipe.range(intersection, max + 1) * il, arcsR.platform.lc * pipe.range(intersection, max + 1) * il)
-                (function(i, l, r)
-                    local vecL = (l.i - l.s):withZ(0)
-                    local vecR = (r.i - l.s):withZ(0)
-                    local vec = (r.s - l.s):withZ(0)
-                    return vec:cross(vecL).z > 0 and vec:cross(vecR).z < 0 and i or false
-                end))
-                * pipe.filter(pipe.noop())
-                * function(r) return #r > 0 and r[#r] or max end
-        end
         
         local function commonParts()
             local lc, rc, lic, ric, c = arcsL.platform.lc, arcsR.platform.rc, arcsL.surface.lc, arcsR.surface.rc, arcsL.surface.c
-            return pipe.mapn(func.seq(1, intersection),
-                models.l.platformEdgeL, models.r.platformEdgeR, models.l.platformSurface, models.l.platformSurfaceEx,
-                il(lc), il(rc), il(lic), il(ric))(platformModels(c, true, true))
+            return pipe.mapn(func.seq(1, intersection - 1),
+                models.l.platformEdgeL,
+                models.r.platformEdgeR,
+                models.l.platformSurface,
+                models.l.platformSurfaceEx,
+                il(lc), il(rc), il(lic), il(ric))(platformModels(c))
         end
         
-        local maxLength = lengthRange()
+        local function middlePart()
+            local lc, rc, c = arcsL.platform.rc, arcsR.platform.lc, arcsL.surface.c
+            local fn = function(f, t)
+                local range = pipe.range(f, t)
+                return pipe.mapn(func.seq(f, t),
+                    models.l.platformSurfaceEx * pipe.range(f, t - 1) / config.models.extremity,
+                    models.l.platformSurfaceEx * pipe.range(f, t - 1) / config.models.extremity,
+                    lc * il * range,
+                    rc * il * range
+            ) end
+            return pipe.new + fn(intersection, commonLength)(platformSurface(c))
+        end
         
         local function leftPart()
             local lc, rc, lic, ric, c = arcsL.platform.lc, arcsL.platform.rc, arcsL.surface.lc, arcsL.surface.rc, arcsL.surface.c
@@ -364,7 +401,7 @@ local generateModelsDual = function(config, fitModel)
                     lic * il * range,
                     ric * il * range
             ) end
-            return pipe.new + fn(maxLength + 1, #models.l.platformEdgeL)(platformModels(c, true, true)) + fn(intersection + 1, maxLength)(platformModels(c, true, false))
+            return pipe.new + fn(intersection, #models.l.platformEdgeL)(platformModels(c))
         end
         
         
@@ -383,10 +420,15 @@ local generateModelsDual = function(config, fitModel)
                     ric * il * range
             )
             end
-            return pipe.new + fn(maxLength + 1, #models.r.platformEdgeL)(platformModels(c, true, true)) + fn(intersection + 1, maxLength)(platformModels(c, false, true))
+            return pipe.new + fn(intersection, #models.r.platformEdgeL)(platformModels(c))
         end
         
-        return (pipe.new / commonParts() / leftPart() / rightPart()) * pipe.flatten() * pipe.flatten()
+        local cp = commonParts()
+        local lp = leftPart()
+        local rp = rightPart()
+        local mp = middlePart()
+        
+        return (pipe.new / cp / lp / rp / mp) * pipe.flatten() * pipe.flatten()
     end
 end
 
@@ -571,6 +613,51 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         end
     end
     * ust.allArcs(arcGen, config)
+    * function(allArcs)
+        for i = 1, #allArcs - 1 do
+            if #allArcs[i] > 1 and #allArcs[i + 1] > 1 then
+                local arcsL, arcsR = allArcs[i], allArcs[i + 1]
+                local greater = function(x, y) return x > y and x or y end
+                
+                local intersection = greater(ust.coordIntersection(arcsL.platform.rc, arcsR.platform.lc))
+                
+                local lengthRange = function()
+                    local max = arcsL.platform.c > arcsR.platform.c and 2 * (arcsR.platform.c - 1) or 2 * (arcsL.platform.c - 1)
+                    return pipe.new
+                        * (pipe.mapn(func.seq(intersection, max), arcsL.platform.rc * pipe.range(intersection, max + 1) * il, arcsR.platform.lc * pipe.range(intersection, max + 1) * il)
+                        (function(i, l, r)
+                            local vecL = (l.i - l.s):withZ(0)
+                            local vecR = (r.i - l.s):withZ(0)
+                            local vec = (r.s - l.s):withZ(0)
+                            return vec:cross(vecL).z > 0 and vec:cross(vecR).z < 0 and i or false
+                        end))
+                        * pipe.filter(pipe.noop())
+                        * function(r) return #r > 0 and r[#r] or max end
+                end
+                
+                local commonLength = intersection + floor(config.lengthMiddlePlatform * (lengthRange() - intersection))
+                
+                local ptL = arcsL.surface.lc[intersection]
+                local ptR = arcsR.surface.rc[intersection]
+                local vec = ptR - ptL
+                
+                local lL = (arcsL.surface.lc[intersection + 1] - arcsL.surface.rc[intersection + 1]):length()
+                local rL = (arcsR.surface.lc[intersection + 1] - arcsR.surface.rc[intersection + 1]):length()
+                local mL = (arcsR.surface.lc[intersection + 1] - arcsL.surface.rc[intersection + 1]):length()
+
+                arcsL.platform.rc[intersection] = ptL + vec * (lL / (lL + rL + mL))
+                arcsR.platform.lc[intersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))
+                arcsL.surface.rc[intersection] = arcsL.platform.rc[intersection] - vec:normalized() * 0.8
+                arcsR.surface.lc[intersection] = arcsR.platform.lc[intersection] + vec:normalized() * 0.8
+
+                arcsL.intersection = intersection
+                arcsR.intersection = intersection
+                arcsL.commonLength = commonLength
+                arcsR.commonLength = commonLength
+            end
+        end
+        return allArcs
+    end
     
     local arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
     local retriveRef = retriveRef(config, arcCoords)
@@ -674,7 +761,8 @@ local updateFn = function()
                     leftFences = params.fencesPos == 1 or params.fencesPos == 3,
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
                     entries = entryConfig,
-                    models = models
+                    models = models,
+                    lengthMiddlePlatform = ustm.middlePlatformLength[params.lengthMiddlePlatform + 1] * 0.01
                 },
                 params.hasLeftPlatform == 1,
                 params.hasMiddlePlatform == 1,

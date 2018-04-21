@@ -19,6 +19,7 @@ ustm.convAngle = {0, 5, 15, 30, 45, 60, 75, 90}
 ustm.trackList = {"standard.lua", "high_speed.lua"}
 ustm.trackWidthList = {5, 5}
 ustm.fencesLengthList = {2, 2.5, 2}
+ustm.middlePlatformLength = {0, 20, 25, 33, 45, 50, 55, 66, 75, 80, 100}
 
 
 local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"

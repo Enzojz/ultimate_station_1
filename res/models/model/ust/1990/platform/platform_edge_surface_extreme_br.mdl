@@ -1,0 +1,36 @@
+function data()
+    return {
+        collider = {
+            params = {
+                
+            },
+            type = "MESH",
+        },
+        lods = {
+            {
+                children = {
+                    {
+                        id = "ust/1990/platform/platform_edge_surface_extreme_br.msh",
+                        transf = {
+                            1, 0, 0, 0,
+                            0, 1, 0, 0,
+                            0, 0, 1, 0,
+                            0, 0, 0, 1 
+                        },
+                        type = "MESH",
+                    }, 
+                },
+                matConfigs = {
+                    { 0, }, 
+                },
+                static = false,
+                visibleFrom = 0,
+                visibleTo = 5000,
+            }, 
+        },
+        metadata = {
+        },
+        
+    }
+    end
+    
