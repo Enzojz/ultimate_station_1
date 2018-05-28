@@ -267,22 +267,22 @@ local buildUndergroundEntry = function(config, entryConfig)
                     / (p.hasUpper and (entryConfig.underground[1][3] or entryConfig.underground[2][3]) and strCoor(
                         pl.lc[pl.c + 2 + fplc],
                         pl.rc[pl.c + 2 + fplc],
-                        pl.lc[pl.c + 3 + fplc]:avg(pl.rc[pl.c + 3 + fplc]) - coor.xyz(0, 0, 3.5)
+                        pl.mc[pl.c + 3 + fplc]- coor.xyz(0, 0, 3.5)
                     ))
                     / (p.hasLower and (entryConfig.underground[1][1] or entryConfig.underground[2][1]) and strCoor(
                         pl.rc[pl.c - 2 - fplc],
                         pl.lc[pl.c - 2 - fplc],
-                        pl.lc[pl.c - 3 - fplc]:avg(pl.rc[pl.c - 3 - fplc]) - coor.xyz(0, 0, 3.5)
+                        pl.mc[pl.c - 3 - fplc] - coor.xyz(0, 0, 3.5)
                     ))
                     / ((entryConfig.underground[1][2] or entryConfig.underground[2][2]) and strCoor(
                         pl.lc[pl.c],
                         pl.rc[pl.c],
-                        pl.lc[pl.c + 2]:avg(pl.rc[pl.c + 2]) - coor.xyz(0, 0, 3.5)
+                        pl.mc[pl.c + 2] - coor.xyz(0, 0, 3.5)
                     ))
                     / ((entryConfig.underground[1][2] or entryConfig.underground[2][2]) and strCoor(
                         pl.rc[pl.c],
                         pl.lc[pl.c],
-                        pl.lc[pl.c - 2]:avg(pl.rc[pl.c - 2]) - coor.xyz(0, 0, 3.5)
+                        pl.mc[pl.c - 2] - coor.xyz(0, 0, 3.5)
                     ))
                     * pipe.filter(pipe.noop())
             end)
@@ -608,19 +608,19 @@ local buildEntry = function(config, entryConfig, retriveRef)
                     p = pl.c > 5 and {l = la.c + 2, p = pl.c + 4} or {l = la.c + 1, p = pl.c + 2}
                 }
                 return pipe.new
-                    / ust.unitLane(la.lc[ref.n.l - 2]:avg(la.rc[ref.n.l - 2], la.lc[ref.n.l - 3], la.rc[ref.n.l - 3]), pl.lc[ref.n.p]:avg(pl.rc[ref.n.p]))
-                    / ust.unitLane(la.lc[ref.p.l + 2]:avg(la.rc[ref.p.l + 2], la.lc[ref.p.l + 3], la.rc[ref.p.l + 3]), pl.lc[ref.p.p]:avg(pl.rc[ref.p.p]))
+                    / ust.unitLane(la.mc[ref.n.l - 2]:avg(la.mc[ref.n.l - 3]), pl.mc[ref.n.p])
+                    / ust.unitLane(la.mc[ref.p.l + 2]:avg(la.mc[ref.p.l + 3]), pl.mc[ref.p.p])
                     +
                     (p.hasLower and {
-                        ust.unitLane(la.lc[la.c - 5 - flac]:avg(la.rc[la.c - 5 - flac], la.rc[la.c - 4 - flac], la.lc[la.c - 4 - flac]), pl.lc[pl.c - 4 - fplc]:avg(pl.rc[pl.c - 4 - fplc]))
+                        ust.unitLane(la.mc[la.c - 5 - flac]:avg(la.mc[la.c - 4 - flac]), pl.mc[pl.c - 4 - fplc])
                     } or {})
                     +
                     (p.hasUpper and {
-                        ust.unitLane(la.lc[la.c + 5 + flac]:avg(la.rc[la.c + 5 + flac], la.rc[la.c + 4 + flac], la.lc[la.c + 4 + flac]), pl.lc[pl.c + 4 + fplc]:avg(pl.rc[pl.c + 4 + fplc]))
+                        ust.unitLane(la.mc[la.c + 5 + flac]:avg(la.mc[la.c + 4 + flac]), pl.mc[pl.c + 4 + fplc])
                     } or {})
-                    + func.map2(il(func.range(pl.lc, pl.c - 3, pl.c + 3)), il(func.range(pl.rc, pl.c - 3, pl.c + 3)), function(lc, rc)
-                        local b = lc.i:avg(rc.i)
-                        local t = lc.s:avg(rc.s)
+                    + func.map(il(func.range(pl.mc, pl.c - 3, pl.c + 3)), function(c)
+                        local b = c.i
+                        local t = c.s
                         local vec = t - b
                         return station.newModel("ust/person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
                     end)
@@ -632,9 +632,9 @@ local buildEntry = function(config, entryConfig, retriveRef)
                 local pl, la = p.platform, p.lane
                 local fplc = floor(pl.c * 0.5)
                 return pipe.new
-                    / (pl.lc[pl.c]:avg(pl.rc[pl.c]) + coor.xyz(0, 0, -3.5))
-                    / (p.hasUpper and pl.lc[pl.c + 3 + fplc]:avg(pl.rc[pl.c + 3 + fplc]) - coor.xyz(0, 0, 3.5))
-                    / (p.hasLower and pl.lc[pl.c - 3 - fplc]:avg(pl.rc[pl.c - 3 - fplc]) - coor.xyz(0, 0, 3.5))
+                    / (pl.mc[pl.c] + coor.xyz(0, 0, -3.5))
+                    / (p.hasUpper and pl.mc[pl.c + 3 + fplc] - coor.xyz(0, 0, 3.5))
+                    / (p.hasLower and pl.mc[pl.c - 3 - fplc] - coor.xyz(0, 0, 3.5))
             end)
             * (function(ls) return {ls * pipe.map(pipe.select(1)), ls * pipe.map(pipe.select(2)), ls * pipe.map(pipe.select(3))} end)
             * pipe.map(pipe.filter(pipe.noop()))

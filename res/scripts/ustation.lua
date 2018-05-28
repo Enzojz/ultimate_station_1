@@ -320,95 +320,6 @@ ust.generateEdges = function(edges, isLeft, arcPacker)
         }
 end
 
-ust.generateTerminalsDual = function(config)
-    local platformZ = config.hPlatform + 0.53
-    return function(edges, terminals, terminalsGroup, arcsL, arcsR, enablers)
-        local function xI(seq, seq2)
-            local ln2 = seq2 * il * pipe.map(function(s) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i)} end)
-            return seq * il
-                * pipe.zip(func.seq(1, #seq - 1), {"c", "i"})
-                * pipe.fold(1,
-                    function(rs, c)
-                        local ln = line.byPtPt(c.c.s, c.c.i)
-                        local r = ln2 * pipe.map(function(s)
-                            local x = s.l - ln
-                            return (x - s.i):dot(x - s.s) <= 0 and (x - c.c.i):dot(x - c.c.s) <= 0
-                        end)
-                        * pipe.filter(pipe.noop())
-                        
-                        return r and (c.i + 1) or rs
-                    end)
-        end
-        
-        local seqL = func.mapi(il(arcsL.lane.rc), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
-        local seqR = func.mapi(il(arcsR.lane.lc), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
-        
-        local llx, rlx = (function()
-            local r = func.fold(seqL, false, function(result, l)
-                local r = func.fold(seqR, false, function(result, r)
-                    local x = l.l - r.l
-                    return (x - l.s):dot(x - l.i) <= 0 and (x - r.s):dot(x - r.i) <= 0 and (r.index + 1) or result
-                end)
-                return r and {(l.index + 1), r} or result
-            end)
-            return table.unpack(r or {1, 1})
-        end)()
-        
-        local lc, rc = arcsL.lane.lc * pipe.range(1, llx), arcsR.lane.rc * pipe.range(1, rlx)
-        local llc, lrc = arcsL.lane.lc * pipe.range(llx, #arcsL.lane.lc), arcsL.lane.rc * pipe.range(llx, #arcsL.lane.rc)
-        local rlc, rrc = arcsR.lane.lc * pipe.range(rlx, #arcsR.lane.lc), arcsR.lane.rc * pipe.range(rlx, #arcsR.lane.rc)
-        
-        
-        local terminalsL = arcsL.lane.lc * il * pipe.map(function(lc)
-            station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i))
-        end)
-        
-        local terminalsR = arcsR.lane.rc * il * pipe.map(function(lc)
-            station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i))
-        end)
-        
-        dump({
-            l = arcsL.lane.lc * il,
-            r = arcsR.lane.rc * il
-        })
-
-        local links = pipe.new * {}
-            -- + pipe.mapn(il(lc), il(rc))(function(lc, rc) return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s))) end)
-            -- + pipe.mapn(il(llc), il(lrc))(function(lc, rc) return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s))) end)
-            -- + pipe.mapn(il(rlc), il(rrc))(function(lc, rc) return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s))) end)
-        
-        local newTerminals = pipe.new
-            / terminalsL
-            / terminalsR
-            / links
-        
-        return terminals + newTerminals * pipe.flatten(),
-            terminalsGroup
-            + (
-            (enablers[1] and enablers[2]) and {
-                {
-                    terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 16
-                },
-                {
-                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
-                    vehicleNodeOverride = #edges * 8 - 7
-                }
-            } or enablers[1] and {
-                {
-                    terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 8
-                }
-            } or enablers[2] and {
-                {
-                    terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
-                    vehicleNodeOverride = #edges * 8 - 7
-                }
-            } or {}
-    )
-    end
-end
-
 ust.generateTerminals = function(config)
     local platformZ = config.hPlatform + 0.53
     return function(edges, terminals, terminalsGroup, arcs, enablers)
@@ -502,8 +413,8 @@ ust.generateModels = function(fitModel, config)
         
         local lc, rc, lic, ric, c = arcs.platform.lc, arcs.platform.rc, arcs.surface.lc, arcs.surface.rc, arcs.surface.c
         local lpc, rpc, lpic, rpic, pc = arcs.roof.edge.lc, arcs.roof.edge.rc, arcs.roof.surface.lc, arcs.roof.surface.rc, arcs.roof.edge.c
-        local lpp, rpp, ppc = arcs.roof.pole.lc, arcs.roof.pole.rc, arcs.roof.pole.c
-        local lcc, rcc, cc = arcs.chair.lc, arcs.chair.rc, arcs.chair.c
+        local lpp, rpp, mpp, ppc = arcs.roof.pole.lc, arcs.roof.pole.rc, arcs.roof.pole.mc, arcs.roof.pole.c
+        local lcc, rcc, mcc, cc = arcs.chair.lc, arcs.chair.rc, arcs.chair.mc, arcs.chair.c
         
         local platformSurface = pipe.new
             * pipe.rep(c - 2)(config.models.surface)
@@ -624,13 +535,13 @@ ust.generateModels = function(fitModel, config)
             end)
             * (function(ls) return ls * pipe.rev() + {cc < 6 and config.models.chair .. ".mdl"} + ls end)
         
-        local chairs = pipe.mapn(lcc, rcc, platformChairs)
-            (function(lc, rc, m)
+        local chairs = pipe.mapn(lcc, rcc, mcc, platformChairs)
+            (function(lc, rc, mc, m)
                 return (not m) and {} or
                     {
                         station.newModel(m,
                             quat.byVec(coor.xyz(0, i == 1 and 1 or -1, 0), (rc - lc):withZ(0) .. coor.rotZ(0.5 * pi)):mRot(),
-                            coor.trans(lc:avg(rc)))
+                            coor.trans(mc))
                     }
             end)
         
@@ -687,14 +598,13 @@ ust.generateModels = function(fitModel, config)
                     station.newModel(e .. "_tl.mdl", tZ, coor.flipX(), fitModel(1, 5, platformZ, sizeR, true, false))
                 }
             end)
-            / pipe.mapn(il(lpp), il(rpp), func.seq(1, ppc * 2 - 1))
-            (function(lc, rc, i)
-                local lc = i >= ppc and lc or {s = lc.i, i = lc.s}
-                local rc = i >= ppc and rc or {s = rc.i, i = rc.s}
-                local vecPo = lc.i:avg(rc.i) - lc.s:avg(rc.s)
+            / pipe.mapn(il(mpp), func.seq(1, ppc * 2 - 1))
+            (function(mc, i)
+                local mc = i >= ppc and mc or {s = mc.i, i = mc.s}
+                local vecPo = mc.i - mc.s
                 return station.newModel(config.models.roofPole .. ".mdl", tZ, coor.flipY(),
                     coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, 5, 0), vecPo):mRot(),
-                    coor.trans(lc.i:avg(rc.i, lc.s, rc.s)), coor.transZ(-platformZ))
+                    coor.trans(mc.i:avg(mc.s)), coor.transZ(-platformZ))
             end)
         
         
@@ -777,6 +687,7 @@ ust.allArcs = function(arcGen, config)
             
             local arcs = {
                 lane = arcGen(lane, 1),
+                laneEdge = arcGen(lane, -0.5),
                 edge = arcGen(general, -0.5),
                 surface = arcGen(general, 0.3),
                 access = arcGen(general, -4.25),
@@ -786,8 +697,9 @@ ust.allArcs = function(arcGen, config)
                 },
                 terrain = arcGen(terrain, -0.5)
             }
-            
-            local lc, rc, c = ust.bitLatCoords(5)(arcs.lane.l, arcs.lane.r)
+            local mc = function(lc, rc) return func.map2(lc, rc, function(l, r) return l:avg(r) end) end
+
+            local lc, rc, lec, rec, c = ust.bitLatCoords(5)(arcs.lane.l, arcs.lane.r, arcs.laneEdge.l, arcs.laneEdge.r)
             local lsc, rsc, lac, rac, lsuc, rsuc, sc = ust.bitLatCoords(5)(arcs.edge.l, arcs.edge.r, arcs.access.l, arcs.access.r, arcs.surface.l, arcs.surface.r)
             local lcc, rcc, cc = ust.bitLatCoords(10)(arcs.edge.l, arcs.edge.r)
             local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
@@ -796,17 +708,18 @@ ust.allArcs = function(arcGen, config)
             return {
                 [1] = arcL,
                 [2] = arcR,
-                lane = func.with(arcs.lane, {lc = lc, rc = rc, c = c}),
-                platform = func.with(arcs.edge, {lc = lsc, rc = rsc, c = sc}),
-                access = func.with(arcs.access, {lc = lac, rc = rac, c = sc}),
-                surface = func.with(arcs.surface, {lc = lsuc, rc = rsuc, c = sc}),
-                chair = func.with(arcs.edge, {lc = lcc, rc = rcc, c = cc}),
+                lane = func.with(arcs.lane, {lc = lc, rc = rc, mc = mc(lc, rc), c = c}),
+                laneEdge = func.with(arcs.laneEdge, {lc = lec, rc = rec, mc = mc(lec, rec), c = c}),
+                platform = func.with(arcs.edge, {lc = lsc, rc = rsc, mc = mc(lsc, rsc), c = sc}),
+                access = func.with(arcs.access, {lc = lac, rc = rac, mc = mc(lac, rac), c = sc}),
+                surface = func.with(arcs.surface, {lc = lsuc, rc = rsuc, mc = mc(lsuc, rsuc), c = sc}),
+                chair = func.with(arcs.edge, {lc = lcc, rc = rcc, mc = mc(lcc, rcc), c = cc}),
                 roof = {
-                    edge = func.with(arcs.roof.edge, {lc = lpc, rc = rpc, c = pc}),
-                    surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, c = pc}),
-                    pole = func.with(arcs.roof.edge, {lc = lppc, rc = rppc, c = ppc})
+                    edge = func.with(arcs.roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
+                    surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
+                    pole = func.with(arcs.roof.edge, {lc = lppc, rc = rppc, mc = mc(lppc, rppc), c = ppc})
                 },
-                terrain = func.with(arcs.terrain, {lc = ltc, rc = rtc, c = tc}),
+                terrain = func.with(arcs.terrain, {lc = ltc, rc = rtc, mc = mc(ltc, rtc), c = tc}),
                 hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
                 hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc)
             }
