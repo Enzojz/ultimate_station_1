@@ -297,7 +297,7 @@ local generateModelsDual = function(config, fitModel)
                             return pipe.new
                                 / station.newModel(s .. "_br.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, false, false))
                                 / station.newModel(s .. "_tl.mdl", tZ, fitModel(3.4, 5, platformZ, sizeS, true, true))
-                       else
+                        else
                             local n = (function(l)
                                 return (l - floor(l) < 0.5)
                                     and (function(n) return n % 2 == 0 and n - 1 or n end)(floor(l))
@@ -527,7 +527,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
         * pipe.map(pipe.filter(function(a) return #a > 1 end))
         * pipe.filter(function(g) return #g == 1 end)
         * pipe.flatten()
-    -- local arcCoords = entryConfig.arcCoords
+    
     local mixedCoords =
         gArcs
         * pipe.map(pipe.filter(function(a) return #a > 1 end))
@@ -666,22 +666,57 @@ local buildEntry = function(config, entryConfig, retriveRef)
         return arcCoords
             * pipe.map(fn)
             * pipe.flatten()
-            + arcCoords
-            * pipe.map(
-                function(p)
-                    local pl, la = p.platform, p.lane
-                    local fplc = floor(pl.c * 0.5)
-                    return pipe.new / (pl.lc[pl.c]:avg(pl.rc[pl.c]) + coor.xyz(0, 0, -3.5)) /
-                        (p.hasUpper and pl.lc[pl.c + 3 + fplc]:avg(pl.rc[pl.c + 3 + fplc]) - coor.xyz(0, 0, 3.5)) /
-                        (p.hasLower and pl.lc[pl.c - 3 - fplc]:avg(pl.rc[pl.c - 3 - fplc]) - coor.xyz(0, 0, 3.5))
+            + (mixedCoords and (pipe.exec * fn2) or {})
+            +
+            gArcs
+            * pipe.map(pipe.filter(function(a) return #a > 1 end))
+            * pipe.map(function(g)
+                if (#g == 1) then
+                    local f = function(p)
+                        local pl = p.platform
+                        local fplc = floor(pl.c * 0.5)
+                        return pipe.new / (pl.mc[pl.c] + coor.xyz(0, 0, -3.5)) /
+                            (p.hasUpper and pl.mc[pl.c + 3 + fplc] - coor.xyz(0, 0, 3.5)) /
+                            (p.hasLower and pl.mc[pl.c - 3 - fplc] - coor.xyz(0, 0, 3.5))
+                    end
+                    return {f(g[1])}
+                else
+                    local function retrive(pl, la)
+                        local flac = floor(la.c * 0.5)
+                        local fplc = floor(pl.c * 0.5)
+                        local ref = {
+                            n = pl.c > 5 and {l = la.c - 2, p = pl.c - 4} or {l = la.c - 1, p = pl.c - 2},
+                            p = pl.c > 5 and {l = la.c + 2, p = pl.c + 4} or {l = la.c + 1, p = pl.c + 2}
+                        }
+                        return flac, fplc, ref
+                    end
+                    local function x(p)
+                        local pl, la = p.platformO, p.lane
+                        local flac, fplc, ref = retrive(pl, la)
+                        return pipe.new
+                            / (pl.intersection < (ref.n.l - 2) and (pl.mc[pl.c] + coor.xyz(0, 0, -3.5)))
+                            / (p.hasUpper and (pl.intersection < (pl.c + 4 + fplc)) and pl.mc[pl.c + 3 + fplc] - coor.xyz(0, 0, 3.5))
+                            / (p.hasLower and (pl.intersection < (pl.c - 4 - fplc)) and pl.mc[pl.c - 3 - fplc] - coor.xyz(0, 0, 3.5))
+                    end
+                    local combined = function(l, r)
+                        local pl = {mc = func.map2(l.platformO.lc, r.platformO.rc, function(l, r) return l:avg(r) end), c = l.platformO.c, intersection = l.platformO.intersection}
+                        local la = {mc = func.map2(l.lane.lc, r.lane.rc, function(l, r) return l:avg(r) end), c = l.lane.c, intersection = l.lane.intersection}
+                        local flac, fplc, ref = retrive(pl, la)
+                        
+                        return pipe.new
+                            / (pl.intersection > (ref.n.l - 2) and (pl.mc[pl.c] + coor.xyz(0, 0, -3.5)))
+                            / (l.hasUpper and (pl.intersection > (pl.c + 4 + fplc)) and pl.mc[pl.c + 3 + fplc] - coor.xyz(0, 0, 3.5))
+                            / (l.hasLower and (pl.intersection > (pl.c - 4 - fplc)) and pl.mc[pl.c - 3 - fplc] - coor.xyz(0, 0, 3.5))
+                    end
+                    return {x(g[1]), x(g[2]), combined(table.unpack(g))}
                 end
-            )
+            end)
+            * pipe.flatten()
             * (function(ls) return {ls * pipe.map(pipe.select(1)), ls * pipe.map(pipe.select(2)), ls * pipe.map(pipe.select(3))} end)
             * pipe.map(pipe.filter(pipe.noop()))
             * pipe.map(pipe.interlace({"l", "r"}))
             * pipe.map(pipe.map(function(pt) return station.newModel("ust/person_lane.mdl", ust.mRot((pt.l - pt.r)), coor.trans(pt.r)) end))
             * pipe.flatten()
-            + (mixedCoords and (pipe.exec * fn2) or {})
     end
     
     local accessBuilder = function()
