@@ -647,14 +647,37 @@ end
 ust.coordIntersection = function(coordL, coordR)
     local seqL = func.mapi(il(coordL), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
     local seqR = func.mapi(il(coordR), function(s, i) return {s = s.s, i = s.i, l = line.byPtPt(s.s, s.i), index = i} end)
+    
     local r = func.fold(seqL, false, function(result, l)
-        local r = func.fold(seqR, false, function(result, r)
-            local x = l.l - r.l
-            return (x - l.s):dot(x - l.i) <= 0 and (x - r.s):dot(x - r.i) <= 0 and (r.index + 1) or result
-        end)
-        return r and {(l.index + 1), r} or result
+        if result then return result
+        else
+            local r = func.fold(seqR, false,
+                function(result, r)
+                    if result then return result
+                    else
+                        local x = l.l - r.l
+                        return (x - l.s):dot(x - l.i) <= 0 and (x - r.s):dot(x - r.i) <= 0 and (r.index + 1)
+                    end
+                end)
+            return r and {(l.index + 1), r}
+        end
     end)
-    return table.unpack(r or {#seqL, #seqR})
+    or func.fold(seqL, false, function(result, l)
+        if result then return result
+        else
+            local r = func.fold(seqR, false, function(result, r)
+                if result then return result
+                else
+                    local x = l.l - r.l
+                    return (l.s - x):dot(l.s - l.i) <= 0 and (r.s - x):dot(r.s - r.i) <= 0 and (r.index + 1)
+                end
+            end)
+            return r and {(l.index + 1), r}
+        end
+    end)
+    or {#seqL, #seqR}
+    
+    return table.unpack(r)
 end
 
 ust.allArcs = function(arcGen, config)
