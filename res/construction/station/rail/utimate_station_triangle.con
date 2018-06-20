@@ -357,23 +357,24 @@ local generateModelsDual = function(config, fitModel)
             end
         end
         
-        local platformModels = function(c)
+        local platformModels = function(c, ccl, ccr)
             local platformSurface = platformSurface(c)
             return function(i, el, er, s, sx, lc, rc, lic, ric)
                 local surface = platformSurface(i, s, sx, lic, ric)
-                local lc = i >= c and lc or {s = lc.i, i = lc.s}
-                local rc = i >= c and rc or {s = rc.i, i = rc.s}
-                local lic = i >= c and lic or {s = lic.i, i = lic.s}
-                local ric = i >= c and ric or {s = ric.i, i = ric.s}
                 
-                local sizeL = ust.assembleSize(lc, lic)
-                local sizeR = ust.assembleSize(ric, rc)
+                local lce = i >= ccl and lc or {s = lc.i, i = lc.s}
+                local rce = i >= ccr and rc or {s = rc.i, i = rc.s}
+                local lice = i >= ccl and lic or {s = lic.i, i = lic.s}
+                local rice = i >= ccr and ric or {s = ric.i, i = ric.s}
+                
+                local sizeLe = ust.assembleSize(lce, lice)
+                local sizeRe = ust.assembleSize(rice, rce)
                 
                 return surface
-                    / station.newModel(el .. "_br.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, false, false))
-                    / station.newModel(el .. "_tl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeL, true, true))
-                    / station.newModel(er .. "_bl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, false, true))
-                    / station.newModel(er .. "_tr.mdl", tZ, fitModel(0.8, 5, platformZ, sizeR, true, false))
+                    / station.newModel(el .. "_br.mdl", tZ, fitModel(0.8, 5, platformZ, sizeLe, false, false))
+                    / station.newModel(el .. "_tl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeLe, true, true))
+                    / station.newModel(er .. "_bl.mdl", tZ, fitModel(0.8, 5, platformZ, sizeRe, false, true))
+                    / station.newModel(er .. "_tr.mdl", tZ, fitModel(0.8, 5, platformZ, sizeRe, true, false))
             end
         end
         
@@ -391,7 +392,7 @@ local generateModelsDual = function(config, fitModel)
                 models.l.platformSurface,
                 models.l.platformSurfaceEx,
                 il(lc), il(rc), il(lic), il(ric)
-            )(platformModels(c))
+            )(platformModels(c, c, c))
         end
         
         local function middlePart()
@@ -406,7 +407,7 @@ local generateModelsDual = function(config, fitModel)
                     rc * il * range
             )
             end
-            return pipe.new + fn(intersection, commonLength)(platformSurface(c))
+            return pipe.new + fn(intersection, commonLength)(platformSurface(commonLength))
         end
         
         local function leftPart()
@@ -425,7 +426,7 @@ local generateModelsDual = function(config, fitModel)
                     ric * il * range
             )
             end
-            return pipe.new + fn(intersection, #models.l.platformEdgeL)(platformModels(c))
+            return pipe.new + fn(intersection, #models.l.platformEdgeL)(platformModels(c, c, commonLength))
         end
         
         local function rightPart()
@@ -444,7 +445,7 @@ local generateModelsDual = function(config, fitModel)
                     ric * il * range
             )
             end
-            return pipe.new + fn(intersection, #models.r.platformEdgeL)(platformModels(c))
+            return pipe.new + fn(intersection, #models.r.platformEdgeL)(platformModels(c, commonLength, c))
         end
         
         local cp = commonParts()
