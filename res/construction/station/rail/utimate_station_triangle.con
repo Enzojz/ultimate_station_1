@@ -127,85 +127,7 @@ local function params()
         ustm.alt
 end
 local il = pipe.interlace({"s", "i"})
-local generateTerminalsDual = function(config)
-    local platformZ = config.hPlatform + 0.53
-    return function(edges, terminals, terminalsGroup, arcsL, arcsR, enablers)
-        local lc, rc = arcsL.lane.lc
-            * pipe.range(1, arcsL.lane.intersection), arcsR.lane.rc
-            * pipe.range(1, arcsR.lane.intersection)
-        
-        local llc, lrc = arcsL.lane.lc
-            * pipe.range(arcsL.lane.intersection, #arcsL.lane.lc), arcsL.lane.rc
-            * pipe.range(arcsL.lane.intersection, #arcsL.lane.rc)
-        
-        local rlc, rrc = arcsR.lane.lc
-            * pipe.range(arcsR.lane.intersection, #arcsR.lane.lc), arcsR.lane.rc
-            * pipe.range(arcsR.lane.intersection, #arcsR.lane.rc)
-        
-        local clc, crc =
-            arcsL.lane.rc * pipe.range(arcsL.lane.intersection, arcsL.lane.common),
-            arcsR.lane.lc * pipe.range(arcsR.lane.intersection, arcsR.lane.common)
-        
-        local terminalsL = arcsL.lane.lc * il
-            * pipe.map(function(lc) return station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i)) end)
-        
-        local terminalsR = arcsR.lane.rc * il
-            * pipe.map(function(lc) return station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i)) end)
-        
-        local links =
-            pipe.new +
-            pipe.mapn(lc * il + llc * il + rlc * il + clc * il, rc * il + lrc * il + rrc * il + crc * il)
-                (
-                function(lc, rc)
-                    return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and
-                        station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
-                end
-            )
-            + func.map(il(lrc), function(c) return station.newModel("ust/standard_lane.mdl", ust.mRot(c.s - c.i), coor.trans(c.i)) end)
-            + func.map(il(rlc), function(c) return station.newModel("ust/standard_lane.mdl", ust.mRot(c.s - c.i), coor.trans(c.i)) end)
-            + pipe.mapn(clc * il, crc * il)(function(lc, rc)
-                return (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(rc.s) - lc.i:avg(rc.i)), coor.trans(lc.i:avg(rc.i)))
-            end
-        )
-        local newTerminals = pipe.new / terminalsL / terminalsR / links
-        
-        return terminals + newTerminals * pipe.flatten() * pipe.filter(pipe.noop()), terminalsGroup +
-            ((enablers[1] and enablers[2]) and
-            {
-                {
-                    terminals = pipe.new
-                    * func.seq(1, #newTerminals[1])
-                    * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 16
-                },
-                {
-                    terminals = pipe.new
-                    * func.seq(1, #newTerminals[2])
-                    * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
-                    vehicleNodeOverride = #edges * 8 - 7
-                }
-            } or
-            enablers[1] and
-            {
-                {
-                    terminals = pipe.new
-                    * func.seq(1, #newTerminals[1])
-                    * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 8
-                }
-            } or
-            enablers[2] and
-            {
-                {
-                    terminals = pipe.new
-                    * func.seq(1, #newTerminals[2]) *
-                    pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
-                    vehicleNodeOverride = #edges * 8 - 7
-                }
-            } or
-            {})
-    end
-end
+
 
 local generateModelsDual = function(config, fitModel)
     local tZ = coor.transZ(config.hPlatform - 1.4)
@@ -945,6 +867,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     
                     local intersection = greater(ust.coordIntersection(arcsL.platform.rc, arcsR.platform.lc))
                     local laneIntersection = greater(ust.coordIntersection(arcsL.laneEdge.rc, arcsR.laneEdge.lc))
+                    local terrainIntersection = greater(ust.coordIntersection(arcsL.terrain.rc, arcsR.terrain.lc))
                     
                     local commonLength =
                         pipe.exec
@@ -967,6 +890,30 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                                 * pipe.filter(pipe.noop())
                                 * function(r) return #r > 0 and r[#r] or max end
                             return intersection + floor(config.lengthMiddlePlatform * (r - intersection))
+                        end
+
+                    
+                    local terrainCommonLength =
+                        pipe.exec
+                        * function()
+                            local max = arcsL.terrain.c > arcsR.terrain.c and 2 * (arcsR.terrain.c - 1) or 2 * (arcsL.terrain.c - 1)
+                            local r =
+                                pipe.new
+                                * (pipe.mapn(
+                                    func.seq(terrainIntersection, max),
+                                    arcsL.terrain.rc * pipe.range(terrainIntersection, max + 1) * il,
+                                    arcsR.terrain.lc * pipe.range(terrainIntersection, max + 1) * il
+                                )
+                                (function(i, l, r)
+                                    local vecL = (l.i - l.s):withZ(0)
+                                    local vecR = (r.i - l.s):withZ(0)
+                                    local vec = (r.s - l.s):withZ(0)
+                                    return vec:cross(vecL).z > 0 and vec:cross(vecR).z < 0 and i or false
+                                end
+                                ))
+                                * pipe.filter(pipe.noop())
+                                * function(r) return #r > 0 and r[#r] or max end
+                            return terrainIntersection + floor(config.lengthMiddlePlatform * (r - terrainIntersection))
                         end
                     
                     local laneCommonLength =
@@ -1004,10 +951,15 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     arcsR.platform.intersection = intersection
                     arcsL.lane.intersection = laneIntersection
                     arcsR.lane.intersection = laneIntersection
+                    arcsL.terrain.intersection = terrainIntersection
+                    arcsR.terrain.intersection = terrainIntersection
+                    
                     arcsL.lane.common = laneCommonLength
                     arcsR.lane.common = laneCommonLength
                     arcsL.platform.common = commonLength
                     arcsR.platform.common = commonLength
+                    arcsL.terrain.common = terrainCommonLength
+                    arcsR.terrain.common = terrainCommonLength
                     
                     arcsL.platformO = func.with(arcsL.platform, {})
                     arcsR.platformO = func.with(arcsR.platform, {})
@@ -1033,7 +985,6 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
             / buildEntry(config, entryConfig, retriveRef)
             / uste.buildUndergroundEntry(config, entryConfig)
             / uste.buildSecondEntrySlope(config, entryConfig),
-            generateTerminalsDual(config),
             generateModelsDual(config, fitModel)
     )
     return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
