@@ -615,55 +615,61 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     local arcsL, arcsR = allArcs[i], allArcs[i + 1]
                     local greater = function(x, y) return x > y and x or y end
                     
-                    local intersection = greater(ust.coordIntersection(arcsL.platform.rc, arcsR.platform.lc))
-                    local laneIntersection = greater(ust.coordIntersection(arcsL.laneEdge.rc, arcsR.laneEdge.lc))
-                    local terrainIntersection = greater(ust.coordIntersection(arcsL.terrain.rc, arcsR.terrain.lc))
                     
-                    local commonLength =
-                        pipe.exec
-                        * function()
-                            local max = arcsL.platform.c > arcsR.platform.c and 2 * (arcsR.platform.c - 1) or 2 * (arcsL.platform.c - 1)
-                            local r =
-                                pipe.new
-                                * (pipe.mapn(
-                                    func.seq(intersection, max),
-                                    arcsL.platform.rc * pipe.range(intersection, max + 1) * il,
-                                    arcsR.platform.lc * pipe.range(intersection, max + 1) * il
-                                )
-                                (function(i, l, r)
-                                    local vecL = (l.i - l.s):withZ(0)
-                                    local vecR = (r.i - l.s):withZ(0)
-                                    local vec = (r.s - l.s):withZ(0)
-                                    return vec:cross(vecL).z > 0 and vec:cross(vecR).z < 0 and i or false
-                                end
-                                ))
-                                * pipe.filter(pipe.noop())
-                                * function(r) return #r > 0 and r[#r] or max end
-                            return intersection + floor(config.lengthMiddlePlatform * (r - intersection))
-                        end
+                    local retriveBaseParams = function(arcsL, arcsR)
+                        local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
+                        
+                        local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
+                        local r =
+                            pipe.new
+                            * (pipe.mapn(
+                                func.seq(intersection, max),
+                                arcsL.rc * pipe.range(intersection, max + 1) * il,
+                                arcsR.lc * pipe.range(intersection, max + 1) * il
+                            )
+                            (function(i, l, r)
+                                local vecL = (l.i - l.s):withZ(0)
+                                local vecR = (r.i - l.s):withZ(0)
+                                local vec = (r.s - l.s):withZ(0)
+                                return vec:cross(vecL).z > 0 and vec:cross(vecR).z < 0 and i or false
+                            end
+                            ))
+                            * pipe.filter(pipe.noop())
+                            * function(r) return #r > 0 and r[#r] or max end
+                        return intersection, intersection + floor(config.lengthMiddlePlatform * (r - intersection))
+                    end
                     
-                    local laneCommonLength =
-                        pipe.exec
-                        * function()
-                            local max = arcsL.lane.c > arcsR.lane.c and 2 * (arcsR.lane.c - 1) or 2 * (arcsL.lane.c - 1)
-                            local ln = line.byPtPt(arcsL.surface.rc[commonLength + 1], arcsR.surface.lc[commonLength + 1])
-                            local r =
-                                pipe.new
-                                * (pipe.mapn(
-                                    func.seq(laneIntersection, max - 1),
-                                    arcsL.lane.rc * pipe.range(laneIntersection, max) * il,
-                                    arcsR.lane.lc * pipe.range(laneIntersection, max) * il
-                                )
-                                (function(i, l, r)
-                                    local xL = line.byPtPt(l.i, l.s) - ln
-                                    local xR = line.byPtPt(r.i, r.s) - ln
-                                    return ((l.i - xL):dot(l.s - xL) < 0 or (r.i - xR):dot(r.s - xR) < 0) and i or false
-                                end)
-                                )
-                                * pipe.filter(pipe.noop())
-                                * function(r) return #r > 0 and r[1] or max end
-                            return floor(r)
-                        end
+                    local intersection, commonLength = retriveBaseParams(arcsL.platform, arcsR.platform)
+                    
+                    local ln = line.byPtPt(arcsL.surface.rc[commonLength + 1], arcsR.surface.lc[commonLength + 1])
+                    local retriveParams = function(arcsL, arcsR)
+                        local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
+                        local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
+                        local commonLength = 
+                            pipe.exec
+                            * function()
+                                local r =
+                                    pipe.new
+                                    * (pipe.mapn(
+                                        func.seq(intersection, max - 1),
+                                        arcsL.rc * pipe.range(intersection, max) * il,
+                                        arcsR.lc * pipe.range(intersection, max) * il
+                                    )
+                                    (function(i, l, r)
+                                        local xL = line.byPtPt(l.i, l.s) - ln
+                                        local xR = line.byPtPt(r.i, r.s) - ln
+                                        return ((l.i - xL):dot(l.s - xL) < 0 or (r.i - xR):dot(r.s - xR) < 0) and i or false
+                                    end)
+                                    )
+                                    * pipe.filter(pipe.noop())
+                                    * function(r) return #r > 0 and r[1] or max end
+                                return floor(r)
+                            end
+                        return intersection, commonLength
+                    end
+
+                    local roofIntersection, roofCommonLength = retriveParams(arcsL.roof.edge, arcsR.roof.edge)
+                    local laneIntersection, laneCommonLength = retriveParams(arcsL.laneEdge, arcsR.laneEdge)
                     
                     local ptL = arcsL.surface.lc[intersection]
                     local ptR = arcsR.surface.rc[intersection]
@@ -693,6 +699,23 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     arcsR.platform.lc = func.with(arcsR.platform.lc, {[intersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
                     arcsL.surface.rc = func.with(arcsL.surface.rc, {[intersection] = arcsL.platform.rc[intersection] - vec:normalized() * 0.8})
                     arcsR.surface.lc = func.with(arcsR.surface.lc, {[intersection] = arcsR.platform.lc[intersection] + vec:normalized() * 0.8})
+
+                    local ptL = arcsL.roof.edge.lc[roofIntersection]
+                    local ptR = arcsR.roof.edge.rc[roofIntersection]
+                    local vec = ptR - ptL
+
+                    local lL = (arcsL.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
+                    local rL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsR.roof.edge.rc[roofIntersection + 1]):length()
+                    local mL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
+
+                    arcsL.roof.intersection = roofIntersection
+                    arcsL.roof.common = roofCommonLength
+                    arcsR.roof.intersection = roofIntersection
+                    arcsR.roof.common = roofCommonLength
+                    arcsL.roof.edge.rc = func.with(arcsL.roof.edge.rc, {[roofIntersection] = ptL + vec * (lL / (lL + rL + mL))})
+                    arcsR.roof.edge.lc = func.with(arcsR.roof.edge.lc, {[roofIntersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
+                    arcsL.roof.surface.rc = func.with(arcsL.roof.surface.rc, {[roofIntersection] = arcsL.roof.edge.rc[roofIntersection] - vec:normalized() * 0.8})
+                    arcsR.roof.surface.lc = func.with(arcsR.roof.surface.lc, {[roofIntersection] = arcsR.roof.edge.lc[roofIntersection] + vec:normalized() * 0.8})
                 end
             end
             return allArcs
