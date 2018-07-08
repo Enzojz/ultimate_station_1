@@ -10,17 +10,7 @@ function data()
             {
                 children = {
                     {
-                        id = "ust/1990/platform/platform_roof_edge_br.msh",
-                        transf = {
-                            1, 0, 0, 0,
-                            0, 1, 0, 0,
-                            0, 0, 1, 0,
-                            0, 0, 0, 1 
-                        },
-                        type = "MESH",
-                    }, 
-                    {
-                        id = "ust/1990/platform/platform_roof_corner.msh",
+                        id = "ust/1990/platform/platform_roof_corner_br.msh",
                         transf = {
                             1, 0, 0, 0,
                             0, 1, 0, 0,
