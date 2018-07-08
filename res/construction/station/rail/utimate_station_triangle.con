@@ -699,23 +699,25 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     arcsR.platform.lc = func.with(arcsR.platform.lc, {[intersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
                     arcsL.surface.rc = func.with(arcsL.surface.rc, {[intersection] = arcsL.platform.rc[intersection] - vec:normalized() * 0.8})
                     arcsR.surface.lc = func.with(arcsR.surface.lc, {[intersection] = arcsR.platform.lc[intersection] + vec:normalized() * 0.8})
+                    
+                    if (config.roofLength > 0) then
+                        local ptL = arcsL.roof.edge.lc[roofIntersection]
+                        local ptR = arcsR.roof.edge.rc[roofIntersection]
+                        local vec = ptR - ptL
 
-                    local ptL = arcsL.roof.edge.lc[roofIntersection]
-                    local ptR = arcsR.roof.edge.rc[roofIntersection]
-                    local vec = ptR - ptL
+                        local lL = (arcsL.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
+                        local rL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsR.roof.edge.rc[roofIntersection + 1]):length()
+                        local mL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
 
-                    local lL = (arcsL.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
-                    local rL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsR.roof.edge.rc[roofIntersection + 1]):length()
-                    local mL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
-
-                    arcsL.roof.intersection = roofIntersection
-                    arcsL.roof.common = roofCommonLength
-                    arcsR.roof.intersection = roofIntersection
-                    arcsR.roof.common = roofCommonLength
-                    arcsL.roof.edge.rc = func.with(arcsL.roof.edge.rc, {[roofIntersection] = ptL + vec * (lL / (lL + rL + mL))})
-                    arcsR.roof.edge.lc = func.with(arcsR.roof.edge.lc, {[roofIntersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
-                    arcsL.roof.surface.rc = func.with(arcsL.roof.surface.rc, {[roofIntersection] = arcsL.roof.edge.rc[roofIntersection] - vec:normalized() * 0.8})
-                    arcsR.roof.surface.lc = func.with(arcsR.roof.surface.lc, {[roofIntersection] = arcsR.roof.edge.lc[roofIntersection] + vec:normalized() * 0.8})
+                        arcsL.roof.intersection = roofIntersection
+                        arcsL.roof.common = roofCommonLength
+                        arcsR.roof.intersection = roofIntersection
+                        arcsR.roof.common = roofCommonLength
+                        arcsL.roof.edge.rc = func.with(arcsL.roof.edge.rc, {[roofIntersection] = ptL + vec * (lL / (lL + rL + mL))})
+                        arcsR.roof.edge.lc = func.with(arcsR.roof.edge.lc, {[roofIntersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
+                        arcsL.roof.surface.rc = func.with(arcsL.roof.surface.rc, {[roofIntersection] = arcsL.roof.edge.rc[roofIntersection] - vec:normalized() * 0.8})
+                        arcsR.roof.surface.lc = func.with(arcsR.roof.surface.lc, {[roofIntersection] = arcsR.roof.edge.lc[roofIntersection] + vec:normalized() * 0.8})
+                    end
                 end
             end
             return allArcs

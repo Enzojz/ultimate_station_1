@@ -628,7 +628,7 @@ ust.generateModels = function(fitModel, config)
         local retriveModels = retriveModels(fitModel, platformZ, tZ)
         
         local newModels = pipe.mapn(
-            func.seq(1, #platformEdgeL),
+            func.seq(1, 2 * c - 2),
             platformEdgeL,
             platformEdgeR,
             platformSurface,
@@ -657,7 +657,7 @@ ust.generateModels = function(fitModel, config)
         local newRoof = config.roofLength == 0
             and {}
             or pipe.new * pipe.mapn(
-                func.seq(1, #roofEdge),
+                func.seq(1, 2 * pc - 2),
                 roofEdge,
                 roofEdge,
                 roofSurface,
@@ -936,7 +936,7 @@ ust.generateModelsDual = function(fitModel, config)
                 + middlePart()
         end
         
-        return (platformModels() + roofModels()) * pipe.flatten()
+        return (platformModels() + (config.roofLength == 0 and {} or roofModels())) * pipe.flatten()
     end
 end
 
