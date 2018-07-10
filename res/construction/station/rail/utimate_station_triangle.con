@@ -669,7 +669,10 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     end
 
                     local roofIntersection, roofCommonLength = retriveParams(arcsL.roof.edge, arcsR.roof.edge)
+                    local roofPoleIntersection = retriveBaseParams(arcsL.roof.pole, arcsR.roof.pole)
+                    local chairIntersection = retriveBaseParams(arcsL.chair, arcsR.chair)
                     local laneIntersection, laneCommonLength = retriveParams(arcsL.laneEdge, arcsR.laneEdge)
+
                     
                     local ptL = arcsL.surface.lc[intersection]
                     local ptR = arcsR.surface.rc[intersection]
@@ -717,6 +720,10 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                         arcsR.roof.edge.lc = func.with(arcsR.roof.edge.lc, {[roofIntersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
                         arcsL.roof.surface.rc = func.with(arcsL.roof.surface.rc, {[roofIntersection] = arcsL.roof.edge.rc[roofIntersection] - vec:normalized() * 0.8})
                         arcsR.roof.surface.lc = func.with(arcsR.roof.surface.lc, {[roofIntersection] = arcsR.roof.edge.lc[roofIntersection] + vec:normalized() * 0.8})
+                        arcsL.roof.pole.intersection = roofPoleIntersection
+                        arcsR.roof.pole.intersection = roofPoleIntersection
+                        arcsL.chair.intersection = chairIntersection
+                        arcsR.chair.intersection = chairIntersection
                     end
                 end
             end

@@ -583,9 +583,63 @@ local retriveModels = function(fitModel, platformZ, tZ)
     end
 end
 
+local function buildPoles(config, platformZ, tZ)
+    return function(mc, c, f, t)
+        local seq = pipe.new
+            * pipe.rep(c - 2)(config.models.roofPole)
+            / config.models.roofPoleExtreme
+            * function(ls) return ls * pipe.rev() + ls end
+        
+        return pipe.mapn(
+            pipe.range(f, t)(pipe.mapi(function(mc, i) return i >= c and mc or {s = mc.i, i = mc.s} end)(il(mc))),
+            pipe.range(f, t)(seq)
+        )
+        (function(mc, m)
+            local vecPo = mc.i - mc.s
+            return station.newModel(m .. ".mdl", tZ, coor.flipY(),
+                coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, 5, 0), vecPo):mRot(),
+                coor.trans(mc.i:avg(mc.s)), coor.transZ(-platformZ))
+        end)
+    end
+end
+
+local function buildChairs(config, platformZ, tZ)
+    return function(lc, rc, mc, c, f, t)
+        local platformChairs = pipe.new
+            * func.seq(1, c - 1)
+            * pipe.map(function(i)
+                return c > 3 and i ~= 2 and i % floor(c * 0.5) ~= 2 and i ~= c - 1 and (i % 6 == 4 or (i - 1) % 6 == 4 or (i + 1) % 6 == 4) and
+                    (i % 3 ~= 1 and config.models.chair .. ".mdl" or config.models.trash .. ".mdl")
+            end)
+            * (function(ls) return ls * pipe.rev() + {c < 6 and config.models.chair .. ".mdl"} + ls end)
+        local r = pipe.range(f, t)
+        return
+            pipe.mapn(
+                r(lc),
+                r(rc),
+                r(mc),
+                r(platformChairs)
+            )
+            (function(lc, rc, mc, m)
+                return m
+                    and {
+                        station.newModel(m,
+                            quat.byVec(coor.xyz(0, i == 1 and 1 or -1, 0), (rc - lc):withZ(0) .. coor.rotZ(0.5 * pi)):mRot(),
+                            coor.trans(mc))
+                    }
+                    or {}
+            end)
+    end
+end
+
 ust.generateModels = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
+    
+    local buildSurface = buildSurface(fitModel, platformZ, tZ)
+    local retriveModels = retriveModels(fitModel, platformZ, tZ)
+    local buildPoles = buildPoles(config, platformZ, tZ)
+    local buildChairs = buildChairs(config, platformZ, tZ)
     
     return function(arcs, edgeBuilder)
         local edgeBuilder = edgeBuilder or function(platformEdgeO, _) return platformEdgeO, platformEdgeO end
@@ -624,9 +678,6 @@ ust.generateModels = function(fitModel, config)
             * (function(ls) return ls * pipe.rev() + ls end)
         
         
-        local buildSurface = buildSurface(fitModel, platformZ, tZ)
-        local retriveModels = retriveModels(fitModel, platformZ, tZ)
-        
         local newModels = pipe.mapn(
             func.seq(1, 2 * c - 2),
             platformEdgeL,
@@ -636,23 +687,7 @@ ust.generateModels = function(fitModel, config)
             il(lc), il(rc), il(lic), il(ric)
         )(retriveModels(c, c, c, 0.8))
         
-        local platformChairs = pipe.new
-            * func.seq(1, cc - 1)
-            * pipe.map(function(i)
-                return cc > 3 and i ~= 2 and i % floor(cc * 0.5) ~= 2 and i ~= cc - 1 and (i % 6 == 4 or (i - 1) % 6 == 4 or (i + 1) % 6 == 4) and
-                    (i % 3 ~= 1 and config.models.chair .. ".mdl" or config.models.trash .. ".mdl")
-            end)
-            * (function(ls) return ls * pipe.rev() + {cc < 6 and config.models.chair .. ".mdl"} + ls end)
-        
-        local chairs = pipe.mapn(lcc, rcc, mcc, platformChairs)
-            (function(lc, rc, mc, m)
-                return (not m) and {} or
-                    {
-                        station.newModel(m,
-                            quat.byVec(coor.xyz(0, i == 1 and 1 or -1, 0), (rc - lc):withZ(0) .. coor.rotZ(0.5 * pi)):mRot(),
-                            coor.trans(mc))
-                    }
-            end)
+        local chairs = buildChairs(lcc, rcc, mcc, cc, 1, 2 * cc - 1)
         
         local newRoof = config.roofLength == 0
             and {}
@@ -664,19 +699,13 @@ ust.generateModels = function(fitModel, config)
                 roofSurface,
                 il(lpc), il(rpc), il(lpic), il(rpic)
             )(retriveModels(pc, pc, pc, 1))
-            / pipe.mapn(il(mpp), func.seq(1, ppc * 2 - 1))
-            (function(mc, i)
-                local mc = i >= ppc and mc or {s = mc.i, i = mc.s}
-                local vecPo = mc.i - mc.s
-                return station.newModel(config.models.roofPole .. ".mdl", tZ, coor.flipY(),
-                    coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, 5, 0), vecPo):mRot(),
-                    coor.trans(mc.i:avg(mc.s)), coor.transZ(-platformZ))
-            end)
+            / buildPoles(mpp, ppc, 1, ppc * 2 - 1)
         
         
         return (pipe.new / newModels / newRoof / chairs) * pipe.flatten() * pipe.flatten()
     end
 end
+
 
 ust.generateModelsDual = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)
@@ -684,6 +713,9 @@ ust.generateModelsDual = function(fitModel, config)
     
     local buildSurface = buildSurface(fitModel, platformZ, tZ)
     local retriveModels = retriveModels(fitModel, platformZ, tZ)
+    
+    local buildPoles = buildPoles(config, platformZ, tZ)
+    local buildChairs = buildChairs(config, platformZ, tZ)
     
     return function(arcsL, arcsR, edgeBuilder)
         local edgeBuilder = edgeBuilder or function(platformEdgeO, _) return platformEdgeO, platformEdgeO end
@@ -891,7 +923,7 @@ ust.generateModelsDual = function(fitModel, config)
             end
             
             local function leftPart()
-                local lc, rc, lic, ric, c = arcsL.roof.edge.lc, arcsL.roof.edge.rc, arcsL.roof.surface.lc, arcsL.roof.surface.rc, arcsL.surface.c
+                local lc, rc, lic, ric, c = arcsL.roof.edge.lc, arcsL.roof.edge.rc, arcsL.roof.surface.lc, arcsL.roof.surface.rc, arcsL.roof.surface.c
                 local fn = function(f, t)
                     local range = pipe.range(f, t)
                     return pipe.mapn(
@@ -910,7 +942,7 @@ ust.generateModelsDual = function(fitModel, config)
             end
             
             local function rightPart()
-                local lc, rc, lic, ric, c = arcsR.roof.edge.lc, arcsR.roof.edge.rc, arcsR.roof.surface.lc, arcsR.roof.surface.rc, arcsR.surface.c
+                local lc, rc, lic, ric, c = arcsR.roof.edge.lc, arcsR.roof.edge.rc, arcsR.roof.surface.lc, arcsR.roof.surface.rc, arcsR.roof.surface.c
                 local fn = function(f, t)
                     local range = pipe.range(f, t)
                     return pipe.mapn(
@@ -928,15 +960,40 @@ ust.generateModelsDual = function(fitModel, config)
                 return pipe.new + fn(intersection, #models.r.roofEdge)(retriveModels(c, commonLength, c, 1))
             end
             
+            
             return
                 pipe.new
                 + commonParts()
                 + leftPart()
                 + rightPart()
                 + middlePart()
+                + {
+                    buildPoles(
+                        pipe.mapn(
+                            pipe.range(1, pipe.min()({#arcsL.roof.pole.mc, #arcsR.roof.pole.mc}))(arcsL.roof.pole.mc),
+                            pipe.range(1, pipe.min()({#arcsL.roof.pole.mc, #arcsR.roof.pole.mc}))(arcsR.roof.pole.mc)
+                        )(function(l, r) return l:avg(r) end)
+                        , arcsL.roof.pole.c, 1, arcsL.roof.pole.intersection),
+                    buildPoles(arcsL.roof.pole.mc, arcsL.roof.pole.c, arcsL.roof.pole.intersection, arcsL.roof.pole.c * 2 - 1),
+                    buildPoles(arcsR.roof.pole.mc, arcsR.roof.pole.c, arcsR.roof.pole.intersection, arcsR.roof.pole.c * 2 - 1)
+                }
         end
         
-        return (platformModels() + (config.roofLength == 0 and {} or roofModels())) * pipe.flatten()
+        local chairs =
+            pipe.new
+            + buildChairs(arcsL.chair.lc, arcsL.chair.rc, arcsL.chair.mc, arcsL.chair.c, arcsL.chair.intersection, arcsL.chair.c * 2 - 1)
+            + buildChairs(arcsR.chair.lc, arcsR.chair.rc, arcsR.chair.mc, arcsR.chair.c, arcsR.chair.intersection, arcsR.chair.c * 2 - 1)
+            + buildChairs(
+                pipe.range(1, pipe.min()({#arcsL.chair.lc, #arcsR.chair.lc}))(arcsL.chair.lc),
+                pipe.range(1, pipe.min()({#arcsL.chair.rc, #arcsR.chair.rc}))(arcsR.chair.rc),
+                pipe.mapn(
+                    pipe.range(1, pipe.min()({#arcsL.chair.mc, #arcsR.chair.mc}))(arcsL.chair.mc),
+                    pipe.range(1, pipe.min()({#arcsL.chair.mc, #arcsR.chair.mc}))(arcsR.chair.mc)
+                )
+                (function(l, r) return l:avg(r) end),
+                pipe.min()({arcsL.chair.c, arcsR.chair.c}), 1, arcsL.chair.intersection)
+        
+        return (platformModels() + (config.roofLength == 0 and {} or roofModels()) + chairs) * pipe.flatten()
     end
 end
 
@@ -1367,6 +1424,7 @@ ust.models = function(prefixM)
         roofEdgeTopExtreme = prefixM("platform/platform_roof_edge_top_extreme"),
         roofCorner = prefixM("platform/platform_roof_corner"),
         roofPole = prefixM("platform/platform_roof_pole"),
+        roofPoleExtreme = prefixM("platform/platform_roof_pole_extreme_1"),
         stair = prefixM("platform/platform_stair"),
         trash = prefixM("platform/platform_trash"),
         chair = prefixM("platform/platform_chair"),
