@@ -1246,7 +1246,9 @@ ust.build = function(config, fitModel, entries)
                 terminals,
                 terminalsGroup,
                 models
-                + generateModelsDual(gr[1], gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost)),
+                + generateModelsDual(gr[1], gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrainDual(gr[1], gr[2]),
                 ...)
         elseif (#gr == 3 and #gr[1] > 1 and #gr[2] > 1 and #gr[3] == 1) then
@@ -1256,7 +1258,9 @@ ust.build = function(config, fitModel, entries)
                 terminals,
                 terminalsGroup,
                 models
-                + generateModelsDual(gr[1], gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost)),
+                + generateModelsDual(gr[1], gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrainDual(gr[1], gr[2]),
                 ...)
         elseif (#gr == 4 and #gr[1] == 1 and #gr[2] > 1 and #gr[3] > 1 and #gr[4] == 1) then
@@ -1267,7 +1271,9 @@ ust.build = function(config, fitModel, entries)
                 terminals,
                 terminalsGroup,
                 models
-                + generateModelsDual(gr[2], gr[3], entries[3].edgeBuilder(isLeftmost, isRightmost)),
+                + generateModelsDual(gr[2], gr[3], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true, entries[3].fenceFilter) or {})
+                + (config.rightFences and isRightmost and generateFences(gr[4][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrainDual(gr[2], gr[3]),
                 ...)
         else
