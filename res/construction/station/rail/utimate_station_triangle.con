@@ -193,6 +193,319 @@ local function retriveRef(config, allArcs)
     return false
 end
 
+
+local buildUndergroundEntry = function(config, entryConfig)
+    local allArcs = entryConfig.allArcs
+    
+    local arcCoords = pipe.new 
+        * {ust.trackGrouping(pipe.new, table.unpack(allArcs))}
+        * pipe.map(pipe.filter(function(a) return #a > 1 end))
+        * pipe.map(function(g)
+            if (#g == 1) then return g else
+                local arcL, arcR = table.unpack(g)
+                local coords = {
+                    l = {
+                        lc = arcL.platform.lc,
+                        rc = arcR.platform.rc * pipe.range(1, arcL.platform.common) + arcL.platform.rc * pipe.range(arcL.platform.common + 1, #arcL.platform.rc),
+                    },
+                    r = {
+                        lc = arcL.platform.lc * pipe.range(1, arcR.platform.common) + arcR.platform.lc * pipe.range(arcR.platform.common + 1, #arcR.platform.lc),
+                        rc = arcR.platform.rc
+                    }
+                }
+                local mc = function(lc, rc) return func.map2(lc, rc, function(l, r) return l:avg(r) end) end
+                
+                return {
+                    {
+                        platform = func.with(coords.l, {mc = mc(coords.l.lc, coords.l.rc), c = arcL.platform.c}),
+                        hasLower = arcL.hasLower,
+                        hasUpper = arcL.hasUpper,
+                    },
+                    {
+                        platform = func.with(coords.r, {mc = mc(coords.r.lc, coords.r.rc), c = arcR.platform.c}),
+                        hasLower = arcR.hasLower,
+                        hasUpper = arcR.hasUpper,
+                    }
+                }
+            end
+        end)
+        * pipe.flatten()
+                
+    local transZ = coor.transZ(-config.hPlatform - 0.53 - 7.5)
+    
+    local idxPt = allArcs
+        * pipe.zip(func.seq(1, #allArcs), {"p", "i"})
+        * pipe.filter(function(a) return #(a.p) > 1 end)
+        * pipe.map(pipe.select("i"))
+    
+    local fst = func.min(idxPt, function(l, r) return l < r end)
+    local lst = func.max(idxPt, function(l, r) return l < r end)
+    
+    local accessBuilder = function()
+        local transZ = coor.transZ(-config.hPlatform - 0.53)
+        return pipe.new
+            * {arcCoords[1], arcCoords[#arcCoords]}
+            * pipe.mapi(function(p, i)
+                local enabler = entryConfig.underground[i]
+                local pl = p.platform
+                local lpt = pipe.new
+                    / (p.hasLower and pl.lc[pl.c - 2 - floor(pl.c * 0.5)])
+                    / pl.lc[pl.c]
+                    / (p.hasUpper and pl.lc[pl.c + 2 + floor(pl.c * 0.5)])
+                
+                local rpt = pipe.new
+                    / (p.hasLower and pl.rc[pl.c - 2 - floor(pl.c * 0.5)])
+                    / pl.rc[pl.c]
+                    / (p.hasUpper and pl.rc[pl.c + 2 + floor(pl.c * 0.5)])
+                return pipe.mapn(lpt, rpt, enabler)(function(l, r, e)
+                    return l and r and e and {pt = (i == 1 and l or r) .. transZ, vec = (i == 1 and (l - r) or (r - l)):withZ(0):normalized()}
+                end)
+            end)
+            * function(ls) return func.map({1, 2, 3}, function(i) return ls * pipe.map(pipe.select(i)) end) end
+            * pipe.map(function(ls)
+                return pipe.new
+                    / (
+                    ls[1] and station.newModel(config.models.underground,
+                        coor.rotZ(-0.5 * pi),
+                        coor.transX(fst == 1 and -0.5 or (fst - 1) * config.wTrack),
+                        ust.mRot(ls[1].vec),
+                        coor.trans(ls[1].pt)
+                    ))
+                    / (ls[2] and station.newModel(config.models.underground,
+                        coor.rotZ(-0.5 * pi),
+                        coor.transX(#allArcs == lst and -0.5 or -0.5 + (#allArcs - lst) * config.wTrack),
+                        ust.mRot(ls[2].vec),
+                        coor.trans(ls[2].pt)
+                    ))
+                    * pipe.filter(pipe.noop())
+            end)
+            * pipe.flatten()
+            * pipe.filter(pipe.noop())
+    end
+    
+    local terrainBuilder = function()
+        return pipe.new
+            * {arcCoords[1], arcCoords[#arcCoords]}
+            * pipe.mapi(function(p, i)
+                local enabler = entryConfig.underground[i]
+                local pl = p.platform
+                local lpt = pipe.new
+                    / (p.hasLower and pl.lc[pl.c - 2 - floor(pl.c * 0.5)])
+                    / pl.lc[pl.c]
+                    / (p.hasUpper and pl.lc[pl.c + 2 + floor(pl.c * 0.5)])
+                
+                local rpt = pipe.new
+                    / (p.hasLower and pl.rc[pl.c - 2 - floor(pl.c * 0.5)])
+                    / pl.rc[pl.c]
+                    / (p.hasUpper and pl.rc[pl.c + 2 + floor(pl.c * 0.5)])
+                
+                return pipe.mapn(lpt, rpt, enabler)(function(l, r, e)
+                    return l and r and e and {pt = (i == 1 and l or r) .. transZ, vec = (i == 1 and (l - r) or (r - l)):withZ(0):normalized()}
+                end)
+            end)
+            * function(ls) return func.map({1, 2, 3}, function(i) return ls * pipe.map(pipe.select(i)) end) end
+            * pipe.map(function(ls)
+                local vec1 = ls[1] and (ls[1].vec .. coor.rotZ(0.5 * pi)) * 4
+                local vec2 = ls[2] and (ls[2].vec .. coor.rotZ(0.5 * pi)) * 4
+                
+                return pipe.new
+                    / (
+                    ls[1] and
+                    {
+                        ls[1].pt + vec1 + ls[1].vec * ((fst - 1) * config.wTrack - 2),
+                        ls[1].pt - vec1 + ls[1].vec * ((fst - 1) * config.wTrack - 2),
+                        ls[1].pt - vec1 + ls[1].vec * ((fst - 1) * config.wTrack + 18),
+                        ls[1].pt + vec1 + ls[1].vec * ((fst - 1) * config.wTrack + 18)
+                    })
+                    / (ls[2] and {
+                        ls[2].pt + vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack - 2),
+                        ls[2].pt - vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack - 2),
+                        ls[2].pt - vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack + 18),
+                        ls[2].pt + vec2 + ls[2].vec * ((#allArcs - lst) * config.wTrack + 18)
+                    })
+                    * pipe.filter(pipe.noop())
+            end)
+            * pipe.flatten()
+            * function(f)
+                return pipe.new /
+                    {
+                        less = f * pipe.map(pipe.map(function(c) return c .. coor.transZ(0.53 + 7.5) end)) * pipe.map(station.finalizePoly),
+                        slot = f * pipe.map(station.finalizePoly),
+                        greater = f * pipe.map(station.finalizePoly)
+                    }
+            end
+    end
+    
+    local streetBuilder = function()
+        return pipe.new
+            * {arcCoords[1], arcCoords[#arcCoords]}
+            * pipe.mapi(function(p, i)
+                local enabler = entryConfig.underground[i]
+                
+                local pl = p.platform
+                local lpt = pipe.new
+                    / (p.hasLower and pl.lc[pl.c - 2 - floor(pl.c * 0.5)])
+                    / pl.lc[pl.c]
+                    / (p.hasUpper and pl.lc[pl.c + 2 + floor(pl.c * 0.5)])
+                
+                local rpt = pipe.new
+                    / (p.hasLower and pl.rc[pl.c - 2 - floor(pl.c * 0.5)])
+                    / pl.rc[pl.c]
+                    / (p.hasUpper and pl.rc[pl.c + 2 + floor(pl.c * 0.5)])
+                
+                return pipe.mapn(lpt, rpt, enabler)(function(l, r, e)
+                    return l and r and {pt = l:avg(r) .. transZ, vec = (i == 1 and (l - r) or (r - l)):withZ(0) * 0.5, enabled = e}
+                end)
+            end)
+            * function(ls) return func.map({1, 2, 3}, function(i) return ls * pipe.map(pipe.select(i)) end) end
+            * pipe.map(pipe.filter(pipe.noop()))
+            * pipe.filter(function(ls) return #ls > 0 end)
+            * pipe.map(function(ls)
+                local underground = pipe.new
+                    / (ls[1] and ls[1].enabled and {
+                        ls[1].pt,
+                        ls[1].pt + (fst == 1
+                        and ls[1].vec + ls[1].vec:normalized() * (-0.5)
+                        or ls[1].vec + ls[1].vec:normalized() * (-0.5 + (fst - 1) * config.wTrack)),
+                        ls[1].vec,
+                        ls[1].vec,
+                    })
+                    / (ls[2] and ls[2].enabled and {
+                        ls[2].pt,
+                        ls[2].pt + (#allArcs == lst
+                        and ls[2].vec + ls[2].vec:normalized() * (-0.5)
+                        or ls[2].vec + ls[2].vec:normalized() * (-0.5 + (#allArcs - lst) * config.wTrack)),
+                        ls[2].vec,
+                        ls[2].vec,
+                    })
+                    / (((ls[1] and ls[1].enabled) or (ls[2] and ls[2].enabled)) and #arcCoords > 1 and ((ls[1].pt - ls[2].pt):length() > 1e-6) and
+                    {
+                        ls[1].pt,
+                        ls[2].pt,
+                        -ls[1].vec,
+                        ls[2].vec,
+                    }
+                )
+
+                local surface = underground
+                    * pipe.range(1, 2)
+                    * pipe.filter(pipe.noop())
+                    * pipe.map(function(e) return {e[2], e[2] + e[3]:normalized() * 8, e[3], e[3]} end)
+                    * pipe.range(i == 1 and 2 or 1, 2)
+                
+                return {
+                    underground = underground * pipe.filter(pipe.noop()),
+                    surface = surface,
+                    surface2 = surface * pipe.map(function(e) return {e[2], e[2] + e[3]:normalized() * 10, e[3], e[3]} end)
+                }
+            end)
+            * function(ls)
+                local ug = ls * pipe.map(function(ls) return {
+                    edge = ls.underground,
+                    snap = pipe.new * pipe.rep(#ls.underground)({false, false})
+                } end)
+                local su = ls * pipe.map(function(ls) return {
+                    edge = ls.surface,
+                    snap = pipe.new * pipe.rep(#ls.surface)({false, false})
+                } end)
+                
+                local su2 = ls * pipe.map(function(ls) return {
+                    edge = ls.surface2,
+                    snap = pipe.new * pipe.rep(#ls.surface2)({false, true})
+                } end)
+
+                
+                return
+                    {
+                        pipe.new * {ug * station.mergeEdges} * station.prepareEdges * pipe.with(
+                            {
+                                type = "STREET",
+                                edgeType = "TUNNEL",
+                                edgeTypeName = "ust_void.lua",
+                                params =
+                                {
+                                    type = "ust_pass.lua",
+                                    tramTrackType = "NO"
+                                }
+                            }
+                        ),
+                        pipe.new * {su * station.mergeEdges} * station.prepareEdges * pipe.with(
+                            {
+                                type = "STREET",
+                                alignTerrain = false,
+                                params =
+                                {
+                                    type = "ust_pass.lua",
+                                    tramTrackType = "NO"
+                                }
+                            }
+                        ),
+                        pipe.new * {su2 * station.mergeEdges} * station.prepareEdges * pipe.with(
+                            {
+                                type = "STREET",
+                                alignTerrain = false,
+                                params =
+                                {
+                                    type = "ust_pass_2.lua",
+                                    tramTrackType = "NO"
+                                }
+                            }
+                    )
+                    }
+            end
+    end
+    
+    local laneBuilder = function()
+        local function strCoor(l, r, b)
+            local vec = (r - l):withZ(0):normalized() * 1.5 .. coor.rotZ(0.5 * pi)
+            local ref = l:avg(r) .. transZ
+            return {
+                ust.unitLane(ref - vec, b),
+                ust.unitLane(ref + vec, ref - vec),
+            }
+        end
+        
+        return pipe.new
+            * {arcCoords[1], arcCoords[#arcCoords]}
+            * pipe.map(function(p)
+                local pl, la = p.platform, p.lane
+                local fplc = floor(pl.c * 0.5)
+                return pipe.new
+                    / (p.hasUpper and (entryConfig.underground[1][3] or entryConfig.underground[2][3]) and strCoor(
+                        pl.lc[pl.c + 2 + fplc],
+                        pl.rc[pl.c + 2 + fplc],
+                        pl.mc[pl.c + 3 + fplc] - coor.xyz(0, 0, 3.5)
+                    ))
+                    / (p.hasLower and (entryConfig.underground[1][1] or entryConfig.underground[2][1]) and strCoor(
+                        pl.rc[pl.c - 2 - fplc],
+                        pl.lc[pl.c - 2 - fplc],
+                        pl.mc[pl.c - 3 - fplc] - coor.xyz(0, 0, 3.5)
+                    ))
+                    / ((entryConfig.underground[1][2] or entryConfig.underground[2][2]) and strCoor(
+                        pl.lc[pl.c],
+                        pl.rc[pl.c],
+                        pl.mc[pl.c + 2] - coor.xyz(0, 0, 3.5)
+                    ))
+                    / ((entryConfig.underground[1][2] or entryConfig.underground[2][2]) and strCoor(
+                        pl.rc[pl.c],
+                        pl.lc[pl.c],
+                        pl.mc[pl.c - 2] - coor.xyz(0, 0, 3.5)
+                    ))
+                    * pipe.filter(pipe.noop())
+            end)
+            * pipe.flatten()
+            * pipe.flatten()
+    end
+    
+    return {
+        access = accessBuilder(),
+        lane = laneBuilder(),
+        terrain = terrainBuilder(),
+        street = streetBuilder()
+    }
+end
+
+
 local buildEntry = function(config, entryConfig, retriveRef)
     local allArcs = entryConfig.allArcs
     local gArcs = pipe.new * {ust.trackGrouping(pipe.new, table.unpack(allArcs))}
@@ -208,7 +521,9 @@ local buildEntry = function(config, entryConfig, retriveRef)
         * (function(ls) return table.unpack(ls) end)
     
     local retriveRef = retriveRef or function()
-        local pl, la, su = arcCoords[1].platform, arcCoords[1].lane, arcCoords[1].surface
+        local refArc = #arcCoords > 0 and arcCoords[1] or mixedCoords[1]
+        
+        local pl, la, su = refArc.platform, refArc.lane, refArc.surface
         local f = pipe.exec * function()
             if (entryConfig.main.pos == 0 or not entryConfig.main.model) then
                 return function(set) return set.c end
@@ -225,14 +540,20 @@ local buildEntry = function(config, entryConfig, retriveRef)
     local refPt, refMRot, cpt, cupt = retriveRef()
     
     local laneBuilder = function()
-        local fn = function(p)
-            local pl, la = p.platform, p.lane
+        local function retrive(pl, la)
             local flac = floor(la.c * 0.5)
             local fplc = floor(pl.c * 0.5)
             local ref = {
                 n = pl.c > 5 and {l = la.c - 2, p = pl.c - 4} or {l = la.c - 1, p = pl.c - 2},
                 p = pl.c > 5 and {l = la.c + 2, p = pl.c + 4} or {l = la.c + 1, p = pl.c + 2}
             }
+            return flac, fplc, ref
+        end
+        
+        local fn = function(p)
+            local pl, la = p.platform, p.lane
+            local flac, fplc, ref = retrive(pl, la)
+            
             return pipe.new / ust.unitLane(la.mc[ref.n.l - 2]:avg(la.mc[ref.n.l - 3]), pl.mc[ref.n.p]) /
                 ust.unitLane(la.mc[ref.p.l + 2]:avg(la.mc[ref.p.l + 3]), pl.mc[ref.p.p]) +
                 (p.hasLower
@@ -255,17 +576,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
         
         local fn2 = function()
             local l, r = table.unpack(mixedCoords)
-            local function retrive(pl, la)
-                local flac = floor(la.c * 0.5)
-                local fplc = floor(pl.c * 0.5)
-                local ref = {
-                    n = pl.c > 5 and {l = la.c - 2, p = pl.c - 4} or {l = la.c - 1, p = pl.c - 2},
-                    p = pl.c > 5 and {l = la.c + 2, p = pl.c + 4} or {l = la.c + 1, p = pl.c + 2}
-                }
-                return flac, fplc, ref
-            end
-            
-            local function x(p)
+            local function seperated(p)
                 local pl, la = p.platformO, p.lane
                 local flac, fplc, ref = retrive(pl, la)
                 
@@ -296,7 +607,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
                     {})
             end
             
-            local combined = pipe.exec * function()
+            local combined = function()
                 local pl = {mc = func.map2(l.platformO.lc, r.platformO.rc, function(l, r) return l:avg(r) end), c = l.platformO.c, intersection = l.platformO.intersection}
                 local la = {mc = func.map2(l.lane.lc, r.lane.rc, function(l, r) return l:avg(r) end), c = l.lane.c, intersection = l.lane.intersection}
                 local flac, fplc, ref = retrive(pl, la)
@@ -333,7 +644,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
                     } or {})
             end
             
-            return x(l) + x(r) + combined
+            return seperated(l) + seperated(r) + combined()
         end
         
         return arcCoords
@@ -645,7 +956,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     local retriveParams = function(arcsL, arcsR)
                         local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
                         local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
-                        local commonLength = 
+                        local commonLength =
                             pipe.exec
                             * function()
                                 local r =
@@ -667,12 +978,12 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                             end
                         return intersection, commonLength
                     end
-
+                    
                     local roofIntersection, roofCommonLength = retriveParams(arcsL.roof.edge, arcsR.roof.edge)
                     local roofPoleIntersection = retriveBaseParams(arcsL.roof.pole, arcsR.roof.pole)
                     local chairIntersection = retriveBaseParams(arcsL.chair, arcsR.chair)
                     local laneIntersection, laneCommonLength = retriveParams(arcsL.laneEdge, arcsR.laneEdge)
-
+                    
                     
                     local ptL = arcsL.surface.lc[intersection]
                     local ptR = arcsR.surface.rc[intersection]
@@ -707,11 +1018,11 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                         local ptL = arcsL.roof.edge.lc[roofIntersection]
                         local ptR = arcsR.roof.edge.rc[roofIntersection]
                         local vec = ptR - ptL
-
+                        
                         local lL = (arcsL.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
                         local rL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsR.roof.edge.rc[roofIntersection + 1]):length()
                         local mL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
-
+                        
                         arcsL.roof.intersection = roofIntersection
                         arcsL.roof.common = roofCommonLength
                         arcsR.roof.intersection = roofIntersection
@@ -741,7 +1052,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
             fitModel,
             pipe.new
             / buildEntry(config, entryConfig, retriveRef)
-            / uste.buildUndergroundEntry(config, entryConfig)
+            / buildUndergroundEntry(config, entryConfig)
             / uste.buildSecondEntrySlope(config, entryConfig)
     )
     return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
