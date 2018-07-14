@@ -467,8 +467,8 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
             config,
             fitModel,
             pipe.new
-            / buildEntry(config, entryConfig, retriveRef)
-            / buildUndergroundEntry(config, entryConfig)
+            / uste.buildEntry(config, entryConfig, retriveRef)
+            / uste.buildUndergroundEntry(config, entryConfig)
             / uste.buildSecondEntrySlope(config, entryConfig)
     )
     return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))

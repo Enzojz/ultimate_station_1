@@ -291,15 +291,11 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local build = ust.build(
         config,
+        fitModel,
         pipe.new
         / uste.buildEntry(config, entryConfig)
         / uste.buildUndergroundEntry(config, entryConfig)
-        / uste.buildSecondEntrySlope(config, entryConfig),
-        ust.generateEdges,
-        ust.generateModels(fitModel, config),
-        ust.generateTerminals(config),
-        ust.generateFences(fitModel, config),
-        ust.generateTerrain(config)
+        / uste.buildSecondEntrySlope(config, entryConfig)
     )
     return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
 end
