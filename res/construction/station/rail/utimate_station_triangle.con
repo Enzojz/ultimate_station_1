@@ -71,25 +71,13 @@ local function params()
             {
                 key = "radiusA",
                 name = sp .. "\n" .. _("Radius") .. " " .. "(m)" .. "\n\n" .. "A",
-                values = pipe.from("∞") +
-                func.map(
-                    func.range(ustm.rList, 2, #ustm.rList),
-                    function(r)
-                        return tostring(math.floor(r * 1000 + 0.5))
-                    end
-                ),
+                values = pipe.from("∞") + func.map(func.range(ustm.rList, 2, #ustm.rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
                 defaultIndex = 0
             },
             {
                 key = "radiusB",
                 name = "B",
-                values = pipe.from("∞") +
-                func.map(
-                    func.range(ustm.rList, 2, #ustm.rList),
-                    function(r)
-                        return tostring(math.floor(r * 1000 + 0.5))
-                    end
-                ),
+                values = pipe.from("∞") + func.map(func.range(ustm.rList, 2, #ustm.rList), function(r) return tostring(math.floor(r * 1000 + 0.5)) end),
                 defaultIndex = 0
             },
             {
@@ -110,21 +98,21 @@ local function params()
                 values = func.map(ustm.trackLengths, tostring),
                 defaultIndex = 5
             }
-        } +
-        ustm.platform +
-        {
+        }
+        + ustm.platform
+        + {
             {
                 key = "lengthMiddlePlatform",
-                name = _("Central Platform Length") .. "(%)",
+                name = _("Central Platforms Common Block Length") .. " " .. "(%)",
                 values = func.map(ustm.middlePlatformLength, tostring),
                 defaultIndex = 3
             }
-        } +
-        ustm.exclu("varRefType", "varRefPos")(ustm.var) +
-        ustm.slope +
-        ustm.entry +
-        ustm.fence +
-        ustm.alt
+        }
+        + ustm.exclu("varRefType", "varRefPos")(ustm.var)
+        + ustm.slope
+        + ustm.entry
+        + ustm.fence
+        + ustm.alt
 end
 local il = pipe.interlace({"s", "i"})
 
@@ -222,8 +210,8 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     
     local function generateArcs(init, initDr, initX)
         local function arcGen(result, r, o, isRight)
-            return isRight and
-                function(t, ...)
+            return isRight
+            and function(t, ...)
                     if t == nil then
                         return result
                             * pipe.sort(function(l, r) return l.i < r.i end)
@@ -238,15 +226,12 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                             return arcGen(result / {i = t.i, a = {arcPackerB(r - tW, o, isVar and lengthPct or 1, offsetPct)}}, r - tW, o, true)(...)
                         else
                             if (not isVar or (config.wExtPlatform == 1)) then
-                                return arcGen(
-                                    result /
-                                    {
+                                return arcGen(result / {
                                         i = t.i,
                                         a = {
                                             arcPackerB(r - (0.5 * tW), o, lengthPct, offsetPct),
                                             arcPackerB(r - (0.5 * tW + pW), o, lengthPct, offsetPct)
-                                        }
-                                    },
+                                        }},
                                     r - pW,
                                     o,
                                     true
@@ -258,8 +243,8 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                             end
                         end
                     end
-                end or
-                function(t, ...)
+                end 
+                or function(t, ...)
                     if t == nil then
                         return arcGen(result, initDr[#initDr], initX[#initX], true)(table.unpack(rightGroup))
                     else
@@ -271,15 +256,12 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                             return arcGen(result / {i = t.i, a = {arcPackerA(r + tW, o, lengthPct, offsetPct)}}, r + tW, o)(...)
                         else
                             if (not isVar or (config.wExtPlatform == 1)) then
-                                return arcGen(
-                                    result /
-                                    {
+                                return arcGen(result / {
                                         i = t.i,
                                         a = {
                                             arcPackerA(r + (0.5 * tW + pW), o, lengthPct, offsetPct),
                                             arcPackerA(r + (0.5 * tW), o, lengthPct, offsetPct)
-                                        }
-                                    },
+                                        }},
                                     r + pW,
                                     o
                                 )(...)
@@ -330,140 +312,19 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     {
                         config.rA - (0.5 * tW),
                         config.rB - (-0.5 * tW)
-                    },
-                    {oA, oB}
+                    }, {oA, oB}
             )
             end
         end
         * ust.allArcs(arcGen, config)
-        * function(allArcs)
-            for i = 1, #allArcs - 1 do
-                if #allArcs[i] > 1 and #allArcs[i + 1] > 1 then
-                    local arcsL, arcsR = allArcs[i], allArcs[i + 1]
-                    local greater = function(x, y) return x > y and x or y end
-                    
-                    
-                    local retriveBaseParams = function(arcsL, arcsR)
-                        local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
-                        
-                        local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
-                        local r =
-                            pipe.new
-                            * (pipe.mapn(
-                                func.seq(intersection, max),
-                                arcsL.rc * pipe.range(intersection, max + 1) * il,
-                                arcsR.lc * pipe.range(intersection, max + 1) * il
-                            )
-                            (function(i, l, r)
-                                local vecL = (l.i - l.s):withZ(0)
-                                local vecR = (r.i - l.s):withZ(0)
-                                local vec = (r.s - l.s):withZ(0)
-                                return vec:cross(vecL).z > 0 and vec:cross(vecR).z < 0 and i or false
-                            end
-                            ))
-                            * pipe.filter(pipe.noop())
-                            * function(r) return #r > 0 and r[#r] or max end
-                        return intersection, intersection + floor(config.lengthMiddlePlatform * (r - intersection))
-                    end
-                    
-                    local intersection, commonLength = retriveBaseParams(arcsL.platform, arcsR.platform)
-                    
-                    local ln = line.byPtPt(arcsL.surface.rc[commonLength + 1], arcsR.surface.lc[commonLength + 1])
-                    local retriveParams = function(arcsL, arcsR)
-                        local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
-                        local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
-                        local commonLength =
-                            pipe.exec
-                            * function()
-                                local r =
-                                    pipe.new
-                                    * (pipe.mapn(
-                                        func.seq(intersection, max - 1),
-                                        arcsL.rc * pipe.range(intersection, max) * il,
-                                        arcsR.lc * pipe.range(intersection, max) * il
-                                    )
-                                    (function(i, l, r)
-                                        local xL = line.byPtPt(l.i, l.s) - ln
-                                        local xR = line.byPtPt(r.i, r.s) - ln
-                                        return ((l.i - xL):dot(l.s - xL) < 0 or (r.i - xR):dot(r.s - xR) < 0) and i or false
-                                    end)
-                                    )
-                                    * pipe.filter(pipe.noop())
-                                    * function(r) return #r > 0 and r[1] or max end
-                                return floor(r)
-                            end
-                        return intersection, commonLength
-                    end
-                    
-                    local roofIntersection, roofCommonLength = retriveParams(arcsL.roof.edge, arcsR.roof.edge)
-                    local roofPoleIntersection = retriveBaseParams(arcsL.roof.pole, arcsR.roof.pole)
-                    local chairIntersection = retriveBaseParams(arcsL.chair, arcsR.chair)
-                    local laneIntersection, laneCommonLength = retriveParams(arcsL.laneEdge, arcsR.laneEdge)
-                    
-                    
-                    local ptL = arcsL.surface.lc[intersection]
-                    local ptR = arcsR.surface.rc[intersection]
-                    local vec = ptR - ptL
-                    
-                    local lL = (arcsL.surface.lc[intersection + 1] - arcsL.surface.rc[intersection + 1]):length()
-                    local rL = (arcsR.surface.lc[intersection + 1] - arcsR.surface.rc[intersection + 1]):length()
-                    local mL = (arcsR.surface.lc[intersection + 1] - arcsL.surface.rc[intersection + 1]):length()
-                    
-                    arcsL.platform.intersection = intersection
-                    arcsR.platform.intersection = intersection
-                    arcsL.lane.intersection = laneIntersection
-                    arcsR.lane.intersection = laneIntersection
-                    arcsL.terrain.intersection = intersection
-                    arcsR.terrain.intersection = intersection
-                    
-                    arcsL.lane.common = laneCommonLength
-                    arcsR.lane.common = laneCommonLength
-                    arcsL.platform.common = commonLength
-                    arcsR.platform.common = commonLength
-                    arcsL.terrain.common = commonLength
-                    arcsR.terrain.common = commonLength
-                    
-                    arcsL.platformO = func.with(arcsL.platform, {})
-                    arcsR.platformO = func.with(arcsR.platform, {})
-                    arcsL.platform.rc = func.with(arcsL.platform.rc, {[intersection] = ptL + vec * (lL / (lL + rL + mL))})
-                    arcsR.platform.lc = func.with(arcsR.platform.lc, {[intersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
-                    arcsL.surface.rc = func.with(arcsL.surface.rc, {[intersection] = arcsL.platform.rc[intersection] - vec:normalized() * 0.8})
-                    arcsR.surface.lc = func.with(arcsR.surface.lc, {[intersection] = arcsR.platform.lc[intersection] + vec:normalized() * 0.8})
-                    
-                    if (config.roofLength > 0) then
-                        local ptL = arcsL.roof.edge.lc[roofIntersection]
-                        local ptR = arcsR.roof.edge.rc[roofIntersection]
-                        local vec = ptR - ptL
-                        
-                        local lL = (arcsL.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
-                        local rL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsR.roof.edge.rc[roofIntersection + 1]):length()
-                        local mL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
-                        
-                        arcsL.roof.intersection = roofIntersection
-                        arcsL.roof.common = roofCommonLength
-                        arcsR.roof.intersection = roofIntersection
-                        arcsR.roof.common = roofCommonLength
-                        arcsL.roof.edge.rc = func.with(arcsL.roof.edge.rc, {[roofIntersection] = ptL + vec * (lL / (lL + rL + mL))})
-                        arcsR.roof.edge.lc = func.with(arcsR.roof.edge.lc, {[roofIntersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
-                        arcsL.roof.surface.rc = func.with(arcsL.roof.surface.rc, {[roofIntersection] = arcsL.roof.edge.rc[roofIntersection] - vec:normalized() * 0.8})
-                        arcsR.roof.surface.lc = func.with(arcsR.roof.surface.lc, {[roofIntersection] = arcsR.roof.edge.lc[roofIntersection] + vec:normalized() * 0.8})
-                        arcsL.roof.pole.intersection = roofPoleIntersection
-                        arcsR.roof.pole.intersection = roofPoleIntersection
-                        arcsL.chair.intersection = chairIntersection
-                        arcsR.chair.intersection = chairIntersection
-                    end
-                end
-            end
-            return allArcs
-        end
+        * ust.findIntersections(config)
     
     local arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
     local retriveRef = retriveRef(config, allArcs)
     
     local entryConfig = ust.entryConfig(config, allArcs, arcCoords, retriveRef)
     
-    local build =
-        ust.build(
+    local build = ust.build(
             config,
             fitModel,
             pipe.new
@@ -475,9 +336,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
 end
 
 local updateFn = function()
-    return ust.safeBuild(
-        params,
-        function(params)
+    return ust.safeBuild(params, function(params)
             local trackType = ustm.trackList[params.trackType + 1]
             local trackWidth = ustm.trackWidthList[params.trackType + 1]
             local catenary = params.catenary == 1
@@ -512,31 +371,21 @@ local updateFn = function()
                     pipe.mapn(
                         {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
                         {params.entryASide < 2, params.entryBSide < 2, params.entryCSide < 2}
-                        )(
-                        function(t, v)
-                            return t and v
-                        end
-                    ),
+                        )(function(t, v) return t and v end),
                     pipe.mapn(
                         {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
                         {params.entryASide > 0, params.entryBSide > 0, params.entryCSide > 0}
-                        )(
-                        function(t, v)
-                            return t and v
-                        end
-                )
+                        )(function(t, v) return t and v end)
                 },
                 underground = {
                     pipe.mapn(
                         {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
                         {params.entryASide < 2, params.entryBSide < 2, params.entryCSide < 2}
-                    )
-                    (function(t, v) return t and v end),
+                    )(function(t, v) return t and v end),
                     pipe.mapn(
                         {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
                         {params.entryASide > 0, params.entryBSide > 0, params.entryCSide > 0}
-                    )
-                    (function(t, v) return t and v end)
+                    )(function(t, v) return t and v end)
                 }
             }
             

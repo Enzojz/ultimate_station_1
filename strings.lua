@@ -85,6 +85,9 @@ I will upgrade the elevated station and the underground station on the same base
 My Easter eggs, hope you like it.
 
 Changelog:
+1.6
+- The middle platforms on triangle station and half-triangle station are re-designed to have full-length ones
+- Fixed inclined platform roof poles on slope configuration with curves.
 1.5
 - Fixed unusable main entry on triangle station when the converging angle close to 90°
 - Fixed visual fences bug 
@@ -306,7 +309,10 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 接下来是什么？ 
 太多了！所有你想到要增加的一些变种比如更老年代的车站还有货站blablabla……不翻译！
 
-更新日志： 
+更新日志：
+1.6
+- 重写了三角和半三角车站中央站台的建模算法使得中央站台长度和其他站台长度一致
+- 修复了在坡道曲线站台上，雨棚支撑柱横向倾斜的问题 
 1.5
 - 修正了三角车站在接近大角度时主入口失效的问题
 - 修正了一个围栏显示错误
@@ -455,6 +461,7 @@ function data()
             ["Yes"] = "有",
             ["Convering Angle"] = "夹角",
             ["Roof length"] = "雨棚长度",
+            ["Central Platforms Common Block Length"] = "中央站台共享区域长度",
 
             ["Progressive/Counter Curvature Station"] = "渐进曲线/反向曲线车站",
             ["Station that platform and track parameters can be fine-tuned, with two different radii at two extremities of the platforms."] 

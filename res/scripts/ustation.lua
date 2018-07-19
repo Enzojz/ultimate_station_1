@@ -123,8 +123,6 @@ local equalizeArcs = function(f, s, ...)
     return arcs * pipe.map(function(ar)
         local intInf = ar / lnInf
         local intSup = ar / lnSup
-        assert(#intInf == 2)
-        assert(#intSup == 2)
         
         return ar:withLimits({
             inf = ar:rad(((intInf[1] - ptInf):length2() < (intInf[2] - ptInf):length2()) and intInf[1] or intInf[2]),
@@ -591,14 +589,17 @@ local function buildPoles(config, platformZ, tZ)
             * function(ls) return ls * pipe.rev() + ls end
         
         return pipe.mapn(
-            pipe.range(f, t)(pipe.mapi(function(mc, i) return i >= c and mc or {s = mc.i, i = mc.s} end)(il(mc))),
+            pipe.range(f, t)(pipe.mapi(function(mc, i) return i >= c and coor.I() or coor.flipY() end)(seq)),
+            pipe.range(f, t)(il(mc)),
             pipe.range(f, t)(seq)
         )
-        (function(mc, m)
-            local vecPo = mc.i - mc.s
-            return station.newModel(m .. ".mdl", tZ, coor.flipY(),
-                coor.scaleY(vecPo:length() / 10), quat.byVec(coor.xyz(0, 5, 0), vecPo):mRot(),
-                coor.trans(mc.i:avg(mc.s)), coor.transZ(-platformZ))
+        (function(t, mc, m)
+            local vecPo = mc.s - mc.i
+            return station.newModel(m .. ".mdl", tZ, t,
+                coor.scaleY(vecPo:length() / 10),
+                quat.byVec(coor.xyz(0, 10, 0), vecPo):mRot(),
+                coor.trans(mc.i:avg(mc.s)),
+                coor.transZ(-platformZ))
         end)
     end
 end
@@ -1081,19 +1082,20 @@ ust.coordIntersection = function(coordL, coordR)
             return r and {(l.index + 1), r}
         end
     end)
-    or func.fold(seqL, false, function(result, l)
-        if result then return result
-        else
-            local r = func.fold(seqR, false, function(result, r)
-                if result then return result
-                else
-                    local x = l.l - r.l
-                    return (l.s - x):dot(l.s - l.i) <= 0 and (r.s - x):dot(r.s - r.i) <= 0 and (r.index + 1)
-                end
-            end)
-            return r and {(l.index + 1), r}
-        end
-    end)
+    or
+    pipe.exec * function()
+        l = seqL[1]
+        r = seqR[1]
+        local x = l.l - r.l
+        return ((l.s - x):dot(l.s - l.i) <= 0 and (r.s - x):dot(r.s - r.i) <= 0) and {2, 2}
+    end
+    or
+    pipe.exec * function()
+        l = seqL[2]
+        r = seqR[2]
+        local x = l.l - r.l
+        return ((l.s - x):dot(l.s - l.i) <= 0 and (r.s - x):dot(r.s - r.i) <= 0) and {2, 2}
+    end
     or {#seqL, #seqR}
     
     return table.unpack(r)
@@ -1446,6 +1448,140 @@ ust.fencesGen = function(colorCode, styleCode)
     }
 end
 
+ust.findIntersections = function(config)
+    return function(allArcs)
+        for i = 1, #allArcs - 1 do
+            if #allArcs[i] > 1 and #allArcs[i + 1] > 1 then
+                local arcsL, arcsR = allArcs[i], allArcs[i + 1]
+                local greater = function(x, y) return x > y and x or y end
+                
+                local retriveBaseParams = function(arcsL, arcsR)
+                    local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
+                    
+                    local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
+                    local r =
+                        pipe.new
+                        * (pipe.mapn(
+                            func.seq(intersection, max),
+                            arcsL.rc * pipe.range(intersection, max + 1) * il,
+                            arcsR.lc * pipe.range(intersection, max + 1) * il
+                        )
+                        (function(i, l, r)
+                            local vecL = (l.i - l.s):withZ(0)
+                            local vecR = (r.i - l.s):withZ(0)
+                            local vec = (r.s - l.s):withZ(0)
+                            return vec:cross(vecL).z > 0 and vec:cross(vecR).z < 0 and i or false
+                        end
+                        ))
+                        * pipe.filter(pipe.noop())
+                        * function(r) return #r > 0 and r[#r] or max end
+                    return intersection, intersection + floor(config.lengthMiddlePlatform * (r - intersection))
+                end
+                
+                local intersection, commonLength = retriveBaseParams(arcsL.platform, arcsR.platform)
+                
+                local ln = line.byPtPt(arcsL.surface.rc[commonLength + 1], arcsR.surface.lc[commonLength + 1])
+                local retriveParams = function(arcsL, arcsR)
+                    local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
+                    local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
+                    local commonLength =
+                        pipe.exec
+                        * function()
+                            local r =
+                                pipe.new
+                                * (pipe.mapn(
+                                    func.seq(intersection, max - 1),
+                                    arcsL.rc * pipe.range(intersection, max) * il,
+                                    arcsR.lc * pipe.range(intersection, max) * il
+                                )
+                                (function(i, l, r)
+                                    local xL = line.byPtPt(l.i, l.s) - ln
+                                    local xR = line.byPtPt(r.i, r.s) - ln
+                                    return ((l.i - xL):dot(l.s - xL) < 0 or (r.i - xR):dot(r.s - xR) < 0) and i or false
+                                end)
+                                )
+                                * pipe.filter(pipe.noop())
+                                * function(r) return #r > 0 and r[1] or max end
+                            return floor(r)
+                        end
+                    return intersection, commonLength
+                end
+                
+                local roofIntersection, roofCommonLength = retriveParams(arcsL.roof.edge, arcsR.roof.edge)
+                local roofPoleIntersection = retriveBaseParams(arcsL.roof.pole, arcsR.roof.pole)
+                local chairIntersection = retriveBaseParams(arcsL.chair, arcsR.chair)
+                local laneIntersection, laneCommonLength = retriveParams(arcsL.laneEdge, arcsR.laneEdge)
+                
+                
+                local ptL = arcsL.surface.lc[intersection]
+                local ptR = arcsR.surface.rc[intersection]
+                local vec = ptR - ptL
+                
+                arcsL.platform.intersection = intersection
+                arcsR.platform.intersection = intersection
+                arcsL.lane.intersection = laneIntersection
+                arcsR.lane.intersection = laneIntersection
+                arcsL.terrain.intersection = intersection
+                arcsR.terrain.intersection = intersection
+                
+                arcsL.lane.common = laneCommonLength
+                arcsR.lane.common = laneCommonLength
+                arcsL.platform.common = commonLength
+                arcsR.platform.common = commonLength
+                arcsL.terrain.common = commonLength
+                arcsR.terrain.common = commonLength
+                
+                arcsL.platformO = func.with(arcsL.platform, {})
+                arcsR.platformO = func.with(arcsR.platform, {})
+                
+                if (intersection < #arcsL.surface.lc and intersection < #arcsR.surface.lc) then
+                    
+                    local lL = (arcsL.surface.lc[intersection + 1] - arcsL.surface.rc[intersection + 1]):length()
+                    local rL = (arcsR.surface.lc[intersection + 1] - arcsR.surface.rc[intersection + 1]):length()
+                    local mL = (arcsR.surface.lc[intersection + 1] - arcsL.surface.rc[intersection + 1]):length()
+                    
+                    
+                    arcsL.platform.rc = func.with(arcsL.platform.rc, {[intersection] = ptL + vec * (lL / (lL + rL + mL))})
+                    arcsR.platform.lc = func.with(arcsR.platform.lc, {[intersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
+                    arcsL.surface.rc = func.with(arcsL.surface.rc, {[intersection] = arcsL.platform.rc[intersection] - vec:normalized() * 0.8})
+                    arcsR.surface.lc = func.with(arcsR.surface.lc, {[intersection] = arcsR.platform.lc[intersection] + vec:normalized() * 0.8})
+                
+                end
+                
+                if (config.roofLength > 0) then
+                    local ptL = arcsL.roof.edge.lc[roofIntersection]
+                    local ptR = arcsR.roof.edge.rc[roofIntersection]
+                    local vec = ptR - ptL
+                    
+                    arcsL.roof.intersection = roofIntersection
+                    arcsL.roof.common = roofCommonLength
+                    arcsR.roof.intersection = roofIntersection
+                    arcsR.roof.common = roofCommonLength
+                    
+                    if (roofIntersection < #arcsL.roof.edge.lc and roofIntersection < #arcsR.roof.edge.lc) then
+                        local lL = (arcsL.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
+                        local rL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsR.roof.edge.rc[roofIntersection + 1]):length()
+                        local mL = (arcsR.roof.edge.lc[roofIntersection + 1] - arcsL.roof.edge.rc[roofIntersection + 1]):length()
+                        
+                        
+                        arcsL.roof.edge.rc = func.with(arcsL.roof.edge.rc, {[roofIntersection] = ptL + vec * (lL / (lL + rL + mL))})
+                        arcsR.roof.edge.lc = func.with(arcsR.roof.edge.lc, {[roofIntersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
+                        arcsL.roof.surface.rc = func.with(arcsL.roof.surface.rc, {[roofIntersection] = arcsL.roof.edge.rc[roofIntersection] - vec:normalized() * 0.8})
+                        arcsR.roof.surface.lc = func.with(arcsR.roof.surface.lc, {[roofIntersection] = arcsR.roof.edge.lc[roofIntersection] + vec:normalized() * 0.8})
+                    end
+                    
+                    arcsL.roof.pole.intersection = roofPoleIntersection
+                    arcsR.roof.pole.intersection = roofPoleIntersection
+                    arcsL.chair.intersection = chairIntersection
+                    arcsR.chair.intersection = chairIntersection
+                end
+            end
+        end
+        return allArcs
+    end
+end
+
+
 ust.defaultParams = function(params)
     local defParams = params()
     return function(param)
@@ -1468,23 +1604,23 @@ ust.safeBuild = function(params, updateFn)
         pipe.mapPair(function(i) return i.key, i.defaultIndex or 0 end)
     
     return function(param)
-            -- local r, result = xpcall(
-            --     updateFn,
-            --     function(e)
-            --         print("========================")
-            --         print("Ultimate Station failure")
-            --         print("Algorithm failure:", debug.traceback())
-            --         print("Params:")
-            --         func.forEach(
-            --             params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
-            --             function(i)print(i.key .. ": " .. param[i.key]) end)
-            --         print("End of Ultimate Station failure")
-            --         print("========================")
-            --     end,
-            --     defaultParams(param)
-            -- )
-            -- return r and result or updateFn(defaultParams(paramsOnFail))
-            return updateFn(defaultParams(param))
+        local r, result = xpcall(
+            updateFn,
+            function(e)
+                print("========================")
+                print("Ultimate Station failure")
+                print("Algorithm failure:", debug.traceback())
+                print("Params:")
+                func.forEach(
+                    params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
+                    function(i)print(i.key .. ": " .. param[i.key]) end)
+                print("End of Ultimate Station failure")
+                print("========================")
+            end,
+            defaultParams(param)
+        )
+        return r and result or updateFn(defaultParams(paramsOnFail))
+    -- return updateFn(defaultParams(param))
     end
 end
 

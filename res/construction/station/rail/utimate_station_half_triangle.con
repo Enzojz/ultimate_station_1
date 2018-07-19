@@ -116,12 +116,21 @@ local function params()
             }
         }
         + ustm.platform
+        + {
+            {
+                key = "lengthMiddlePlatform",
+                name = _("Central Platforms Common Block Length") .. " " ..  "(%)",
+                values = func.map(ustm.middlePlatformLength, tostring),
+                defaultIndex = 3
+            }
+        }
         + ustm.exclu("varRefType", "varRefPos")(ustm.var)
         + ustm.slope
         + ustm.entry
         + ustm.fence
         + ustm.alt
 end
+local il = pipe.interlace({"s", "i"})
 
 local arcPacker = function(length, slope)
     return function(radiusA, oA, radiusB, oB, lengthVar, dislodge)
@@ -170,31 +179,36 @@ local function defaultParams(param)
 end
 
 
-local function retriveRef(config, arcCoords)
-    if (not config.buildingParams) then return false end
-    
-    local central = arcCoords * pipe.filter(function(ar)
-        local le, re = ar.platform.lc[#ar.platform.lc], ar.platform.rc[#ar.platform.rc]
-        return (le - re):length() > (config.buildingParams.halfWidth) * 2
-    end)
-    
-    if (#central == 0) then return false end
-    
-    local central = table.unpack(central)
-    return function()
-        local pl, la, su = central.platform, central.lane, central.surface
-        local fplc = floor(pl.c * 0.5)
-        local flac = floor(la.c * 0.5)
-        local le, re = pl.lc[#pl.lc], pl.rc[#pl.rc]
-        local refVec = (le - re):normalized() .. coor.rotZ(-0.5 * pi)
-        local refPt = le:avg(re) + refVec
-        local stairSurface = (central.hasLower or central.hasUpper) and (la.c + 4 + flac) or (la.c + (la.c > 5 and 4 or 2))
-        local stairUnderground = (central.hasLower or central.hasUpper) and (pl.c + 3 + fplc) or (la.c + 3)
-        return refPt,
-            ust.mRot(refVec),
-            la.lc[stairSurface]:avg(la.rc[stairSurface], la.lc[stairSurface + 1], la.rc[stairSurface + 1]),
-            pl.lc[stairUnderground]:avg(pl.rc[stairUnderground])
+local function retriveRef(config, allArcs)
+    if (not config.buildingParams) then
+        return false
     end
+    
+    local arcsL, arcsR
+    for i = 1, #allArcs - 1 do
+        if #allArcs[i] > 1 and #allArcs[i + 1] > 1 then
+            arcsL, arcsR = allArcs[i], allArcs[i + 1]
+        end
+    end
+    
+    if (arcsL and arcsR) then
+        local ptL = arcsL.surface.rc[arcsL.platform.common + 1]
+        local ptR = arcsR.surface.lc[arcsL.platform.common + 1]
+        
+        if (ptL - ptR):length() > (config.buildingParams.halfWidth) * 2 then
+            return function()
+                local refVec = (ptL - ptR):normalized() .. coor.rotZ(-0.5 * pi)
+                local refPt = ptL:avg(ptR) + refVec
+                return refPt, ust.mRot(refVec), arcsL.lane.rc[arcsL.lane.common - 1]:avg(
+                    arcsR.lane.lc[arcsL.lane.common - 1],
+                    arcsR.lane.lc[arcsL.lane.common],
+                    arcsL.lane.rc[arcsL.lane.common]
+                ), arcsL.surface.rc[arcsL.platform.common - 1]:avg(arcsR.surface.lc[arcsL.platform.common - 1])
+            end
+        end
+    end
+    
+    return false
 end
 
 local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, config, hasFirst, hasCentral, hasLast)
@@ -226,7 +240,10 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
             return isRight
                 and function(t, ...)
                     if t == nil then
-                        return result * pipe.sort(function(l, r) return l.i < r.i end) * pipe.map(pipe.select("a"))
+                        return result
+                            * pipe.sort(function(l, r) return l.i < r.i end)
+                            * pipe.map(pipe.select("a"))
+                            * pipe.fold(pipe.new, function(r, a) return #a == 4 and (r / {a[1], a[3]} / {a[4], a[2]}) or (r / a) end)
                     else
                         local posPct = abs(t.i - middlePos) / (#rightGroup)
                         local isVar = posPct >= config.varNbUnaffected
@@ -292,12 +309,19 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         local oB = coor.xyz(config.rB, 0, 0)
         local oC = coor.xyz(config.rC, 0, 0)
         if (hasCentral) then
+            local arcA = arcPackerA(config.rC + 0.5 * pW, oC, config.rA + 0.5 * pW, oA)
+            local arcB = arcPackerB(config.rC - 0.5 * pW, oC, config.rB - 0.5 * pW, oB)
+            local _, _, _, _, arcAi = platformArcGenA(config.rC + 0.5 * pW + 0.5 * tW, oC, config.rA + 0.5 * pW + 0.5 * tW, oA, 1, 0, pWe, true)
+            local _, _, _, _, arcBi = platformArcGenB(config.rC - 0.5 * pW + 0.5 * tW, oC, config.rB - 0.5 * pW + 0.5 * tW, oB, 1, 0, pWe, false)
             return generateArcs(
-                pipe.new / {
+                pipe.new /
+                {
                     i = middlePos,
                     a = {
-                        arcPackerA(config.rC + 0.5 * pW, oC, config.rA + 0.5 * pW, oA),
-                        arcPackerB(config.rC - 0.5 * pW, oC, config.rB - 0.5 * pW, oB)
+                        arcA,
+                        arcB,
+                        arcAi[2],
+                        arcBi[2]
                     }
                 },
                 {
@@ -307,7 +331,8 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                 {
                     config.rA - (-0.5 * pW + 0.5 * tW),
                     config.rB - (0.5 * pW - 0.5 * tW)
-                }, {oA, oB}
+                },
+                {oA, oB}
         )
         else
             return generateArcs(
@@ -324,23 +349,20 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         end
     end
     * ust.allArcs(arcGen, config)
+    * ust.findIntersections(config)
     
     local arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
-    local retriveRef = retriveRef(config, arcCoords)
+    local retriveRef = retriveRef(config, allArcs)
     
     local entryConfig = ust.entryConfig(config, allArcs, arcCoords, retriveRef)
     
     local build = ust.build(
         config,
+        fitModel,
         pipe.new
         / uste.buildEntry(config, entryConfig, retriveRef)
         / uste.buildUndergroundEntry(config, entryConfig)
-        / uste.buildSecondEntrySlope(config, entryConfig),
-        ust.generateEdges,
-        ust.generateModels(fitModel, config),
-        ust.generateTerminals(config),
-        ust.generateFences(fitModel, config),
-        ust.generateTerrain(config)
+        / uste.buildSecondEntrySlope(config, entryConfig)
     )
     return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
 end
@@ -430,7 +452,8 @@ local updateFn = function()
                     leftFences = params.fencesPos == 1 or params.fencesPos == 3,
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
                     entries = entryConfig,
-                    models = models
+                    models = models,
+                    lengthMiddlePlatform = ustm.middlePlatformLength[params.lengthMiddlePlatform + 1] * 0.01
                 },
                 params.hasLeftPlatform == 1,
                 params.hasMiddlePlatform == 1,
