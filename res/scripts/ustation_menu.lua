@@ -44,7 +44,7 @@ ustm.trackType = pipe.exec * function()
     }
     if (commonapi and commonapi.uiparameter) then
         commonapi.uiparameter.modifyTrackCatenary(list, {selectionlist = ustm.trackList})
-        ustm.trackWidthList = func.map(ustm.trackList, function(e) return commonapi.repos.track.getByName(e).data.trackDistance end)
+        ustm.trackWidthList = func.map(ustm.trackList, function(e) return (function(w) return (w and w > 0) and w or 5 end)(commonapi.repos.track.getByName(e).data.trackDistance) end)
     end
     
     return list
