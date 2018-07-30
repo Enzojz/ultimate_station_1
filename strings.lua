@@ -72,7 +72,6 @@ Platform variations:
 * Unaffected platforms: The percentage of unaffected platforms among all platforms, they are all round the reference.
 
 Difference between 4 types of the stations:
-The following knowledge will help you understand some behavior of the station
 The generic station and double curvature are actually base on two different curve generation algorithms. In simple words, in general station, each platform has its linear central as it's reference point, and in double curvature station, the reference point of each platform is origin point of the station, the difference can be noticed when you apply the offsets then other variations on platforms.
 The half-triangle curvature station is actually works on the same algorithm as the one for double curvature station.
 Each platform in a triangle station has its reference point on the place where two groups comes together.
@@ -81,8 +80,6 @@ What's the next?
 The mod is not finished, though I have spent 5 months since the begin. The release of it is a stage achievement -- it can be used and most of the programming work is done. The next stage will be enhancing it, including introducing old era station models and old era platform models. Also, I will introduce the terminal version and the cargo version.
 Due to the complicity of the algorithm I have applied, this mod may crash, under certain circumstances, please report the crash with the settings you have applied.
 I will upgrade the elevated station and the underground station on the same base, maybe also to improve the track design pattern and the flying junction.
-
-My Easter eggs, hope you like it.
 
 Changelog:
 1.6
