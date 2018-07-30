@@ -658,23 +658,24 @@ local buildEntry = function(config, entryConfig, retriveRef)
             local pl, la = p.platform, p.lane
             local flac, fplc, ref = retrive(pl, la)
             
-            return pipe.new / ust.unitLane(la.mc[ref.n.l - 2]:avg(la.mc[ref.n.l - 3]), pl.mc[ref.n.p]) /
-                ust.unitLane(la.mc[ref.p.l + 2]:avg(la.mc[ref.p.l + 3]), pl.mc[ref.p.p]) +
-                (p.hasLower
+            return pipe.new 
+            / ust.unitLane(la.mc[ref.n.l - 2]:avg(la.mc[ref.n.l - 3]), pl.mc[ref.n.p]) 
+            / ust.unitLane(la.mc[ref.p.l + 2]:avg(la.mc[ref.p.l + 3]), pl.mc[ref.p.p]) 
+            + (p.hasLower
                 and {ust.unitLane(la.mc[la.c - 5 - flac]:avg(la.mc[la.c - 4 - flac]), pl.mc[pl.c - 4 - fplc])}
                 or
                 {})
-                + (p.hasUpper
+            + (p.hasUpper
                 and {ust.unitLane(la.mc[la.c + 5 + flac]:avg(la.mc[la.c + 4 + flac]), pl.mc[pl.c + 4 + fplc])} or
                 {})
-                + func.map(
-                    il(func.range(pl.mc, pl.c - 3, pl.c + 3)),
-                    function(c)
-                        local b = c.i
-                        local t = c.s
-                        local vec = t - b
-                        return station.newModel("ust/person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
-                    end
+            + func.map(
+                il(func.range(pl.mc, pl.c - 3, pl.c + 3)),
+                function(c)
+                    local b = c.i
+                    local t = c.s
+                    local vec = t - b
+                    return station.newModel("ust/person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
+                end
         )
         end
         
