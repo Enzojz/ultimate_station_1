@@ -319,8 +319,31 @@ ust.generateEdges = function(edges, isLeft, arcPacker)
         }
 end
 
+
+ust.generateEdgesTerminal = function(edges, isLeft, arcPacker)
+    local arcs = arcPacker()()()
+    local eInf, eSup = table.unpack(arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
+    if isLeft then
+        eInf[1] = eInf[1]:avg(eSup[2])
+        eSup[2] = eInf[1]
+        eInf[3] = eInf[3]:avg(eSup[4])
+        eSup[4] = eInf[3]
+    else
+        eInf[2] = eInf[2]:avg(eSup[1])
+        eSup[1] = eInf[2]
+        eInf[4] = eInf[4]:avg(eSup[3])
+        eSup[3] = eInf[4]
+    end
+    return edges /
+        {
+            edge = pipe.new / eInf / eSup + arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2]} end,
+            snap = pipe.new / {false, false} / {false, false} / {false, true}
+        }
+end
+
 ust.generateTerminals = function(config)
     local platformZ = config.hPlatform + 0.53
+    local edgeRule = config.isTerminal and function(edges) return #edges * 8 - 12 end or function(edges) return #edges * 8 - 16 end
     return function(edges, terminals, terminalsGroup, arcs, enablers)
         local lc, rc, c = arcs.lane.lc, arcs.lane.rc, arcs.lane.c
         local newTerminals = pipe.new
@@ -340,27 +363,32 @@ ust.generateTerminals = function(config)
         
         return terminals + newTerminals * pipe.flatten(),
             terminalsGroup
-            + (
+            + func.map(
             (enablers[1] and enablers[2]) and {
                 {
                     terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 16
+                    fVehicleNodeOverride = function(n) return #edges * n - n * 2 end
                 },
                 {
                     terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
-                    vehicleNodeOverride = #edges * 8 - 7
+                    fVehicleNodeOverride = function(n) return #edges * n - n + 1 end
                 }
             } or enablers[1] and {
                 {
                     terminals = pipe.new * func.seq(1, #newTerminals[1]) * pipe.map(function(s) return {s - 1 + #terminals, 0} end),
-                    vehicleNodeOverride = #edges * 8 - 8
+                    fVehicleNodeOverride = function(n) return #edges * n - n end
                 }
             } or enablers[2] and {
                 {
                     terminals = pipe.new * func.seq(1, #newTerminals[2]) * pipe.map(function(s) return {s - 1 + #terminals + #newTerminals[1], 0} end),
-                    vehicleNodeOverride = #edges * 8 - 7
+                    fVehicleNodeOverride = function(n) return #edges * n - n + 1 end
                 }
-            } or {}
+            } or {}, function(t)
+                return {
+                    terminals = t.terminals,
+                    vehicleNodeOverride = t.fVehicleNodeOverride(config.isTerminal and 6 or 8)
+                }
+            end
     )
     end
 end
@@ -655,17 +683,17 @@ ust.generateModels = function(fitModel, config)
             * pipe.rep(c - 2)(config.models.surface)
             * pipe.mapi(function(p, i) return (i == (c > 5 and 4 or 2) or (i == floor(c * 0.5) + 4) and (arcs.hasLower or arcs.hasUpper)) and config.models.stair or config.models.surface end)
             / config.models.extremity
-            * (function(ls) return ls * pipe.rev() + ls end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.surface)) or (ls * pipe.rev() + ls) end)
         
         local platformSurfaceEx = pipe.new
             * pipe.rep(c - 2)(config.models.surface)
             / config.models.extremity
-            * (function(ls) return ls * pipe.rev() + ls end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.surface)) or (ls * pipe.rev() + ls) end)
         
         local platformEdgeO = pipe.new
             * pipe.rep(c - 2)(config.models.edge)
             / config.models.corner
-            * (function(ls) return ls * pipe.rev() + ls end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.edge)) or (ls * pipe.rev() + ls) end)
         
         local platformEdgeL, platformEdgeR = edgeBuilder(platformEdgeO, c)
         
@@ -678,7 +706,6 @@ ust.generateModels = function(fitModel, config)
             * pipe.rep(pc - 2)(config.models.roofEdge)
             / config.models.roofCorner
             * (function(ls) return ls * pipe.rev() + ls end)
-        
         
         local newModels = pipe.mapn(
             func.seq(1, 2 * c - 2),
@@ -1173,8 +1200,63 @@ ust.allArcs = function(arcGen, config)
     end)
 end
 
-ust.build = function(config, fitModel, entries)
-    local generateEdges = ust.generateEdges
+ust.generateTerminalPlatformModels = function(fitModel, config)
+    local tZ = coor.transZ(config.hPlatform - 1.4)
+    local platformZ = config.hPlatform + 0.53
+    local retriveModels = retriveModels(fitModel, platformZ, tZ)
+    local fExt = function(pt) return pipe.new / pt / (pt + coor.xyz(0, -5, 0)) / (pt + coor.xyz(0, -10, 0)) end
+    return function(arcs, isLeftmost, isRightmost)
+        local lc = fExt(arcs.platform.lc[#arcs.platform.lc])
+        local rc = fExt(arcs.platform.rc[#arcs.platform.rc])
+        local lic = fExt(arcs.surface.lc[#arcs.surface.lc])
+        local ric = fExt(arcs.surface.rc[#arcs.surface.rc])
+        
+        local platformSurface = pipe.new / config.models.surface / config.models.extremity
+        
+        local platformSurfaceEx = pipe.new / config.models.surface / config.models.extremity
+        
+        local platformEdgeO = pipe.new / config.models.edgeSurfaceCorner / config.models.edgeSurfaceExtreme
+        local platformEdgeL = isLeftmost and pipe.new / config.models.edge / config.models.corner or platformEdgeO
+        local platformEdgeR = isRightmost and pipe.new / config.models.edge / config.models.corner or platformEdgeO
+        
+        local newModels = pipe.mapn(
+            func.seq(1, 2),
+            platformEdgeL,
+            platformEdgeR,
+            platformSurface,
+            platformSurfaceEx,
+            il(lc), il(rc), il(lic), il(ric)
+        )(retriveModels(2, 2, 2, 0.8))
+        
+        return pipe.flatten()(newModels)
+    end
+end
+
+
+ust.generateTerminalTrackModels = function(fitModel, config)
+    local tZ = coor.transZ(config.hPlatform - 1.4)
+    local platformZ = config.hPlatform + 0.53
+    local retriveModels = retriveModels(fitModel, platformZ, tZ)
+    local fExt = function(pt) return pipe.new / pt / (pt + coor.xyz(0, -5, 0)) / (pt + coor.xyz(0, -10, 0)) end
+    local buildSurface = buildSurface(fitModel, platformZ, tZ)
+    return function(arcL, arcR)
+        local lc = fExt(arcL.platform.rc[#arcL.platform.rc])
+        local rc = fExt(arcR.platform.lc[#arcR.platform.lc])
+        
+        local platformSurface = pipe.new / config.models.extremity / config.models.extremity
+        local platformSurfaceEx = pipe.new / config.models.extremity / config.models.extremity
+        
+        return pipe.mapn(
+            func.seq(1, 2),
+            platformSurface,
+            platformSurfaceEx,
+            il(lc), il(rc)
+        )(buildSurface(2, 3.4))
+    end
+end
+
+ust.build = function(config, fitModel, entries, generateEdges)
+    local generateEdges = config.isTerminal and ust.generateEdgesTerminal or ust.generateEdges
     local generateModels = ust.generateModels(fitModel, config)
     local generateModelsDual = ust.generateModelsDual(fitModel, config)
     local generateTerminals = ust.generateTerminals(config)
@@ -1183,9 +1265,21 @@ ust.build = function(config, fitModel, entries)
     local generateTerrain = ust.generateTerrain(config)
     local generateTerrainDual = ust.generateTerrainDual(config)
     local generateTrackTerrain = ust.generateTrackTerrain(config)
+    local generateTerminalModels = ust.generateTerminalPlatformModels(fitModel, config)
     local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
         local isLeftmost = #models == 0
         local isRightmost = #{...} == 0
+        
+        local models =
+        (isLeftmost and config.isTerminal) and
+            (function(arcs)
+                local g = ust.generateTerminalTrackModels(fitModel, config)
+                return arcs * pipe.map(function(a) return g(a.s, a.i) end) * pipe.flatten() * pipe.flatten()
+            end)(pipe.new * il(func.mapFlatten({gr, ...}, pipe.filter(function(g) return #g > 1 end))))
+            or models
+        
+        if ((isLeftmost and config.isTerminal)) then dump(models) end
+        
         if (gr == nil) then
             local buildEntryPath = entries * pipe.map(pipe.select("access")) * pipe.flatten()
             local buildFace = entries * pipe.map(pipe.select("terrain")) * pipe.flatten()
@@ -1203,6 +1297,7 @@ ust.build = function(config, fitModel, entries)
                 terminals,
                 terminalsGroup,
                 models + generateModels(gr[2])
+                + generateTerminalModels(gr[2], isLeftmost, isRightmost)
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true) or {}),
                 terrain + generateTerrain(gr[2]) + generateTrackTerrain(gr[1][1]) + generateTrackTerrain(gr[3][1]),
@@ -1216,6 +1311,7 @@ ust.build = function(config, fitModel, entries)
                 terminalsGroup,
                 models
                 + generateModels(gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + generateTerminalModels(gr[2], isLeftmost, isRightmost)
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[2]) + generateTrackTerrain(gr[1][1]),
@@ -1228,6 +1324,7 @@ ust.build = function(config, fitModel, entries)
                 terminalsGroup,
                 models
                 + generateModels(gr[1], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + generateTerminalModels(gr[1], isLeftmost, isRightmost)
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1]) + generateTrackTerrain(gr[2][1]),
@@ -1239,6 +1336,7 @@ ust.build = function(config, fitModel, entries)
                 terminalsGroup,
                 models
                 + generateModels(gr[1], entries[3].edgeBuilder(isLeftmost, isRightmost))
+                + generateTerminalModels(gr[1], isLeftmost, isRightmost)
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[1][1], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1]),
@@ -1361,6 +1459,53 @@ ust.platformDualArcGen = function(tW, pW)
     end
 end
 
+
+local platformArcGenParamTerminal = function(ls, rs, li, ri, rInner, pWe)
+    local mlpt = ls:pt(ls.sup)
+    local mrpt = rs:pt(rs.sup)
+    
+    local mvec = (mrpt - mlpt):normalized()
+    local f = mvec:dot(mlpt - ls.o) > 0 and 1 or -1
+    
+    mvec = (mlpt - ls.o):normalized()
+    
+    local elpt = ls:pt(li.sup)
+    local erpt = (elpt - li.o):normalized() * f * pWe + elpt
+    
+    local mln = line.byVecPt(mvec, mrpt)
+    local pln = line.byVecPt(mvec .. coor.rotZ(pi * 0.5), erpt)
+    local xpt = (mln - pln):withZ(0)
+    
+    local rvec = (xpt - mrpt):dot(xpt - ls.o) * rInner
+    local cvec = (elpt - ls.o):dot(mlpt - ls.o)
+    
+    local lenP2 = (xpt - erpt):length2()
+    local lenT = (xpt - mrpt):length()
+    local r = (lenP2 / lenT + lenT) * 0.5 * (rvec < 0 and 1 or -1) * (cvec > 0 and 1 or -1)
+    
+    local o = mrpt + (xpt - mrpt):normalized() * abs(r)
+    
+    return r, o
+end
+
+ust.platformArcGenTerminal = function(tW, pW)
+    return function(arcPacker)
+        return function(r, o, lPct, pWe, isRight)
+            local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
+            local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
+            local inner = arcPacker(rInner, o, lPct, 0)
+            local li, ls = table.unpack(inner()()())
+            local ri, rs = table.unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, 0)()()())
+            
+            local r, o = platformArcGenParamTerminal(ls, rs, li, ri, rInner, pWe)
+            
+            return r + 0.5 * tW * (isRight and 1 or -1), o, {
+                isRight and inner or arcPacker(r, o, lPct, 0),
+                isRight and arcPacker(r, o, lPct, 0) or inner
+            }
+        end
+    end
+end
 
 local function trackGrouping(result, ar1, ar2, ar3, ar4, ...)
     if (ar1 == nil) then return table.unpack(result) end
@@ -1605,23 +1750,23 @@ ust.safeBuild = function(params, updateFn)
         pipe.mapPair(function(i) return i.key, i.defaultIndex or 0 end)
     
     return function(param)
-        local r, result = xpcall(
-            updateFn,
-            function(e)
-                print("========================")
-                print("Ultimate Station failure")
-                print("Algorithm failure:", debug.traceback())
-                print("Params:")
-                func.forEach(
-                    params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
-                    function(i)print(i.key .. ": " .. param[i.key]) end)
-                print("End of Ultimate Station failure")
-                print("========================")
-            end,
-            defaultParams(param)
-        )
-        return r and result or updateFn(defaultParams(paramsOnFail))
-    -- return updateFn(defaultParams(param))
+            -- local r, result = xpcall(
+            --     updateFn,
+            --     function(e)
+            --         print("========================")
+            --         print("Ultimate Station failure")
+            --         print("Algorithm failure:", debug.traceback())
+            --         print("Params:")
+            --         func.forEach(
+            --             params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
+            --             function(i)print(i.key .. ": " .. param[i.key]) end)
+            --         print("End of Ultimate Station failure")
+            --         print("========================")
+            --     end,
+            --     defaultParams(param)
+            -- )
+            -- return r and result or updateFn(defaultParams(paramsOnFail))
+            return updateFn(defaultParams(param))
     end
 end
 
