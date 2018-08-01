@@ -1255,6 +1255,39 @@ ust.generateTerminalTrackModels = function(fitModel, config)
     end
 end
 
+ust.buildTerminal = function(fitModel, config)
+    local generateTerminalTrackModels = ust.generateTerminalTrackModels(fitModel, config)
+    return function(groups)
+        local gr = pipe.new
+            * func.mapFlatten(groups, pipe.filter(function(g) return #g > 1 end))
+        
+        return gr
+            * il
+            * pipe.map(function(a) return generateTerminalTrackModels(a.s, a.i) end)
+            * pipe.flatten()
+            * pipe.flatten()
+            + gr
+            * pipe.map(function(g)
+                local ptl, ptr = g.lane.lc[#g.lane.lc], g.lane.rc[#g.lane.rc]
+                local ptc = func.with(g.lane.mc[#g.lane.mc], {y = -5})
+                return {l = ptl, r = ptr, c = ptc}
+            end)
+            * function(gr)
+                return gr * pipe.map(function(g)
+                    return {
+                        station.newModel("ust/standard_lane.mdl", ust.mRot(g.c - g.l), coor.trans(g.l)),
+                        station.newModel("ust/standard_lane.mdl", ust.mRot(g.c - g.r), coor.trans(g.r))
+                    }
+                end)
+                * pipe.flatten()
+                + gr
+                * pipe.map(pipe.select("c"))
+                * il
+                * pipe.map(function(g) return station.newModel("ust/standard_lane.mdl", ust.mRot(g.s - g.i), coor.trans(g.s)) end)
+            end
+    end
+end
+
 ust.build = function(config, fitModel, entries, generateEdges)
     local generateEdges = config.isTerminal and ust.generateEdgesTerminal or ust.generateEdges
     local generateModels = ust.generateModels(fitModel, config)
@@ -1266,19 +1299,12 @@ ust.build = function(config, fitModel, entries, generateEdges)
     local generateTerrainDual = ust.generateTerrainDual(config)
     local generateTrackTerrain = ust.generateTrackTerrain(config)
     local generateTerminalModels = ust.generateTerminalPlatformModels(fitModel, config)
+    local buildTerminal = ust.buildTerminal(fitModel, config)
     local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
         local isLeftmost = #models == 0
         local isRightmost = #{...} == 0
         
-        local models =
-        (isLeftmost and config.isTerminal) and
-            (function(arcs)
-                local g = ust.generateTerminalTrackModels(fitModel, config)
-                return arcs * pipe.map(function(a) return g(a.s, a.i) end) * pipe.flatten() * pipe.flatten()
-            end)(pipe.new * il(func.mapFlatten({gr, ...}, pipe.filter(function(g) return #g > 1 end))))
-            or models
-        
-        if ((isLeftmost and config.isTerminal)) then dump(models) end
+        local models = (isLeftmost and config.isTerminal) and buildTerminal({gr, ...}) or models
         
         if (gr == nil) then
             local buildEntryPath = entries * pipe.map(pipe.select("access")) * pipe.flatten()
