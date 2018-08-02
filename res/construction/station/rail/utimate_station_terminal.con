@@ -112,35 +112,26 @@ local arcPacker = function(length, slope)
 end
 
 local function retriveRef(config, allArcs)
-    if (not config.buildingParams) then
-        return false
-    end
+    local ptL, ptR = table.unpack(
+        allArcs
+        * pipe.filter(function(a) return a.platform end)
+        * pipe.map(function(a) return {a.platform.lc, a.platform.rc} end)
+        * pipe.flatten()
+        * function(a) return {a[1], a[#a]} end
+        * pipe.map(function(a) return a[#a] end)
+    )
+    local mpt = ptL:avg(ptR) + coor.xyz(0, -10, 0)
     
-    local arcsL, arcsR
-    for i = 1, #allArcs - 1 do
-        if #allArcs[i] > 1 and #allArcs[i + 1] > 1 then
-            arcsL, arcsR = allArcs[i], allArcs[i + 1]
-        end
-    end
+    local cpt =
+    (function(a) return (#a % 2 == 0) and a[#a / 2]:avg(a[#a / 2 + 1] or a[(#a + 1) / 2]) end)
+        (allArcs
+        * pipe.filter(function(a) return a.lane end)
+        * pipe.map(function(a) return func.with(a.lane.mc[#a.lane.mc], {y = -5}) end)
+) 
     
-    if (arcsL and arcsR) then
-        local ptL = arcsL.surface.rc[arcsL.platform.common + 1]
-        local ptR = arcsR.surface.lc[arcsL.platform.common + 1]
-        
-        if (ptL - ptR):length() > (config.buildingParams.halfWidth) * 2 then
-            return function()
-                local refVec = (ptL - ptR):normalized() .. coor.rotZ(-0.5 * pi)
-                local refPt = ptL:avg(ptR) + refVec
-                return refPt, ust.mRot(refVec), arcsL.lane.rc[arcsL.lane.common - 1]:avg(
-                    arcsR.lane.lc[arcsL.lane.common - 1],
-                    arcsR.lane.lc[arcsL.lane.common],
-                    arcsL.lane.rc[arcsL.lane.common]
-                ), arcsL.surface.rc[arcsL.platform.common - 1]:avg(arcsR.surface.lc[arcsL.platform.common - 1])
-            end
-        end
+    return function()
+        return mpt, ust.mRot(coor.xyz(0, 1, 0)), cpt, (cpt + coor.xyz(0, 0, -1))
     end
-    
-    return false
 end
 
 local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst)
@@ -278,13 +269,14 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     * ust.allArcs(arcGen, config)
     
     local arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
-    local entryConfig = ust.entryConfig(config, allArcs, arcCoords)
+    local retriveRef = retriveRef(config, allArcs)
+    local entryConfig = ust.entryConfig(config, allArcs, arcCoords, retriveRef)
     
     local build = ust.build(
         config,
         fitModel,
         pipe.new
-        / uste.buildEntry(config, entryConfig)
+        / uste.buildEntry(config, entryConfig, retriveRef)
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
