@@ -1278,11 +1278,8 @@ ust.buildTerminal = function(fitModel, config)
     local generateTerminalTrackModels = ust.generateTerminalTrackModels(fitModel, config)
     local generateTerminalPlatformModels = ust.generateTerminalPlatformModels(fitModel, config)
     return function(groups)
-        local gr = pipe.new
+        return pipe.new
             * func.mapFlatten(groups, pipe.filter(function(g) return g.platform end))
-        
-        return gr
-            * pipe.filter(function(g) return g.lane end)
             * pipe.map(function(g)
                 local ptl, ptr = g.lane.lc[#g.lane.lc], g.lane.rc[#g.lane.rc]
                 local ptc = func.with(g.lane.mc[#g.lane.mc], {y = -5})

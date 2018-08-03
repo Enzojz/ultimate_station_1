@@ -33,8 +33,8 @@ local buildingParamsList = {
             coor.xyz(-8, -1.5, -bZ)
         },
         platform = {
-            coor.xyz(5, 1.5, 0),
-            coor.xyz(5, -1.5, 0)
+            coor.xyz(5, 4.4, 0),
+            coor.xyz(5, -4.4, 0)
         },
         pass = {
             coor.xyz(0, 0, 0)

@@ -109,7 +109,7 @@ local function retriveRef(config, allArcs)
         * function(a) return {a[1], a[#a]} end
         * pipe.map(function(a) return a[#a] end)
     )
-    local mpt = ptL:avg(ptR) + coor.xyz(0, -10, 0)
+    local mpt = ptL:avg(ptR) + coor.xyz(0, -8.7, 0)
     
     local cpt =
     (function(a) return (#a % 2 == 0) and a[#a / 2]:avg(a[#a / 2 + 1]) or a[(#a + 1) / 2] end)
