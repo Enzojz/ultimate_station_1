@@ -1239,34 +1239,50 @@ ust.generateTerminalTrackModels = function(fitModel, config)
     local retriveModels = retriveModels(fitModel, platformZ, tZ)
     local fExt = function(pt) return pipe.new / pt / (pt + coor.xyz(0, -5, 0)) / (pt + coor.xyz(0, -10, 0)) end
     local buildSurface = buildSurface(fitModel, platformZ, tZ)
-    return function(arcL, arcR)
-        local lc = fExt(arcL.platform.rc[#arcL.platform.rc])
-        local rc = fExt(arcR.platform.lc[#arcR.platform.lc])
+    return function(arc, isLeftmost, isRightmost)
+
+        local arc = arc(platformZ)()
+        local lc, rc, lic, ric, c = ust.bitLatCoords(5)(
+            arc(-config.wTrack * 0.5 + 0.5), 
+            arc(config.wTrack * 0.5 - 0.5), 
+            arc(-config.wTrack * 0.5 + 1.3), 
+            arc(config.wTrack * 0.5 - 1.3)
+        )
+
+        local lc = fExt(lc[#lc])
+        local rc = fExt(rc[#rc])
+        local lic = fExt(lic[#lic])
+        local ric = fExt(ric[#ric])
         
         local platformSurface = pipe.new / config.models.extremity / config.models.extremity
         local platformSurfaceEx = pipe.new / config.models.extremity / config.models.extremity
+        local platformEdgeO = pipe.new / config.models.edgeSurfaceExtreme / config.models.edgeSurfaceExtreme
+        local platformEdgeL = isLeftmost and pipe.new / config.models.corner / config.models.corner or platformEdgeO
+        local platformEdgeR = isRightmost and pipe.new / config.models.corner / config.models.corner or platformEdgeO
         
-        return pipe.mapn(
+        local newModels = pipe.mapn(
             func.seq(1, 2),
+            platformEdgeL,
+            platformEdgeR,
             platformSurface,
             platformSurfaceEx,
-            il(lc), il(rc)
-        )(buildSurface(2, 3.4))
+            il(lc), il(rc), il(lic), il(ric)
+        )(retriveModels(2, 2, 2, 0.8))
+        
+        return pipe.flatten()(newModels)
     end
 end
 
 ust.buildTerminal = function(fitModel, config)
+    local refZ = config.hPlatform + 0.53
     local generateTerminalTrackModels = ust.generateTerminalTrackModels(fitModel, config)
+    local generateTerminalPlatformModels = ust.generateTerminalPlatformModels(fitModel, config)
     return function(groups)
         local gr = pipe.new
-            * func.mapFlatten(groups, pipe.filter(function(g) return #g > 1 end))
+            * func.mapFlatten(groups, pipe.filter(function(g) return g.platform end))
         
         return gr
-            * il
-            * pipe.map(function(a) return generateTerminalTrackModels(a.s, a.i) end)
-            * pipe.flatten()
-            * pipe.flatten()
-            + gr
+            * pipe.filter(function(g) return g.lane end)
             * pipe.map(function(g)
                 local ptl, ptr = g.lane.lc[#g.lane.lc], g.lane.rc[#g.lane.rc]
                 local ptc = func.with(g.lane.mc[#g.lane.mc], {y = -5})
@@ -1299,6 +1315,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
     local generateTerrainDual = ust.generateTerrainDual(config)
     local generateTrackTerrain = ust.generateTrackTerrain(config)
     local generateTerminalModels = ust.generateTerminalPlatformModels(fitModel, config)
+    local generateTerminalTrackModels = ust.generateTerminalTrackModels(fitModel, config)
     local buildTerminal = ust.buildTerminal(fitModel, config)
     local function build(edges, terminals, terminalsGroup, models, terrain, gr, ...)
         local isLeftmost = #models == 0
@@ -1323,7 +1340,9 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 terminals,
                 terminalsGroup,
                 models + generateModels(gr[2])
-                + generateTerminalModels(gr[2], isLeftmost, isRightmost)
+                + generateTerminalTrackModels(gr[1][1], isLeftmost, false)
+                + generateTerminalModels(gr[2], false, false)
+                + generateTerminalTrackModels(gr[3][1], false, isRightmost)
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true) or {}),
                 terrain + generateTerrain(gr[2]) + generateTrackTerrain(gr[1][1]) + generateTrackTerrain(gr[3][1]),
@@ -1337,7 +1356,8 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 terminalsGroup,
                 models
                 + generateModels(gr[2], entries[3].edgeBuilder(isLeftmost, isRightmost))
-                + generateTerminalModels(gr[2], isLeftmost, isRightmost)
+                + generateTerminalTrackModels(gr[1][1], isLeftmost, false)
+                + generateTerminalModels(gr[2], false, isRightmost)
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, true, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[2]) + generateTrackTerrain(gr[1][1]),
@@ -1350,7 +1370,8 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 terminalsGroup,
                 models
                 + generateModels(gr[1], entries[3].edgeBuilder(isLeftmost, isRightmost))
-                + generateTerminalModels(gr[1], isLeftmost, isRightmost)
+                + generateTerminalModels(gr[1], isLeftmost, false)
+                + generateTerminalTrackModels(gr[2][1], false, isRightmost)
                 + (config.leftFences and isLeftmost and generateFences(gr[1][1], true, false, entries[3].fenceFilter) or {})
                 + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1]) + generateTrackTerrain(gr[2][1]),
@@ -1408,7 +1429,8 @@ ust.build = function(config, fitModel, entries, generateEdges)
             return build(edges,
                 terminals,
                 terminalsGroup,
-                models,
+                models
+                + generateTerminalTrackModels(gr[1][1], isLeftmost, isRightmost),
                 terrain + generateTrackTerrain(gr[1][1]),
                 ...)
         end
@@ -1568,9 +1590,9 @@ ust.trackGrouping = trackGrouping
 ust.entryConfig = function(config, allArcs, arcCoords, ignoreMain)
     local isLeftTrack = #allArcs[1] == 1
     local isRightTrack = #allArcs[#allArcs] == 1
-    local withoutMain = function(i) return ignoreMain or (not config.entries.main.model) or config.entries.main.pos + 2 ~= i end
+    local withoutMain = function(i) return (not config.isTerminal and isLeftTrack) or ignoreMain or (not config.entries.main.model) or config.entries.main.pos + 2 ~= i end
     return {
-        main = isLeftTrack and {pos = false, model = false} or config.entries.main,
+        main = (not config.isTerminal and isLeftTrack) and {pos = false, model = false} or config.entries.main,
         street = {
             func.mapi(config.entries.street[1], function(t, i) return t and withoutMain(i) and not isLeftTrack end),
             func.mapi(config.entries.street[2], function(t, i) return t and not isRightTrack end),

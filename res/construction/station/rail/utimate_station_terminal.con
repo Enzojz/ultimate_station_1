@@ -43,18 +43,6 @@ local function params()
                 values = func.map(ustm.trackNumberList, tostring),
             },
             {
-                key = "nbTransitTracks",
-                name = sp .. "\n" .. _("Transit Tracks"),
-                values = func.map({0, 1, 2, 3, 4}, tostring),
-                defaultIndex = 0
-            },
-            {
-                key = "posTransitTracks",
-                name = _("Position"),
-                values = {_("Left"), _("Centre"), _("Sides"), _("Right")},
-                defaultIndex = 1
-            },
-            {
                 key = "sign",
                 name = sp,
                 values = {"+", "-"},
@@ -76,7 +64,7 @@ local function params()
         + ustm.exclu("hasMiddlePlatform", "convAngle")(ustm.platform)
         + ustm.var
         + ustm.slope
-        + ustm.entry
+        + ustm.exclu("entryPos")(ustm.entry)
         + ustm.fence
         + ustm.alt
 end
@@ -112,6 +100,7 @@ local arcPacker = function(length, slope)
 end
 
 local function retriveRef(config, allArcs)
+    local refZ = config.hPlatform + 0.53
     local ptL, ptR = table.unpack(
         allArcs
         * pipe.filter(function(a) return a.platform end)
@@ -123,14 +112,17 @@ local function retriveRef(config, allArcs)
     local mpt = ptL:avg(ptR) + coor.xyz(0, -10, 0)
     
     local cpt =
-    (function(a) return (#a % 2 == 0) and a[#a / 2]:avg(a[#a / 2 + 1] or a[(#a + 1) / 2]) end)
+    (function(a) return (#a % 2 == 0) and a[#a / 2]:avg(a[#a / 2 + 1]) or a[(#a + 1) / 2] end)
         (allArcs
-        * pipe.filter(function(a) return a.lane end)
-        * pipe.map(function(a) return func.with(a.lane.mc[#a.lane.mc], {y = -5}) end)
-) 
-    
+            * pipe.filter(function(a) return a.lane end)
+            * pipe.map(function(a) return func.with(a.lane.mc[#a.lane.mc], {y = -5}) end)
+    )
     return function()
-        return mpt, ust.mRot(coor.xyz(0, 1, 0)), cpt, (cpt + coor.xyz(0, 0, -1))
+        return
+            mpt,
+            ust.mRot(coor.xyz(0, 1, 0)),
+            cpt,
+            (cpt + coor.xyz(0, 0, -1))
     end
 end
 
@@ -306,7 +298,7 @@ local updateFn = function()
         
         local entryConfig = {
             main = {
-                pos = mainBuilding and (params.entryPos - 1),
+                pos = -1,
                 model = mainBuilding,
             },
             street = {
@@ -335,8 +327,7 @@ local updateFn = function()
             buildStation(nbTracks,
                 arcPacker(length, slope),
                 {
-                    nbTransitTracks = params.nbTransitTracks,
-                    posTransitTracks = params.posTransitTracks - 2,
+                    nbTransitTracks = 0,
                     r = radius,
                     hPlatform = hPlatform,
                     wPlatform = wPlatform,
