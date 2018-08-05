@@ -10,7 +10,6 @@ local pipe = require "ustation/pipe"
 local ust = require "ustation"
 local uste = require "ustation_entries"
 local ustm = require "ustation_menu"
-local dump = require "datadumper"
 
 local ma = math
 
@@ -103,8 +102,18 @@ local function retriveRef(config, allArcs)
     local refZ = config.hPlatform + 0.53
     local ptL, ptR = table.unpack(
         allArcs
-        * pipe.filter(function(a) return a.platform end)
-        * pipe.map(function(a) return {a.platform.lc, a.platform.rc} end)
+        * pipe.map(function(a)
+            if (a.platform) then
+                return {a.platform.lc, a.platform.rc}
+            else
+                local arc = a[1](platformZ)()
+                local lc, rc, c = ust.bitLatCoords(5)(
+                    arc(-config.wTrack * 0.5 + 0.5),
+                    arc(config.wTrack * 0.5 - 0.5)
+                )
+                return {lc, rc}
+            end
+        end)
         * pipe.flatten()
         * function(a) return {a[1], a[#a]} end
         * pipe.map(function(a) return a[#a] end)
