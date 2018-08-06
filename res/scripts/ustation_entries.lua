@@ -811,7 +811,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
     
     local accessBuilder = function()
         local mx = coor.transX(-config.buildingParams.xOffset) * refMRot * coor.trans(refPt)
-        local m = coor.rotX(atan(-config.slope)) * mx
+        local m = (config.isTerminal and coor.I() or coor.rotX(atan(-config.slope))) * mx
         return pipe.new *
             func.map(config.buildingParams.platform, function(p) return ust.unitLane(p .. m, cpt) end)
             + func.map(config.buildingParams.entry, function(p) return ust.unitLane(p .. m, coor.xyz(-10, p.y > 0 and 4.5 or -4.5, -0.8) .. mx) end)
@@ -848,7 +848,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
     
     local terrainBuilder = function()
         local z = -0.8
-        local mRot = coor.rotX(atan(-config.slope))
+        local mRot = config.isTerminal and coor.I() or coor.rotX(atan(-config.slope))
         local mX = coor.transX(-config.buildingParams.xOffset) * refMRot * coor.trans(refPt)
         local xMin = config.buildingParams.street.x
         local xMax = config.buildingParams.xOffset

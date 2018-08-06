@@ -5,6 +5,7 @@ local line = require "ustation/coorline"
 local quat = require "ustation/quaternion"
 local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
+local dump = require "datadumper"
 local ust = {}
 
 local pi = math.pi
@@ -1203,7 +1204,7 @@ ust.buildTerminalModels = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
     local retriveModels = retriveModels(fitModel, platformZ, tZ)
-    local fExt = function(pt) return pipe.new / pt / (pt + coor.xyz(0, -5, 0)) / (pt + coor.xyz(0, -10, 0)) end
+    local fExt = function(pt) return pipe.new / pt / (pt + coor.xyz(0, -5, 5 * config.slope)) / (pt + coor.xyz(0, -10, 10 * config.slope)) end
     
     local platformModels = function(isLeftmost, isRightmost)
         return function(arcs)
@@ -1289,7 +1290,30 @@ ust.buildTerminalModels = function(fitModel, config)
                     end
                 end
                 return build(pipe.new, table.unpack(arcs))
-            end
+            end,
+            arcs
+            * pipe.map(
+                function(a)
+                    if (a.platform) then
+                        return {lc = a.platform.lc, rc = a.platform.rc}
+                    else
+                        local ar = a[1](platformZ)()
+                        local lc, rc, _ = ust.bitLatCoords(5)(
+                            ar(-config.wTrack * 0.5 + 0.5),
+                            ar(config.wTrack * 0.5 - 0.5)
+                        )
+                        return {lc = lc, rc = rc}
+                    end
+                end)
+            * pipe.map(function(c)
+                local vec = coor.xyz(0, -10, 10 * config.slope)
+                local lc = c.lc[#c.lc] - coor.xyz(0, 0, platformZ)
+                local rc = c.rc[#c.rc] - coor.xyz(0, 0, platformZ)
+                local size = assembleSize({s = lc, i = lc + vec}, {s = rc, i = rc + vec})
+                return pipe.new / size.lt / size.lb / size.rb / size.rt * station.finalizePoly
+            end)
+            * function(r) return pipe.new / { equal = r } end
+    
     end
 end
 
@@ -1297,6 +1321,7 @@ ust.buildTerminal = function(fitModel, config)
     local refZ = config.hPlatform + 0.53
     local buildModels = ust.buildTerminalModels(fitModel, config)
     return function(groups)
+        local m, t = buildModels(func.flatten(groups))
         return pipe.new
             * func.mapFlatten(groups, pipe.filter(function(g) return g.platform end))
             * pipe.map(function(g)
@@ -1315,9 +1340,9 @@ ust.buildTerminal = function(fitModel, config)
                 + gr
                 * pipe.map(pipe.select("c"))
                 * il
-                * pipe.map(function(g) return station.newModel("ust/standard_lane.mdl", ust.mRot(g.s - g.i), coor.trans(g.s)) end)
+                * pipe.map(function(g) return station.newModel("ust/standard_lane.mdl", ust.mRot(g.s - g.i), coor.trans(g.i)) end)
             end
-            + buildModels(func.flatten(groups))
+            + m, t
     end
 end
 
@@ -1336,7 +1361,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
         local isLeftmost = #models == 0
         local isRightmost = #{...} == 0
         
-        local models = (isLeftmost and config.isTerminal) and buildTerminal({gr, ...}) or models
+        local models, terrain = table.unpack((isLeftmost and config.isTerminal) and {buildTerminal({gr, ...})} or {models, terrain})
         
         if (gr == nil) then
             local buildEntryPath = entries * pipe.map(pipe.select("access")) * pipe.flatten()
@@ -1515,10 +1540,10 @@ end
 
 
 local platformArcGenParamTerminal = function(ls, rs, li, ri, rInner, pWe)
-    local mlpt = ls:pt(ls.sup)
-    local mrpt = rs:pt(rs.sup)
+    local mlpt = ls:pt(ls.sup):withZ(0)
+    local mrpt = rs:pt(rs.sup):withZ(0)
     
-    local mvec = (mrpt - mlpt):normalized()
+    local mvec = (mrpt - mlpt):normalized():withZ(0)
     local f = mvec:dot(mlpt - ls.o) > 0 and 1 or -1
     
     mvec = (mlpt - ls.o):normalized()
@@ -1545,18 +1570,22 @@ end
 ust.platformArcGenTerminal = function(tW, pW)
     return function(arcPacker)
         return function(r, o, lPct, pWe, isRight)
-            local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
-            local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
-            local inner = arcPacker(rInner, o, lPct, 0)
-            local li, ls = table.unpack(inner()()())
-            local ri, rs = table.unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, 0)()()())
-            
-            local r, o = platformArcGenParamTerminal(ls, rs, li, ri, rInner, pWe)
-            
-            return r + 0.5 * tW * (isRight and 1 or -1), o, {
-                isRight and inner or arcPacker(r, o, lPct, 0),
-                isRight and arcPacker(r, o, lPct, 0) or inner
-            }
+                
+                dump({
+                    1,
+                    {o.x, o.y, o.z}
+                })
+                local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
+                local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
+                local inner = arcPacker(rInner, o, lPct, 0)
+                local li, ls = table.unpack(inner()()())
+                local ri, rs = table.unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, 0)()()())
+                
+                local r, o = platformArcGenParamTerminal(ls, rs, li, ri, rInner, pWe)
+                return r + 0.5 * tW * (isRight and 1 or -1), o, {
+                    isRight and inner or arcPacker(r, o, lPct, 0),
+                    isRight and arcPacker(r, o, lPct, 0) or inner
+                }
         end
     end
 end
