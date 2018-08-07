@@ -1388,8 +1388,8 @@ ust.buildTerminal = function(fitModel, config)
             * func.flatten(groups)
             * pipe.map(function(g)
                 return {
-                    g.platform.lc[#g.platform.lc],
-                    g.platform.rc[#g.platform.rc],
+                    g.roof.surface.lc[#g.roof.surface.lc],
+                    g.roof.surface.rc[#g.roof.surface.rc],
                 }
             end)
             * pipe.flatten()
@@ -1399,20 +1399,16 @@ ust.buildTerminal = function(fitModel, config)
             * pipe.map(function(pts)
                 local ptL, ptR = table.unpack(pts)
                 local dist = (ptR - ptL):length()
-                local n = floor((dist + 5) / 10)
+                local n = (function(n) return n < 2 and 2 or n end)(floor((dist + 5) / 10))
                 local length = dist / n
                 local vecNor = (ptR - ptL):normalized() * length
-                local seq = pipe.new
-                    / config.models.roofPoleExtreme
-                    + pipe.new * pipe.rep(n - 2)(config.models.roofPole)
-                    / config.models.roofPoleExtreme
                 local seqT = pipe.new / coor.flipY()
                     + pipe.new * pipe.rep(n - 2)(coor.I())
                     / coor.I()
                 
                 return pipe.new
-                    * pipe.mapn(seq, func.seq(1, n), seqT)(function(m, i, t)
-                        return station.newModel(m .. ".mdl", tZ, t,
+                    * pipe.mapn(func.seq(1, n), seqT)(function(i, t)
+                        return station.newModel(config.models.roofPole .. ".mdl", tZ, t,
                             coor.scaleY(length / 10),
                             coor.rotZ(pi * 0.5),
                             coor.trans(ptL + vecNor * (i - 0.5)),
