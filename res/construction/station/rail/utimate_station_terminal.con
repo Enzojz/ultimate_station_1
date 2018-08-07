@@ -269,7 +269,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     end
     * ust.allArcs(arcGen, config)
     
-    local arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
+    local arcCoords = allArcs * pipe.filter(function(a) return a.isPlatform end)
     local retriveRef = retriveRef(config, allArcs)
     local entryConfig = ust.entryConfig(config, allArcs, arcCoords, retriveRef)
     

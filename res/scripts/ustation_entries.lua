@@ -28,10 +28,10 @@ local buildUndergroundEntry = function(config, entryConfig)
 
     local arcCoords = pipe.new 
         * {ust.trackGrouping(pipe.new, table.unpack(allArcs))}
-        * pipe.map(pipe.filter(function(a) return #a > 1 end))
+        * pipe.map(pipe.filter(function(a) return a.isPlatform end))
         * pipe.filter(function(g) return #g > 0 end)
         * pipe.map(function(g)
-            if (#g == 1) then return g else
+            if (g.isTrack) then return g else
                 local arcL, arcR = table.unpack(g)
                 local coords = {
                     l = {
@@ -65,7 +65,7 @@ local buildUndergroundEntry = function(config, entryConfig)
     
     local idxPt = allArcs
         * pipe.zip(func.seq(1, #allArcs), {"p", "i"})
-        * pipe.filter(function(a) return #(a.p) > 1 end)
+        * pipe.filter(function(a) return (a.p).isPlatform end)
         * pipe.map(pipe.select("i"))
     
     local fst = func.min(idxPt, function(l, r) return l < r end)
@@ -614,13 +614,13 @@ local buildEntry = function(config, entryConfig, retriveRef)
     local gArcs = pipe.new * {ust.trackGrouping(pipe.new, table.unpack(allArcs))}
     
     local arcCoords = gArcs
-        * pipe.map(pipe.filter(function(a) return #a > 1 end))
+        * pipe.map(pipe.filter(function(a) return a.isPlatform end))
         * pipe.filter(function(g) return #g == 1 end)
         * pipe.flatten()
     
     local mixedCoords =
         gArcs
-        * pipe.map(pipe.filter(function(a) return #a > 1 end))
+        * pipe.map(pipe.filter(function(a) return a.isPlatform end))
         * pipe.filter(function(g) return #g > 1 end)
         * (function(ls) return table.unpack(ls) end)
     
@@ -758,7 +758,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
             + (mixedCoords and (pipe.exec * fn2) or {})
             +
             gArcs
-            * pipe.map(pipe.filter(function(a) return #a > 1 end))
+            * pipe.map(pipe.filter(function(a) return a.isPlatform end))
             * pipe.filter(function(g) return #g > 0 end)
             * pipe.map(function(g)
                 if (#g == 1) then

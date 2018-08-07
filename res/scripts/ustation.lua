@@ -1195,10 +1195,11 @@ ust.allArcs = function(arcGen, config)
                 },
                 terrain = func.with(arcs.terrain, {lc = ltc, rc = rtc, mc = mc(ltc, rtc), c = sc}),
                 hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
-                hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc)
+                hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc),
+                isPlatform = true
             }
         else
-            return p
+            return func.with(p, {isTrack = true})
         end
     end)
 end
@@ -1233,7 +1234,8 @@ ust.buildTerminalModels = function(fitModel, config)
                     il(fExt(arcs.surface.lc[#arcs.surface.lc])),
                     il(fExt(arcs.surface.rc[#arcs.surface.rc]))
                 )(retriveModels(2, 2, 2, 0.8))
-                / pipe.mapn(
+                / (
+                config.roofLength == 0 and {} or pipe.mapn(
                     {1, 2},
                     roofEdgeL,
                     roofEdgeR,
@@ -1244,6 +1246,7 @@ ust.buildTerminalModels = function(fitModel, config)
                     il(fExt(arcs.roof.surface.lc[#arcs.roof.surface.lc])),
                     il(fExt(arcs.roof.surface.rc[#arcs.roof.surface.rc]))
                 )(retriveModels(2, 2, 2, 1))
+                )
                 * pipe.flatten()
                 * pipe.flatten()
         end
@@ -1261,6 +1264,7 @@ ust.buildTerminalModels = function(fitModel, config)
                 arcL(-config.wTrack * 0.5 + 1.5),
                 arcR(config.wTrack * 0.5 - 1.5)
             )
+
             local platformSurface = {config.models.extremity, config.models.extremity}
             local platformEdgeO = {config.models.edgeSurfaceExtreme, config.models.edgeSurfaceExtreme}
             local platformEdgeL = isLeftmost and {config.models.corner, config.models.corner} or platformEdgeO
@@ -1283,7 +1287,8 @@ ust.buildTerminalModels = function(fitModel, config)
                     il(fExt(lic[#lic])),
                     il(fExt(ric[#ric]))
                 )(retriveModels(2, 2, 2, 0.8))
-                / pipe.mapn(
+                / (
+                config.roofLength == 0 and {} or pipe.mapn(
                     {1, 2},
                     roofEdgeL,
                     roofEdgeR,
@@ -1294,6 +1299,7 @@ ust.buildTerminalModels = function(fitModel, config)
                     il(fExt(lric[#lric])),
                     il(fExt(rric[#rric]))
                 )(retriveModels(2, 2, 2, 1))
+                )
                 * pipe.flatten()
                 * pipe.flatten()
         end
@@ -1304,8 +1310,8 @@ ust.buildTerminalModels = function(fitModel, config)
             * arcs
             * pipe.fold({}, function(r, a)
                 if (#r == 0) then return pipe.new / (pipe.new / a)
-                elseif (r[#r][1].platform and a.platform) then return r * pipe.range(1, #r - 1) / (r[#r] / a)
-                elseif (not (r[#r][1].platform or a.platform)) then return r * pipe.range(1, #r - 1) / (r[#r] / a)
+                elseif (r[#r][1].isPlatform and a.isPlatform) then return r * pipe.range(1, #r - 1) / (r[#r] / a)
+                elseif (r[#r][1].isTrack and a.isTrack) then return r * pipe.range(1, #r - 1) / (r[#r] / a)
                 else return r / (pipe.new / a) end
             end)
             * function(arcs)
@@ -1314,7 +1320,7 @@ ust.buildTerminalModels = function(fitModel, config)
                     local isRightmost = #{...} == 0
                     if (g == nil) then
                         return models
-                    elseif (g[1].platform) then
+                    elseif (g[1].isPlatform) then
                         return build(models + g * pipe.map(platformModels(isLeftmost, isRightmost)) * pipe.flatten(), ...)
                     else
                         return build(models + trackModels(isLeftmost, isRightmost)(func.flatten(g)), ...)
@@ -1402,7 +1408,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
             return edges, buildAccessRoad, terminals, terminalsGroup,
                 (models + buildEntryPath + buildLanes) * pipe.filter(pipe.noop()),
                 terrain + buildFace
-        elseif (#gr == 3 and #gr[1] == 1 and #gr[2] > 1 and #gr[3] == 1) then
+        elseif (#gr == 3 and gr[1].isTrack and gr[2].isPlatform and gr[3].isTrack) then
             local edges = generateEdges(edges, true, gr[1][1])
             local edges = generateEdges(edges, false, gr[3][1])
             local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, true})
@@ -1415,7 +1421,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true) or {}),
                 terrain + generateTerrain(gr[2]) + generateTrackTerrain(gr[1][1]) + generateTrackTerrain(gr[3][1]),
                 ...)
-        elseif (#gr == 2 and #gr[1] == 1 and #gr[2] > 1) then
+        elseif (#gr == 2 and gr[1].isTrack and gr[2].isPlatform) then
             local edges = generateEdges(edges, true, gr[1][1])
             local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[2], {true, false})
             return build(
@@ -1428,7 +1434,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[2]) + generateTrackTerrain(gr[1][1]),
                 ...)
-        elseif (#gr == 2 and #gr[1] > 1 and #gr[2] == 1) then
+        elseif (#gr == 2 and gr[1].isPlatform and gr[2].isTrack) then
             local edges = generateEdges(edges, false, gr[2][1])
             local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1], {false, true})
             return build(edges,
@@ -1440,7 +1446,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 + (config.rightFences and isRightmost and generateFences(gr[2][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1]) + generateTrackTerrain(gr[2][1]),
                 ...)
-        elseif (#gr == 1 and #gr[1] > 1) then
+        elseif (#gr == 1 and gr[1].isPlatform) then
             local terminals, terminalsGroup = generateTerminals(edges, terminals, terminalsGroup, gr[1], {false, false})
             return build(edges,
                 terminals,
@@ -1451,7 +1457,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 + (config.rightFences and isRightmost and generateFences(gr[1][1], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrain(gr[1]),
                 ...)
-        elseif (#gr == 2 and #gr[1] > 1 and #gr[2] > 1) then
+        elseif (#gr == 2 and gr[1].isPlatform and gr[2].isPlatform) then
             local terminals, terminalsGroup = generateTerminalsDual(edges, terminals, terminalsGroup, gr[1], gr[2], {false, false})
             return build(edges,
                 terminals,
@@ -1462,7 +1468,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 + (config.rightFences and isRightmost and generateFences(gr[2][2], false, false, entries[3].fenceFilter) or {}),
                 terrain + generateTerrainDual(gr[1], gr[2]),
                 ...)
-        elseif (#gr == 3 and #gr[1] > 1 and #gr[2] > 1 and #gr[3] == 1) then
+        elseif (#gr == 3 and gr[1].isPlatform and gr[2].isPlatform and gr[3].isTrack) then
             local edges = generateEdges(edges, false, gr[3][1])
             local terminals, terminalsGroup = generateTerminalsDual(edges, terminals, terminalsGroup, gr[1], gr[2], {false, true})
             return build(edges,
@@ -1474,7 +1480,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
                 + (config.rightFences and isRightmost and generateFences(gr[3][1], false, true, entries[3].fenceFilter) or {}),
                 terrain + generateTerrainDual(gr[1], gr[2]),
                 ...)
-        elseif (#gr == 4 and #gr[1] == 1 and #gr[2] > 1 and #gr[3] > 1 and #gr[4] == 1) then
+        elseif (#gr == 4 and gr[1].isTrack and gr[2].isPlatform and gr[3].isPlatform and gr[4].isTrack) then
             local edges = generateEdges(edges, true, gr[1][1])
             local edges = generateEdges(edges, false, gr[4][1])
             local terminals, terminalsGroup = generateTerminalsDual(edges, terminals, terminalsGroup, gr[2], gr[3], {true, true})
@@ -1579,7 +1585,7 @@ local platformArcGenParamTerminal = function(ls, rs, li, ri, rInner, pWe)
     
     mvec = (mlpt - ls.o):normalized()
     
-    local elpt = ls:pt(li.inf)
+    local elpt = ls:pt(li.sup)
     local erpt = (elpt - li.o):normalized() * f * pWe + elpt
     
     local mln = line.byVecPt(mvec, mrpt)
@@ -1649,8 +1655,8 @@ end
 ust.trackGrouping = trackGrouping
 
 ust.entryConfig = function(config, allArcs, arcCoords, ignoreMain)
-    local isLeftTrack = #allArcs[1] == 1
-    local isRightTrack = #allArcs[#allArcs] == 1
+    local isLeftTrack = allArcs[1].isTrack
+    local isRightTrack = allArcs[#allArcs].isTrack
     local withoutMain = function(i) return (not config.isTerminal and isLeftTrack) or ignoreMain or (not config.entries.main.model) or config.entries.main.pos + 2 ~= i end
     return {
         main = (not config.isTerminal and isLeftTrack) and {pos = false, model = false} or config.entries.main,
@@ -1706,7 +1712,7 @@ end
 ust.findIntersections = function(config)
     return function(allArcs)
         for i = 1, #allArcs - 1 do
-            if #allArcs[i] > 1 and #allArcs[i + 1] > 1 then
+            if allArcs[i].isPlatform and allArcs[i + 1].isPlatform then
                 local arcsL, arcsR = allArcs[i], allArcs[i + 1]
                 local greater = function(x, y) return x > y and x or y end
                 

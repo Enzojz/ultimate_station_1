@@ -186,7 +186,7 @@ local function retriveRef(config, allArcs)
     
     local arcsL, arcsR
     for i = 1, #allArcs - 1 do
-        if #allArcs[i] > 1 and #allArcs[i + 1] > 1 then
+        if allArcs[i].isPlatform and allArcs[i + 1].isPlatform then
             arcsL, arcsR = allArcs[i], allArcs[i + 1]
         end
     end
@@ -351,7 +351,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     * ust.allArcs(arcGen, config)
     * ust.findIntersections(config)
     
-    local arcCoords = allArcs * pipe.filter(function(a) return #a > 1 end)
+    local arcCoords = allArcs * pipe.filter(function(a) return a.isPlatform end)
     local retriveRef = retriveRef(config, allArcs)
     
     local entryConfig = ust.entryConfig(config, allArcs, arcCoords, retriveRef)
