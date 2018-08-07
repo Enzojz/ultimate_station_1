@@ -316,7 +316,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
             )
             end
         end
-        * ust.allArcs(arcGen, config)
+        * ust.allArcs(config)
         * ust.findIntersections(config)
     
     local arcCoords = allArcs * pipe.filter(function(a) return a.isPlatform end)

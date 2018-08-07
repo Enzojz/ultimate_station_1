@@ -31,7 +31,7 @@ local buildUndergroundEntry = function(config, entryConfig)
         * pipe.map(pipe.filter(function(a) return a.isPlatform end))
         * pipe.filter(function(g) return #g > 0 end)
         * pipe.map(function(g)
-            if (g.isTrack) then return g else
+            if (#g == 1) then return g else
                 local arcL, arcR = table.unpack(g)
                 local coords = {
                     l = {
