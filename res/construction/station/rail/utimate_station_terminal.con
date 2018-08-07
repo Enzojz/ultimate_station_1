@@ -69,10 +69,9 @@ local function params()
 end
 
 local arcPacker = function(length, slope)
-    return function(radius, o, lengthVar, dislodge)
-        local dislodge = dislodge and (dislodge * length / radius) or 0
+    return function(radius, o, lengthVar)
         local length = lengthVar and (length * lengthVar) or length
-        local initRad = (radius > 0 and pi or 0) + dislodge
+        local initRad = radius > 0 and pi or 0
         return function(z)
             local z = z or 0
             return function(lengthOverride)
@@ -85,12 +84,13 @@ local arcPacker = function(length, slope)
                         / ar:withLimits({
                             sup = initRad - 2 * rad,
                             inf = initRad - rad,
-                            slope = -slope
+                            slope = -slope,
+                            o = ar.o + coor.xyz(0, 0, -l * slope * 0.5)
                         })
                         / ar:withLimits({
-                            inf = initRad - rad,
-                            sup = initRad,
-                            slope = slope
+                            sup = initRad - rad,
+                            inf = initRad,
+                            slope = -slope
                         })
                 end
             end

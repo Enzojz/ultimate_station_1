@@ -141,7 +141,11 @@ local function ungroup(fst, ...)
             if (fst and lst) then
                 return ungroup(table.unpack(f))(table.unpack(l))(
                     result /
-                    (fst * pipe.range(2, #fst) * pipe.rev() + {fst[1]:avg(lst[1])} + lst * pipe.range(2, #lst)),
+                    (
+                    (fst[1] - lst[1]):length2() < (fst[1] - lst[#lst]):length2()
+                    and (fst * pipe.range(2, #fst) * pipe.rev() + {fst[1]:avg(lst[1])} + lst * pipe.range(2, #lst))
+                    or (fst * pipe.range(2, #fst) * pipe.rev() + {fst[1]:avg(lst[#lst])} + lst * pipe.rev() * pipe.range(2, #lst))
+                    ),
                     floor((#fst + #lst) * 0.5)
             )
             else
@@ -319,10 +323,9 @@ ust.generateEdges = function(edges, isLeft, arcPacker)
         }
 end
 
-
 ust.generateEdgesTerminal = function(edges, isLeft, arcPacker)
     local arcs = arcPacker()()()
-    local eInf, eSup = table.unpack(arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
+    local eInf, eSup = table.unpack(arcs * pipe.map2(isLeft and {pipe.noop(), pipe.noop()} or {arc.rev, arc.rev}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
     if isLeft then
         eInf[1] = eInf[1]:avg(eSup[2])
         eSup[2] = eInf[1]
@@ -700,12 +703,12 @@ ust.generateModels = function(fitModel, config)
         local roofSurface = pipe.new
             * pipe.rep(pc - 2)(config.models.roofTop)
             / config.models.roofExtremity
-            * (function(ls) return ls * pipe.rev() + ls end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.roofTop)) or (ls * pipe.rev() + ls) end)
         
         local roofEdge = pipe.new
             * pipe.rep(pc - 2)(config.models.roofEdge)
             / config.models.roofCorner
-            * (function(ls) return ls * pipe.rev() + ls end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.roofEdge)) or (ls * pipe.rev() + ls) end)
         
         local newModels = pipe.mapn(
             func.seq(1, 2 * c - 2),
@@ -1208,29 +1211,41 @@ ust.buildTerminalModels = function(fitModel, config)
     
     local platformModels = function(isLeftmost, isRightmost)
         return function(arcs)
-            local lc = fExt(arcs.platform.lc[#arcs.platform.lc])
-            local rc = fExt(arcs.platform.rc[#arcs.platform.rc])
-            local lic = fExt(arcs.surface.lc[#arcs.surface.lc])
-            local ric = fExt(arcs.surface.rc[#arcs.surface.rc])
+            local platformSurface = {config.models.surface, config.models.extremity}
+            local platformEdgeO = {config.models.edgeSurfaceCorner, config.models.edgeSurfaceExtreme}
+            local platformEdgeL = isLeftmost and {config.models.edge, config.models.corner} or platformEdgeO
+            local platformEdgeR = isRightmost and {config.models.edge, config.models.corner} or platformEdgeO
             
-            local platformSurface = pipe.new / config.models.surface / config.models.extremity
+            local roofSurface = {config.models.roofTop, config.models.roofExtremity}
+            local roofEdge = {config.models.roofEdgeTopCorner, config.models.roofEdgeTopExtreme}
+            local roofEdgeL = isLeftmost and {config.models.roofEdge, config.models.roofCorner} or roofEdge
+            local roofEdgeR = isRightmost and {config.models.roofEdge, config.models.roofCorner} or roofEdge
             
-            local platformSurfaceEx = pipe.new / config.models.surface / config.models.extremity
-            
-            local platformEdgeO = pipe.new / config.models.edgeSurfaceCorner / config.models.edgeSurfaceExtreme
-            local platformEdgeL = isLeftmost and pipe.new / config.models.edge / config.models.corner or platformEdgeO
-            local platformEdgeR = isRightmost and pipe.new / config.models.edge / config.models.corner or platformEdgeO
-            
-            local newModels = pipe.mapn(
-                func.seq(1, 2),
-                platformEdgeL,
-                platformEdgeR,
-                platformSurface,
-                platformSurfaceEx,
-                il(lc), il(rc), il(lic), il(ric)
-            )(retriveModels(2, 2, 2, 0.8))
-            
-            return pipe.flatten()(newModels)
+            return pipe.new
+                / pipe.mapn(
+                    {1, 2},
+                    platformEdgeL,
+                    platformEdgeR,
+                    platformSurface,
+                    platformSurface,
+                    il(fExt(arcs.platform.lc[#arcs.platform.lc])),
+                    il(fExt(arcs.platform.rc[#arcs.platform.rc])),
+                    il(fExt(arcs.surface.lc[#arcs.surface.lc])),
+                    il(fExt(arcs.surface.rc[#arcs.surface.rc]))
+                )(retriveModels(2, 2, 2, 0.8))
+                / pipe.mapn(
+                    {1, 2},
+                    roofEdgeL,
+                    roofEdgeR,
+                    roofSurface,
+                    roofSurface,
+                    il(fExt(arcs.roof.edge.lc[#arcs.roof.edge.lc])),
+                    il(fExt(arcs.roof.edge.rc[#arcs.roof.edge.rc])),
+                    il(fExt(arcs.roof.surface.lc[#arcs.roof.surface.lc])),
+                    il(fExt(arcs.roof.surface.rc[#arcs.roof.surface.rc]))
+                )(retriveModels(2, 2, 2, 1))
+                * pipe.flatten()
+                * pipe.flatten()
         end
     end
     
@@ -1238,33 +1253,49 @@ ust.buildTerminalModels = function(fitModel, config)
         return function(arcs)
             local arcL = arcs[1](platformZ)()
             local arcR = arcs[#arcs](platformZ)()
-            local lc, rc, lic, ric, c = ust.bitLatCoords(5)(
+            local lc, rc, lic, ric, lric, rric, c = ust.bitLatCoords(5)(
                 arcL(-config.wTrack * 0.5 + 0.5),
                 arcR(config.wTrack * 0.5 - 0.5),
                 arcL(-config.wTrack * 0.5 + 1.3),
-                arcR(config.wTrack * 0.5 - 1.3)
+                arcR(config.wTrack * 0.5 - 1.3),
+                arcL(-config.wTrack * 0.5 + 1.5),
+                arcR(config.wTrack * 0.5 - 1.5)
             )
-            local lc = fExt(lc[#lc])
-            local rc = fExt(rc[#rc])
-            local lic = fExt(lic[#lic])
-            local ric = fExt(ric[#ric])
+            local platformSurface = {config.models.extremity, config.models.extremity}
+            local platformEdgeO = {config.models.edgeSurfaceExtreme, config.models.edgeSurfaceExtreme}
+            local platformEdgeL = isLeftmost and {config.models.corner, config.models.corner} or platformEdgeO
+            local platformEdgeR = isRightmost and {config.models.corner, config.models.corner} or platformEdgeO
             
-            local platformSurface = pipe.new / config.models.extremity / config.models.extremity
-            local platformSurfaceEx = pipe.new / config.models.extremity / config.models.extremity
-            local platformEdgeO = pipe.new / config.models.edgeSurfaceExtreme / config.models.edgeSurfaceExtreme
-            local platformEdgeL = isLeftmost and pipe.new / config.models.corner / config.models.corner or platformEdgeO
-            local platformEdgeR = isRightmost and pipe.new / config.models.corner / config.models.corner or platformEdgeO
+            local roofSurface = {config.models.roofExtremity, config.models.roofExtremity}
+            local roofEdge = {config.models.roofEdgeTopExtreme, config.models.roofEdgeTopExtreme}
+            local roofEdgeL = isLeftmost and {config.models.roofCorner, config.models.roofCorner} or roofEdge
+            local roofEdgeR = isRightmost and {config.models.roofCorner, config.models.roofCorner} or roofEdge
             
-            local newModels = pipe.mapn(
-                func.seq(1, 2),
-                platformEdgeL,
-                platformEdgeR,
-                platformSurface,
-                platformSurfaceEx,
-                il(lc), il(rc), il(lic), il(ric)
-            )(retriveModels(2, 2, 2, 0.8))
-            
-            return pipe.flatten()(newModels)
+            return pipe.new
+                / pipe.mapn(
+                    {1, 2},
+                    platformEdgeL,
+                    platformEdgeR,
+                    platformSurface,
+                    platformSurface,
+                    il(fExt(lc[#lc])),
+                    il(fExt(rc[#rc])),
+                    il(fExt(lic[#lic])),
+                    il(fExt(ric[#ric]))
+                )(retriveModels(2, 2, 2, 0.8))
+                / pipe.mapn(
+                    {1, 2},
+                    roofEdgeL,
+                    roofEdgeR,
+                    roofSurface,
+                    roofSurface,
+                    il(fExt(lc[#lc])),
+                    il(fExt(rc[#rc])),
+                    il(fExt(lric[#lric])),
+                    il(fExt(rric[#rric]))
+                )(retriveModels(2, 2, 2, 1))
+                * pipe.flatten()
+                * pipe.flatten()
         end
     end
     
@@ -1312,7 +1343,7 @@ ust.buildTerminalModels = function(fitModel, config)
                 local size = assembleSize({s = lc, i = lc + vec}, {s = rc, i = rc + vec})
                 return pipe.new / size.lt / size.lb / size.rb / size.rt * station.finalizePoly
             end)
-            * function(r) return pipe.new / { equal = r } end
+            * function(r) return pipe.new / {equal = r} end
     
     end
 end
@@ -1323,7 +1354,7 @@ ust.buildTerminal = function(fitModel, config)
     return function(groups)
         local m, t = buildModels(func.flatten(groups))
         return pipe.new
-            * func.mapFlatten(groups, pipe.filter(function(g) return g.platform end))
+            * func.mapFlatten(groups, pipe.filter(function(g) return g.lane end))
             * pipe.map(function(g)
                 local ptl, ptr = g.lane.lc[#g.lane.lc], g.lane.rc[#g.lane.rc]
                 local ptc = func.with(g.lane.mc[#g.lane.mc], {y = -5})
@@ -1340,7 +1371,7 @@ ust.buildTerminal = function(fitModel, config)
                 + gr
                 * pipe.map(pipe.select("c"))
                 * il
-                * pipe.map(function(g) return station.newModel("ust/standard_lane.mdl", ust.mRot(g.s - g.i), coor.trans(g.i)) end)
+                * pipe.map(function(g) return station.newModel("ust/standard_lane.mdl", ust.mRot(g.s - g.i), coor.trans(g.s)) end)
             end
             + m, t
     end
@@ -1540,15 +1571,15 @@ end
 
 
 local platformArcGenParamTerminal = function(ls, rs, li, ri, rInner, pWe)
-    local mlpt = ls:pt(ls.sup):withZ(0)
-    local mrpt = rs:pt(rs.sup):withZ(0)
+    local mlpt = ls:pt(ls.inf):withZ(0)
+    local mrpt = rs:pt(rs.inf):withZ(0)
     
     local mvec = (mrpt - mlpt):normalized():withZ(0)
     local f = mvec:dot(mlpt - ls.o) > 0 and 1 or -1
     
     mvec = (mlpt - ls.o):normalized()
     
-    local elpt = ls:pt(li.sup)
+    local elpt = ls:pt(li.inf)
     local erpt = (elpt - li.o):normalized() * f * pWe + elpt
     
     local mln = line.byVecPt(mvec, mrpt)
@@ -1570,22 +1601,17 @@ end
 ust.platformArcGenTerminal = function(tW, pW)
     return function(arcPacker)
         return function(r, o, lPct, pWe, isRight)
-                
-                dump({
-                    1,
-                    {o.x, o.y, o.z}
-                })
-                local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
-                local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
-                local inner = arcPacker(rInner, o, lPct, 0)
-                local li, ls = table.unpack(inner()()())
-                local ri, rs = table.unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, 0)()()())
-                
-                local r, o = platformArcGenParamTerminal(ls, rs, li, ri, rInner, pWe)
-                return r + 0.5 * tW * (isRight and 1 or -1), o, {
-                    isRight and inner or arcPacker(r, o, lPct, 0),
-                    isRight and arcPacker(r, o, lPct, 0) or inner
-                }
+            local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
+            local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
+            local inner = arcPacker(rInner, o, lPct, 0)
+            local li, ls = table.unpack(inner()()())
+            local ri, rs = table.unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, 0)()()())
+            
+            local r, o = platformArcGenParamTerminal(ls, rs, li, ri, rInner, pWe)
+            return r + 0.5 * tW * (isRight and 1 or -1), o, {
+                isRight and inner or arcPacker(r, o, lPct, 0),
+                isRight and arcPacker(r, o, lPct, 0) or inner
+            }
         end
     end
 end
