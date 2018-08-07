@@ -115,6 +115,12 @@ ustm.entry = {
         values = {_("None"), _("S"), _("M"), _("L"), _("XL")},
         defaultIndex = 2
     },
+    -- {
+    --     key = "entrySide",
+    --     name = "",
+    --     values = {_("Left"), _("Right")},
+    --     defaultIndex = 1
+    -- },
     {
         key = "entryPos",
         name = _("Position"),

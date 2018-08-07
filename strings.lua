@@ -10,8 +10,9 @@ This Ultimate Station mod is designed to create station with various type of pla
 2. Double Curvature Station
 3. Triangle Station
 4. Half-Triangle Station
+5. Terminal station
 
-All 4 types have most of options and variations in common. The variations include:
+All 5 types have most of options and variations in common. The variations include:
 * Curvature
 * Platform width
 * Platform height
@@ -44,6 +45,8 @@ It's usually used to create a station on bifurcation, but also can be used to cr
 It's like a mix of triangle station and generic station, with three different radii, of whom two are for two different group of platforms and another for all platforms.
 It's also usually used to create a station on bifurcation, or to be placed at the end of a flying junction, due to spatial constraints.
 
+5. It's like a Generic Station but in terminal format 
+
 Options:
 * Platform height: You can choose a unique height for all platforms; the available values are from railways all around the world.
 * Platform width: You can choose a unique width for all platforms.
@@ -71,17 +74,9 @@ Platform variations:
 * Reference: The reference, which is not affected by any variation settings, can be a track or a platform, if can be the leftmost/rightmost or the middle one.
 * Unaffected platforms: The percentage of unaffected platforms among all platforms, they are all round the reference.
 
-Difference between 4 types of the stations:
-The generic station and double curvature are actually base on two different curve generation algorithms. In simple words, in general station, each platform has its linear central as it's reference point, and in double curvature station, the reference point of each platform is origin point of the station, the difference can be noticed when you apply the offsets then other variations on platforms.
-The half-triangle curvature station is actually works on the same algorithm as the one for double curvature station.
-Each platform in a triangle station has its reference point on the place where two groups comes together.
-
-What's the next?
-The mod is not finished, though I have spent 5 months since the begin. The release of it is a stage achievement -- it can be used and most of the programming work is done. The next stage will be enhancing it, including introducing old era station models and old era platform models. Also, I will introduce the terminal version and the cargo version.
-Due to the complicity of the algorithm I have applied, this mod may crash, under certain circumstances, please report the crash with the settings you have applied.
-I will upgrade the elevated station and the underground station on the same base, maybe also to improve the track design pattern and the flying junction.
-
 Changelog:
+1.7
+- Add terminal station
 1.6
 - The middle platforms on triangle station and half-triangle station are re-designed to have full-length ones
 - Fixed inclined platform roof poles on slope configuration with curves.
@@ -236,8 +231,9 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 2.双曲线车站 
 3.三角车站 
 4.半三角车站 
+5.尽头站
 
-所有4种类型都有大部分共同的变化选项，包括： 
+所有5种类型都有大部分共同的变化选项，包括： 
 * 曲率 
 * 站台宽度 
 * 站台高度 
@@ -270,6 +266,9 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 三角车站和普通车站的混合体，有三种不同的半径，其中两种用于两组不同的站台，另一种用于所有站台。 
 它通常也用于在线路分岔处，或者将其放置在疏解的末端。 
 
+5.尽头车站
+和普通车站类似，但是车站是尽头式。
+
 选项： 
 * 站台高度：您可以为所有站台选择独特的高度，可选的值来自世界各地的铁路。 
 * 站台宽度：您可以为所有站台选择一个统一的宽度。 
@@ -297,16 +296,9 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 * 参照物：参照物不受任何变化设置影响，可以是轨道或站台，可以是最左侧/最右侧或中间的。 
 * 未受影响的站台：所有车站中未受影响站台的百分比，他们都在参照物两侧。 
 
-四种类型的车站之间的区别： 
-以下知识将帮助您了解车站的某些行为 
-普通车站和双曲线车站实际上基于两种不同的曲线生成算法。 简而言之，在普通车站中，每个站台以其线性中心作为参考点，而在双曲线车站中，每个站台的参考点是该车站原点和中轴线，当您应用站台偏移选项时，可以注意到站台变化的不同之处。 
-半三角车站的工作方式与双曲线车站相同。 
-三角车站内的每个站台的参考点都位于车站的头部（聚拢部）。 
-
-接下来是什么？ 
-太多了！所有你想到要增加的一些变种比如更老年代的车站还有货站blablabla……不翻译！
-
 更新日志：
+1.7
+- 增加了尽头式车站
 1.6
 - 重写了三角和半三角车站中央站台的建模算法使得中央站台长度和其他站台长度一致
 - 修复了在坡道曲线站台上，雨棚支撑柱横向倾斜的问题 
@@ -471,7 +463,10 @@ function data()
             = "分为两个方向的，可以进行站台参数微调的三角形车站.",
             ["Generic Station"] = "普通车站",
             ["Station that platform and track parameters can be fine-tuned, with single reference radius."] 
-            = "拥有一个参考曲率，可以进行站台参数微调的车站."
+            = "拥有一个参考曲率，可以进行站台参数微调的车站.",
+            ["Terminal Station"] = "尽头式车站",
+            ["Terminal Station that platform and track parameters can be fine-tuned, with single reference radius."] 
+            = "拥有一个参考曲率，可以进行站台参数微调的尽头式车站.",
         }
     }
 end
