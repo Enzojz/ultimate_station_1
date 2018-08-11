@@ -75,6 +75,9 @@ Platform variations:
 * Unaffected platforms: The percentage of unaffected platforms among all platforms, they are all round the reference.
 
 Changelog:
+1.8
+- Add main entry side option
+- Fixed polygen error on triangle station when length on part A is different to part B
 1.7
 - Add terminal station
 1.6
@@ -297,6 +300,9 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 * 未受影响的站台：所有车站中未受影响站台的百分比，他们都在参照物两侧。 
 
 更新日志：
+1.8
+- 增加了主入口左右侧位置的选项
+- 修复了三角车站下A/B部分长度不同导致的多边形渲染错误
 1.7
 - 增加了尽头式车站
 1.6

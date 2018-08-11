@@ -141,8 +141,10 @@ local arcPacker = function(length, slope)
         local initRadB = (radiusB > 0 and pi or 0)
         return function(z)
             local z = z or 0
-            return function(lengthOverride)
+            return function(lengthOverride, lDisloge)
                 local l = lengthOverride and lengthOverride(length) or length
+                local lDislogeA = lDisloge and (lDisloge / radiusA) or 0
+                local lDislogeB = lDisloge and (lDisloge / radiusB) or 0
                 return function(xDr)
                     local dr = xDr or 0
                     local arA = arc.byOR(oA + coor.xyz(0, 0, z), abs(radiusA - dr))
@@ -151,13 +153,13 @@ local arcPacker = function(length, slope)
                     local radB = (radiusB > 0 and 1 or -1) * l / arB.r * 0.5
                     return pipe.new
                         / arA:withLimits({
-                            sup = initRadA - radA + dislodgeA,
-                            inf = initRadA,
+                            sup = initRadA - radA + dislodgeA - lDislogeA,
+                            inf = initRadA - lDislogeA,
                             slope = -slope
                         })
                         / arB:withLimits({
-                            inf = initRadB,
-                            sup = initRadB + radB + dislodgeB,
+                            inf = initRadB - lDislogeB,
+                            sup = initRadB + radB + dislodgeB - lDislogeB,
                             slope = slope
                         })
                 end
@@ -176,39 +178,6 @@ local function defaultParams(param)
     func.forEach(
         func.filter(params({}), function(p) return p.key ~= "tramTrack" end),
         function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
-end
-
-
-local function retriveRef(config, allArcs)
-    if (not config.buildingParams) then
-        return false
-    end
-    
-    local arcsL, arcsR
-    for i = 1, #allArcs - 1 do
-        if allArcs[i].isPlatform and allArcs[i + 1].isPlatform then
-            arcsL, arcsR = allArcs[i], allArcs[i + 1]
-        end
-    end
-    
-    if (arcsL and arcsR) then
-        local ptL = arcsL.surface.rc[arcsL.platform.common + 1]
-        local ptR = arcsR.surface.lc[arcsL.platform.common + 1]
-        
-        if (ptL - ptR):length() > (config.buildingParams.halfWidth) * 2 then
-            return function()
-                local refVec = (ptL - ptR):normalized() .. coor.rotZ(-0.5 * pi)
-                local refPt = ptL:avg(ptR) + refVec
-                return refPt, ust.mRot(refVec), arcsL.lane.rc[arcsL.lane.common - 1]:avg(
-                    arcsR.lane.lc[arcsL.lane.common - 1],
-                    arcsR.lane.lc[arcsL.lane.common],
-                    arcsL.lane.rc[arcsL.lane.common]
-                ), arcsL.surface.rc[arcsL.platform.common - 1]:avg(arcsR.surface.lc[arcsL.platform.common - 1])
-            end
-        end
-    end
-    
-    return false
 end
 
 local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, config, hasFirst, hasCentral, hasLast)
@@ -352,15 +321,14 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     * ust.findIntersections(config)
     
     local arcCoords = allArcs * pipe.filter(function(a) return a.isPlatform end)
-    local retriveRef = retriveRef(config, allArcs)
     
-    local entryConfig = ust.entryConfig(config, allArcs, arcCoords, retriveRef)
+    local entryConfig = ust.entryConfig(config, allArcs, arcCoords)
     
     local build = ust.build(
         config,
         fitModel,
         pipe.new
-        / uste.buildEntry(config, entryConfig, retriveRef)
+        / uste.buildEntry(config, entryConfig)
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
@@ -399,6 +367,7 @@ local updateFn = function()
         local entryConfig = {
             main = {
                 pos = mainBuilding and (params.entryPos - 1),
+                isLeft = params.entrySide == 0,
                 model = mainBuilding,
             },
             street = {

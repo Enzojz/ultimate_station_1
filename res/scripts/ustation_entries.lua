@@ -625,7 +625,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
         * (function(ls) return table.unpack(ls) end)
     
     local retriveRef = retriveRef or function()
-        local refArc = #arcCoords > 0 and arcCoords[1] or mixedCoords[1]
+        local refArc = #arcCoords > 0 and (config.entries.main.isLeft and arcCoords[1] or arcCoords[#arcCoords]) or mixedCoords[1]
         
         local pl, la, su = refArc.platform, refArc.lane, refArc.surface
         local f = pipe.exec * function()
@@ -637,8 +637,16 @@ local buildEntry = function(config, entryConfig, retriveRef)
                 return function(set) return set.c + 3 + floor(set.c * 0.5) end
             end
         end
-        local refPt = la.lc[f(la)]
-        return refPt, ust.mRot((su.lc[f(su)] - pl.lc[f(pl)]):normalized()), la.lc[f(la)], pl.lc[f(pl)]:avg(pl.rc[f(pl)])
+        local refPt = config.entries.main.isLeft and la.lc[f(la)] or la.rc[f(la)]
+
+        return 
+        refPt,
+        config.entries.main.isLeft 
+            and ust.mRot((su.lc[f(su)] - pl.lc[f(pl)]):normalized())
+            or ust.mRot((su.rc[f(su)] - pl.rc[f(pl)]):normalized()),
+        config.entries.main.isLeft 
+            and la.lc[f(la)] or la.rc[f(la)],
+        pl.lc[f(pl)]:avg(pl.rc[f(pl)]) 
     end
     
     local refPt, refMRot, cpt, cupt = retriveRef()

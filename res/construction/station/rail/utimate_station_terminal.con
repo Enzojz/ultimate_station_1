@@ -63,7 +63,7 @@ local function params()
         + ustm.exclu("hasMiddlePlatform", "convAngle")(ustm.platform)
         + ustm.var
         + ustm.slope
-        + ustm.exclu("entryPos")(ustm.entry)
+        + ustm.exclu("entryPos", "entrySide")(ustm.entry)
         + ustm.fence
         + ustm.alt
 end

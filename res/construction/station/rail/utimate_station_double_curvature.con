@@ -324,6 +324,7 @@ local updateFn = function()
         local entryConfig = {
             main = {
                 pos = mainBuilding and (params.entryPos - 1),
+                isLeft = params.entrySide == 0,
                 model = mainBuilding,
             },
             street = {

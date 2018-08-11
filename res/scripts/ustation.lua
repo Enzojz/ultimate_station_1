@@ -1717,17 +1717,31 @@ ust.trackGrouping = trackGrouping
 ust.entryConfig = function(config, allArcs, arcCoords, ignoreMain)
     local isLeftTrack = allArcs[1].isTrack
     local isRightTrack = allArcs[#allArcs].isTrack
-    local withoutMain = function(i) return (not config.isTerminal and isLeftTrack) or ignoreMain or (not config.entries.main.model) or config.entries.main.pos + 2 ~= i end
+    local withoutMainLeft = function(i) return
+        (not config.isTerminal and isLeftTrack)
+            or ignoreMain
+            or (not config.entries.main.isLeft)
+            or (not config.entries.main.model)
+            or config.entries.main.pos + 2 ~= i
+    end
+    local withoutMainRight = function(i) return
+        (not config.isTerminal and isRightTrack)
+            or ignoreMain 
+            or config.entries.main.isLeft
+            or (not config.entries.main.model)
+            or config.entries.main.pos + 2 ~= i
+    end
     return {
         main = (not config.isTerminal and isLeftTrack) and {pos = false, model = false} or config.entries.main,
         street = {
-            func.mapi(config.entries.street[1], function(t, i) return t and withoutMain(i) and not isLeftTrack end),
-            func.mapi(config.entries.street[2], function(t, i) return t and not isRightTrack end),
+            func.mapi(config.entries.street[1], function(t, i) return t and withoutMainLeft(i) and not isLeftTrack end),
+            func.mapi(config.entries.street[2], function(t, i) return t and withoutMainRight(i) and not isRightTrack end),
         },
         underground = {
             func.mapi(config.entries.underground[1], function(t, i) return
-                (t or (isLeftTrack and config.entries.street[1][i])) and withoutMain(i) end),
-            func.mapi(config.entries.underground[2], function(t, i) return t or (isRightTrack and config.entries.street[2][i]) end),
+                (t or (isLeftTrack and config.entries.street[1][i])) and withoutMainLeft(i) end),
+            func.mapi(config.entries.underground[2], function(t, i) return
+                (t or (isRightTrack and config.entries.street[2][i])) and withoutMainRight(i) end)
         },
         allArcs = allArcs,
         arcCoords = arcCoords
@@ -1770,16 +1784,50 @@ ust.fencesGen = function(colorCode, styleCode)
 end
 
 ust.findIntersections = function(config)
+    local refZ = config.hPlatform + 0.53
     return function(allArcs)
         for i = 1, #allArcs - 1 do
             if allArcs[i].isPlatform and allArcs[i + 1].isPlatform then
                 local arcsL, arcsR = allArcs[i], allArcs[i + 1]
+
+                do
+                    local arcsLL, arcsRR = arcsL[1], arcsR[2]
+                    local lengthL = arcsLL(refZ)()()[1]:length()
+                    local lengthR = arcsRR(refZ)()()[1]:length()
+                    local lengthRoofL = arcsLL(refZ)(function(l) return l * config.roofLength end)()[1]:length()
+                    local lengthRoofR = arcsRR(refZ)(function(l) return l * config.roofLength end)()[1]:length()
+                    local gapL = lengthL - lengthRoofL
+                    local gapR = lengthR - lengthRoofR
+                    local mArcs = (lengthL > lengthR) and arcsL or arcsR
+                    local dislodge = abs(gapL - gapR)
+                    
+                    local roofArcs = {
+                        l = mArcs[1](refZ)(function(l) return l * config.roofLength end, dislodge),
+                        r = mArcs[2](refZ)(function(l) return l * config.roofLength end, dislodge)
+                    }
+                    
+                    local roof = {
+                        edge = arcGen(roofArcs, -0.5),
+                        surface = arcGen(roofArcs, 0.5)
+                    }
+                    
+                    local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(roof.edge.l, roof.edge.r, roof.surface.l, roof.surface.r)
+                    local lppc, rppc, ppc = ust.bitLatCoords(10)(roof.edge.l, roof.edge.r)
+                    
+                    mArcs.roof = {
+                                edge = func.with(roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
+                                surface = func.with(roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
+                                pole = func.with(roof.edge, {lc = lppc, rc = rppc, mc = mc(lppc, rppc), c = ppc})
+                            }
+                end
+                
+                
                 local greater = function(x, y) return x > y and x or y end
                 
                 local retriveBaseParams = function(arcsL, arcsR)
-                    local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
-                    
                     local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
+                    
+                    local intersection = (function(x) return x > max and max or x end)(greater(ust.coordIntersection(arcsL.rc, arcsR.lc)))
                     local r =
                         pipe.new
                         * (pipe.mapn(
@@ -1800,11 +1848,10 @@ ust.findIntersections = function(config)
                 end
                 
                 local intersection, commonLength = retriveBaseParams(arcsL.platform, arcsR.platform)
-                
                 local ln = line.byPtPt(arcsL.surface.rc[commonLength + 1], arcsR.surface.lc[commonLength + 1])
                 local retriveParams = function(arcsL, arcsR)
-                    local intersection = greater(ust.coordIntersection(arcsL.rc, arcsR.lc))
                     local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
+                    local intersection = (function(x) return x > max and max or x end)(greater(ust.coordIntersection(arcsL.rc, arcsR.lc)))
                     local commonLength =
                         pipe.exec
                         * function()
@@ -1832,7 +1879,6 @@ ust.findIntersections = function(config)
                 local roofPoleIntersection = retriveBaseParams(arcsL.roof.pole, arcsR.roof.pole)
                 local chairIntersection = retriveBaseParams(arcsL.chair, arcsR.chair)
                 local laneIntersection, laneCommonLength = retriveParams(arcsL.laneEdge, arcsR.laneEdge)
-                
                 
                 local ptL = arcsL.surface.lc[intersection]
                 local ptR = arcsR.surface.rc[intersection]
@@ -1925,23 +1971,23 @@ ust.safeBuild = function(params, updateFn)
         pipe.mapPair(function(i) return i.key, i.defaultIndex or 0 end)
     
     return function(param)
-            -- local r, result = xpcall(
-            --     updateFn,
-            --     function(e)
-            --         print("========================")
-            --         print("Ultimate Station failure")
-            --         print("Algorithm failure:", debug.traceback())
-            --         print("Params:")
-            --         func.forEach(
-            --             params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
-            --             function(i)print(i.key .. ": " .. param[i.key]) end)
-            --         print("End of Ultimate Station failure")
-            --         print("========================")
-            --     end,
-            --     defaultParams(param)
-            -- )
-            -- return r and result or updateFn(defaultParams(paramsOnFail))
-            return updateFn(defaultParams(param))
+            local r, result = xpcall(
+                updateFn,
+                function(e)
+                    print("========================")
+                    print("Ultimate Station failure")
+                    print("Algorithm failure:", debug.traceback())
+                    print("Params:")
+                    func.forEach(
+                        params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
+                        function(i)print(i.key .. ": " .. param[i.key]) end)
+                    print("End of Ultimate Station failure")
+                    print("========================")
+                end,
+                defaultParams(param)
+            )
+            return r and result or updateFn(defaultParams(paramsOnFail))
+            -- return updateFn(defaultParams(param))
     end
 end
 
