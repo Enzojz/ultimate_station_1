@@ -114,8 +114,6 @@ local function params()
         + ustm.fence
         + ustm.alt
 end
-local il = pipe.interlace({"s", "i"})
-
 
 local arcPacker = function(length, slope, rot, con)
     return function(radius, o, lengthVar, dislodge)

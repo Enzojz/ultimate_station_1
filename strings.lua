@@ -75,6 +75,9 @@ Platform variations:
 * Unaffected platforms: The percentage of unaffected platforms among all platforms, they are all round the reference.
 
 Changelog:
+1.9
+- Fixed polygen error on half-triangle station when length on part A is different to part B
+- Add option to adjust common radius part length
 1.8
 - Add main entry side option
 - Fixed polygen error on triangle station when length on part A is different to part B
@@ -300,6 +303,9 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 * 未受影响的站台：所有车站中未受影响站台的百分比，他们都在参照物两侧。 
 
 更新日志：
+1.9
+- 修复了半三角车站下A/B部分长度不同导致的多边形渲染错误
+- 增加了调整半三角车站共用半径部分长度的选项
 1.8
 - 增加了主入口左右侧位置的选项
 - 修复了三角车站下A/B部分长度不同导致的多边形渲染错误
@@ -457,6 +463,7 @@ function data()
             ["Convering Angle"] = "夹角",
             ["Roof length"] = "雨棚长度",
             ["Central Platforms Common Block Length"] = "中央站台共享区域长度",
+            ["Common Radius Part Length"] = "共半径部分长度",
 
             ["Progressive/Counter Curvature Station"] = "渐进曲线/反向曲线车站",
             ["Station that platform and track parameters can be fine-tuned, with two different radii at two extremities of the platforms."] 
