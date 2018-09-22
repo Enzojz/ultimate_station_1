@@ -2,6 +2,8 @@ local func = require "ustation/func"
 local pipe = require "ustation/pipe"
 local coor = require "ustation/coor"
 
+local abs = math.abs
+
 local stationlib = {
     platformWidth = 5,
     trackWidth = 5,
@@ -111,8 +113,20 @@ stationlib.setMirror = function(isMirror)
     end
 end
 
+stationlib.cleanPoly = function(poly)
+    return pipe.new * poly
+    * function(p) return ((p[2] - p[1]):cross(p[3] - p[2]).z > 0 and pipe.noop() or pipe.rev())(poly) end
+    * function(p) return #p == 4 and abs((p[1] - p[2]):cross(p[3] - p[2]).z) < 0.1 and {p[1], p[3], p[4]} or p end
+    * function(p) return #p == 4 and abs((p[2] - p[3]):cross(p[4] - p[3]).z) < 0.1 and {p[1], p[2], p[4]} or p end
+    * function(p) return #p == 4 and abs((p[3] - p[4]):cross(p[1] - p[4]).z) < 0.1 and {p[1], p[2], p[3]} or p end
+    * function(p) return #p == 4 and abs((p[4] - p[1]):cross(p[2] - p[1]).z) < 0.1 and {p[2], p[3], p[4]} or p end
+    * function(p) return #p == 3 and abs((p[1] - p[2]):cross(p[3] - p[2]).z) < 0.1 and nil or p end
+end
+
 stationlib.finalizePoly = function(poly)
-    return func.map(((poly[2] - poly[1]):cross(poly[3] - poly[2]).z > 0 and pipe.noop() or pipe.rev())(poly), coor.vec2Tuple)
+    return pipe.new * poly
+    * stationlib.cleanPoly
+    * pipe.map(coor.vec2Tuple)
 end
 
 stationlib.mergePoly = function(...)

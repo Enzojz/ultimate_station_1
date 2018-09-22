@@ -577,7 +577,7 @@ local buildSecondEntrySlope = function(config, entryConfig)
                     * pipe.mapi(function(sizes, i)
                         local isLeftmost = i == 0
                         return func.map(sizes.pt, function(p)
-                            return station.newModel("ust/person_lane.mdl", ust.mRot(sizes.ac - p), coor.trans(p))
+                            return ust.unitLane(p, sizes.ac)
                         end)
                     end)
                     +
@@ -590,8 +590,8 @@ local buildSecondEntrySlope = function(config, entryConfig)
                         local pt1 = p + (v .. coor.rotZ(0.5 * pi)) * 3
                         local pt2 = p + (v .. coor.rotZ(-0.5 * pi)) * 3
                         return {
-                            station.newModel("ust/person_lane.mdl", ust.mRot(e - pt1), coor.trans(pt1)),
-                            station.newModel("ust/person_lane.mdl", ust.mRot(e - pt2), coor.trans(pt2))
+                            ust.unitLane(e, pt1),
+                            ust.unitLane(e, pt2)
                         }
                     end)
             end)
@@ -678,12 +678,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
                 {})
             + func.map(
                 il(func.range(pl.mc, pl.c - 3, pl.c + 3)),
-                function(c)
-                    local b = c.i
-                    local t = c.s
-                    local vec = t - b
-                    return station.newModel("ust/person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
-                end
+                function(c) return ust.unitLane(c.i .. coor.transZ(-3.5), c.s .. coor.transZ(-3.5)) end
         )
         end
         
@@ -710,12 +705,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
                     ((pl.intersection < pl.c + 3) and
                     func.map(
                         il(func.range(pl.mc, func.max({pl.intersection, pl.c - 3}), pl.c + 3)),
-                        function(c)
-                            local b = c.i
-                            local t = c.s
-                            local vec = t - b
-                            return station.newModel("ust/person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
-                        end
+                        function(c) return ust.unitLane(c.i .. coor.transZ(-3.5), c.s .. coor.transZ(-3.5)) end
                     ) or
                     {})
             end
@@ -742,18 +732,13 @@ local buildEntry = function(config, entryConfig, retriveRef)
                     ((pl.intersection > pl.c - 3) and
                     func.map(
                         il(func.range(pl.mc, pl.c - 3, func.min({pl.intersection, pl.c + 3}))),
-                        function(c)
-                            local b = c.i
-                            local t = c.s
-                            local vec = t - b
-                            return station.newModel("ust/person_lane.mdl", ust.mRot(vec), coor.trans(b), coor.transZ(-3.5))
-                        end
+                        function(c) return ust.unitLane(c.i .. coor.transZ(-3.5), c.s .. coor.transZ(-3.5)) end
                     ) or
                     {})
                     +
                     ((pl.intersection > pl.c - 3) and (pl.intersection < pl.c + 3) and {
-                        station.newModel("ust/person_lane.mdl", ust.mRot(l.platformO.mc[pl.intersection] - pl.mc[pl.intersection]), coor.trans(pl.mc[pl.intersection]), coor.transZ(-3.5)),
-                        station.newModel("ust/person_lane.mdl", ust.mRot(r.platformO.mc[pl.intersection] - pl.mc[pl.intersection]), coor.trans(pl.mc[pl.intersection]), coor.transZ(-3.5))
+                        ust.unitLane(pl.mc[pl.intersection] .. coor.transZ(-3.5), l.platformO.mc[pl.intersection] .. coor.transZ(-3.5)),
+                        ust.unitLane(pl.mc[pl.intersection] .. coor.transZ(-3.5), r.platformO.mc[pl.intersection] .. coor.transZ(-3.5))
                     } or {})
             end
             
@@ -813,7 +798,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
             * (function(ls) return {ls * pipe.map(pipe.select(1)), ls * pipe.map(pipe.select(2)), ls * pipe.map(pipe.select(3))} end)
             * pipe.map(pipe.filter(pipe.noop()))
             * pipe.map(pipe.interlace({"l", "r"}))
-            * pipe.map(pipe.map(function(pt) return station.newModel("ust/person_lane.mdl", ust.mRot((pt.l - pt.r)), coor.trans(pt.r)) end))
+            * pipe.map(pipe.map(function(pt) return ust.unitLane(pt.r, pt.l) end))
             * pipe.flatten()
     end
     

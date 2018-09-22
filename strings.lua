@@ -75,6 +75,8 @@ Platform variations:
 * Unaffected platforms: The percentage of unaffected platforms among all platforms, they are all round the reference.
 
 Changelog:
+1.10
+- Fixed crash on certain configuration on triangle-like station
 1.9
 - Fixed polygen error on half-triangle station when length on part A is different to part B
 - Add option to adjust common radius part length
@@ -303,6 +305,8 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 * 未受影响的站台：所有车站中未受影响站台的百分比，他们都在参照物两侧。 
 
 更新日志：
+1.10
+- 修复了三角车站类在某些长度下的游戏奔溃
 1.9
 - 修复了半三角车站下A/B部分长度不同导致的多边形渲染错误
 - 增加了调整半三角车站共用半径部分长度的选项
