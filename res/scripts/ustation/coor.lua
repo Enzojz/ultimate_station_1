@@ -31,6 +31,7 @@ local func = require "ustation/func"
 local coor = {}
 coor.make = laneutil.makeLanes
 
+local math = math
 local sin = math.sin
 local cos = math.cos
 local sqrt = math.sqrt
