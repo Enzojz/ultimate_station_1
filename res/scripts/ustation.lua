@@ -7,6 +7,7 @@ local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
 local ust = {}
 
+local math = math
 local pi = math.pi
 local abs = math.abs
 local ceil = math.ceil

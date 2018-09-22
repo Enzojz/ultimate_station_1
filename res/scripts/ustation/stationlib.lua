@@ -1,7 +1,9 @@
 local func = require "ustation/func"
 local pipe = require "ustation/pipe"
 local coor = require "ustation/coor"
+local line = require "ustation/coorline"
 
+local math = math
 local abs = math.abs
 
 local stationlib = {
@@ -115,7 +117,22 @@ end
 
 stationlib.cleanPoly = function(poly)
     return pipe.new * poly
-    * function(p) return ((p[2] - p[1]):cross(p[3] - p[2]).z > 0 and pipe.noop() or pipe.rev())(poly) end
+    * function(p)
+        if (#p ~= 4) then 
+            return p
+        else
+            local line12 = line.byPtPt(p[1], p[2])
+            local line34 = line.byPtPt(p[3], p[4])
+            local x = line12 - line34
+            return
+                x
+                and (p[1] - x):dot(p[2] - x) < 0
+                and (p[3] - x):dot(p[4] - x) < 0
+                and {p[1], p[3], p[2], p[4]}
+                or p
+        end
+    end
+    * function(p) return #p == 4 and p * ((p[2] - p[1]):cross(p[3] - p[2]).z > 0 and pipe.noop() or pipe.rev()) or p end
     * function(p) return #p == 4 and abs((p[1] - p[2]):cross(p[3] - p[2]).z) < 0.1 and {p[1], p[3], p[4]} or p end
     * function(p) return #p == 4 and abs((p[2] - p[3]):cross(p[4] - p[3]).z) < 0.1 and {p[1], p[2], p[4]} or p end
     * function(p) return #p == 4 and abs((p[3] - p[4]):cross(p[1] - p[4]).z) < 0.1 and {p[1], p[2], p[3]} or p end

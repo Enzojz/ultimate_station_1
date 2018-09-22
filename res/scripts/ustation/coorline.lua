@@ -1,7 +1,7 @@
 local coor = require "ustation/coor"
 local line = {}
 
-
+local math = math
 local sin = math.sin
 local cos = math.cos
 
@@ -63,13 +63,18 @@ function line.intersection(l1, l2)
     local b1 = -l1.c
     local b2 = -l2.c
     
-    local idet = 1 / (a11 * a22 - a21 * a12)
-    local c11 = a22 * idet
-    local c12 = -a12 * idet
-    local c21 = -a21 * idet
-    local c22 = a11 * idet
-    
-    return coor.xy(c11 * b1 + c12 * b2, c21 * b1 + c22 * b2)
+    local iidet = (a11 * a22 - a21 * a12)
+    if (iidet == 0) then 
+        return nil
+    else
+        local idet = 1 / iidet
+        local c11 = a22 * idet
+        local c12 = -a12 * idet
+        local c21 = -a21 * idet
+        local c22 = a11 * idet
+        
+        return coor.xy(c11 * b1 + c12 * b2, c21 * b1 + c22 * b2)
+    end
 end
 
 return line

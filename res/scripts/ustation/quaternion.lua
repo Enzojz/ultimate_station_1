@@ -30,6 +30,7 @@ local func = require "ustation/func"
 local coor = require "ustation/coor"
 local quaternion = {}
 
+local math = math
 local sin = math.sin
 local cos = math.cos
 local sqrt = math.sqrt
