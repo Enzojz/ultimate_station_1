@@ -876,37 +876,6 @@ local buildEntry = function(config, entryConfig, retriveRef)
     }
 end
 
-ust.preBuild = function(totalTracks, nbTransitTracks, posTransitTracks, ignoreFst, ignoreLst)
-    local function preBuild(nbTracks, result)
-        local p = false
-        local t = true
-        local transitSeq = pipe.new * pipe.rep(nbTransitTracks)(t)
-        if (nbTracks == 0) then
-            local result = ignoreLst and result or (result[#result] and (result / p) or result)
-            if (#transitSeq > 0) then
-                if (posTransitTracks == 1) then
-                    result = result + transitSeq
-                else
-                    local idx = result * pipe.zip(func.seq(1, #result), {"t", "i"}) * pipe.filter(function(p) return not p.t end) * pipe.map(pipe.select("i"))
-                    result = result * pipe.range(1, idx[ceil(#idx * 0.5)]) + transitSeq + result * pipe.range(idx[ceil(#idx * 0.5)] + 1, #result)
-                end
-            end
-            return result
-        elseif (nbTracks == totalTracks and ignoreFst) then
-            return preBuild(nbTracks - 1, result / t / p)
-        elseif (nbTracks == totalTracks and not ignoreFst) then
-            return preBuild(nbTracks - 1, result / p / t)
-        elseif (nbTracks == 1 and ignoreLst) then
-            return preBuild(nbTracks - 1, ((not result) or result[#result]) and (result / p / t) or (result / t))
-        elseif (nbTracks == 1 and not ignoreLst) then
-            return preBuild(nbTracks - 1, result / t / p)
-        else
-            return preBuild(nbTracks - 2, result / t / p / t)
-        end
-    end
-    return preBuild
-end
-
 return {
     buildEntry = buildEntry,
     buildSecondEntrySlope = buildSecondEntrySlope,

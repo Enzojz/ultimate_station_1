@@ -344,17 +344,24 @@ ust.generateEdgesTerminal = function(edges, isLeft, arcPacker)
         }
 end
 
+local retriveLanes = function(config)
+    return 
+    (config.isCargo and "ust/terminal_cargo_lane.mdl" or "ust/terminal_lane.mdl"),
+    (config.isCargo and "ust/standard_cargo_lane.mdl" or "ust/standard_lane.mdl")
+end
+
 ust.generateTerminals = function(config)
     local platformZ = config.hPlatform + 0.53
     local edgeRule = config.isTerminal and function(edges) return #edges * 8 - 12 end or function(edges) return #edges * 8 - 16 end
+    local terminalLane, standardLane = retriveLanes(config)
     return function(edges, terminals, terminalsGroup, arcs, enablers)
         local lc, rc, c = arcs.lane.lc, arcs.lane.rc, arcs.lane.c
         local newTerminals = pipe.new
             * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
-                    l = station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i)),
-                    r = station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(rc.i - rc.s), coor.trans(rc.s)),
-                    link = (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel("ust/standard_lane.mdl", ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
+                    l = station.newModel(enablers[1] and terminalLane or standardLane, ust.mRot(lc.s - lc.i), coor.trans(lc.i)),
+                    r = station.newModel(enablers[2] and terminalLane or standardLane, ust.mRot(rc.i - rc.s), coor.trans(rc.s)),
+                    link = (lc.s:avg(lc.i) - rc.s:avg(rc.i)):length() > 0.5 and station.newModel(standardLane, ust.mRot(lc.s:avg(lc.i) - rc.s:avg(rc.i)), coor.trans(rc.i:avg(rc.s)))
                 }
             end)
             * function(ls)
@@ -1378,6 +1385,7 @@ ust.buildTerminalModels = function(fitModel, config)
 end
 
 ust.buildTerminal = function(fitModel, config)
+    local terminalLane, standardLane = retriveLanes(config)
     local refZ = config.hPlatform + 0.53
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local buildModels = ust.buildTerminalModels(fitModel, config)
@@ -1430,15 +1438,15 @@ ust.buildTerminal = function(fitModel, config)
             * function(gr)
                 return gr * pipe.map(function(g)
                     return {
-                        station.newModel("ust/standard_lane.mdl", ust.mRot(g.c - g.l), coor.trans(g.l)),
-                        station.newModel("ust/standard_lane.mdl", ust.mRot(g.c - g.r), coor.trans(g.r))
+                        station.newModel(standardLane, ust.mRot(g.c - g.l), coor.trans(g.l)),
+                        station.newModel(standardLane, ust.mRot(g.c - g.r), coor.trans(g.r))
                     }
                 end)
                 * pipe.flatten()
                 + gr
                 * pipe.map(pipe.select("c"))
                 * il
-                * pipe.map(function(g) return station.newModel("ust/standard_lane.mdl", ust.mRot(g.s - g.i), coor.trans(g.s)) end)
+                * pipe.map(function(g) return station.newModel(standardLane, ust.mRot(g.s - g.i), coor.trans(g.s)) end)
             end
             + m, t
     end
@@ -1990,6 +1998,41 @@ ust.safeBuild = function(params, updateFn)
             return r and result or updateFn(defaultParams(paramsOnFail))
             -- return updateFn(defaultParams(param))
     end
+end
+
+ust.preBuild = function(totalTracks, nbTransitTracks, posTransitTracks, ignoreFst, ignoreLst)
+    local function preBuild(nbTracks, result)
+        local p = false
+        local t = true
+        local transitSeq = pipe.new * pipe.rep(nbTransitTracks)(t)
+        if (nbTracks == 0) then
+            local result = ignoreLst and result or (result[#result] and (result / p) or result)
+            if (#transitSeq > 0) then
+                if (posTransitTracks == 1) then
+                    result = result + transitSeq
+                elseif (posTransitTracks == -2) then
+                    result = transitSeq + result
+                elseif (posTransitTracks == 0) then
+                    result = pipe.new * pipe.rep(ceil(nbTransitTracks * 0.5))(t) + result + pipe.new * pipe.rep(floor(nbTransitTracks * 0.5))(t)
+                else
+                    local idx = result * pipe.zip(func.seq(1, #result), {"t", "i"}) * pipe.filter(function(p) return not p.t end) * pipe.map(pipe.select("i"))
+                    result = result * pipe.range(1, idx[ceil(#idx * 0.5)]) + transitSeq + result * pipe.range(idx[ceil(#idx * 0.5)] + 1, #result)
+                end
+            end
+            return result
+        elseif (nbTracks == totalTracks and ignoreFst) then
+            return preBuild(nbTracks - 1, result / t / p)
+        elseif (nbTracks == totalTracks and not ignoreFst) then
+            return preBuild(nbTracks - 1, result / p / t)
+        elseif (nbTracks == 1 and ignoreLst) then
+            return preBuild(nbTracks - 1, ((not result) or result[#result]) and (result / p / t) or (result / t))
+        elseif (nbTracks == 1 and not ignoreLst) then
+            return preBuild(nbTracks - 1, result / t / p)
+        else
+            return preBuild(nbTracks - 2, result / t / p / t)
+        end
+    end
+    return preBuild
 end
 
 return ust

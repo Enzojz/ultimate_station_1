@@ -1,0 +1,151 @@
+local paramsutil = require "paramsutil"
+local func = require "ustation/func"
+local coor = require "ustation/coor"
+local line = require "ustation/coorline"
+local trackEdge = require "ustation/trackedge"
+local station = require "ustation/stationlib"
+local quat = require "ustation/quaternion"
+local pipe = require "ustation/pipe"
+local ust = require "ustation"
+local uste = require "ustation_entries"
+local ustm = require "ustation_menu"
+
+local ma = math
+
+local abs = ma.abs
+local ceil = ma.ceil
+local floor = ma.floor
+local pi = ma.pi
+local atan = ma.atan
+local pow = ma.pow
+local cos = ma.cos
+local sin = ma.sin
+local asin = ma.asin
+local min = ma.min
+local e = ma.exp(1)
+local log = ma.log
+local log10 = log(10)
+
+local prefixM = "ust/1990/"
+local models = ust.models(prefixM)
+
+local function params()
+    return {}
+end
+
+local function findMarkers()
+    return pipe.new
+        * game.interface.getEntities({pos = {0, 0}, radius = 900000})
+        * pipe.map(game.interface.getEntity)
+        * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station_planner.con") end)
+        * pipe.sort(function(x, y) return x.dateBuilt.year < y.dateBuilt.year or x.dateBuilt.month < y.dateBuilt.month or x.dateBuilt.day < y.dateBuilt.day or x.id < y.id end)
+end
+
+local updateFn = function()
+    local markers = findMarkers()
+    -- local _ = markers * pipe.range(2, #markers) * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
+    if (#markers == 2) then
+        local s, e = table.unpack(markers)
+        local posS, rotS, _ = coor.decomposite(s.transf)
+        local posE, rotE, _ = coor.decomposite(e.transf)
+        local vecS = coor.xyz(1, 0, 0) .. rotS
+        local vecE = coor.xyz(1, 0, 0) .. rotE
+        local lnS = line.byVecPt(vecS, posS)
+        local lnE = line.byVecPt(vecE, posE)
+        local x = lnS - lnE
+        if (x) then
+            if (x) then
+                game.interface.setZone("ust", {
+                    polygon = func.map({posS, posS + vecS * 10, x, posE + vecE * 10, posE}, function(i) return {i.x, i.y} end),
+                    draw = true,
+                    drawColor = {0.3, 0.3, 1, 1}
+                })
+            end
+            local vecXS = x - posS
+            local vecXE = x - posE
+            if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
+                if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
+                    local lb = vecXS:length()
+                    local vecES = posE - posS
+                    local m = (posE + posS) * 0.5
+                    local vecMX = m - x
+                    local o = x + vecMX:normalized() * (lb * lb / vecMX:length())
+                    local r = (o - posS):length()
+                    local vecOS = o - posS
+                    local vecOE = o - posE
+                    local r = vecOS:length()
+                    local sina = vecOS:normalized():cross(vecOE:normalized())
+                    local cosa = vecOS:normalized():dot(vecOE:normalized())
+                    local rad = asin(sina)
+                    local length = abs(rad * r)
+                    
+                    game.interface.setZone("ust2", {
+                        polygon = func.seqMap({1, 19}, 
+                            function(i) 
+                                local rad = i * pi / 10; 
+                                return {sin(rad) * r + o.x, cos(rad) * r + o.y}
+                            end
+                        ),
+                        draw = true,
+                        drawColor = {0.3, 0.3, 1, 1}
+                    })
+                end
+            else
+            
+            end
+        end
+    end
+    return {
+        models = {
+            {          
+                id = "uus/placeMarker.mdl",
+                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+            }
+        },
+        edgeLists = {
+			{
+				type = "TRACK",
+				params = {
+					type = "standard.lua",
+					catenary = false
+				},
+				edges = {
+					{ { 0.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
+					{ { 10.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
+					{ { 10.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
+					{ { 20.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
+				},
+				snapNodes = { 0 }
+			}
+		},
+        cost = 0,
+        bulldozeCost = 0,
+        maintenanceCost = 0,
+        terrainAlignmentLists = {
+            {
+                type = "EQUAL",
+                faces = {}
+            }
+        }
+    }
+end
+
+function data()
+    return {
+        type = "RAIL_STATION",
+        -- buildMode = "MULTI",
+        description = {
+            name = _("Ultimate Station Planner"),
+            description = _("")
+        },
+        availability = {
+            yearFrom = 1850,
+            yearTo = 0,
+        },
+        order = 5011,
+        skipCollision = true,
+        autoRemovable = false,
+        params = params(),
+        updateFn = updateFn
+    }
+end

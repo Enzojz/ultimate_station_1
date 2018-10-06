@@ -65,7 +65,7 @@ local applyResult = function(mpt, mvec, mirrored)
             return func.with(edgeList, {edges = func.map(edgeList.edges, coor.applyEdge(mpt, mvec))})
         end
         
-        local mapModel = function(model) return func.with(model, {transf = model.transf * mpt}) end
+        local mapModel = function(model) return func.with(model, {transf = coor.I() * model.transf * mpt}) end
         
         local mapTerrainList = function(ta)
             local mapTerrain = function(t) return (coor.tuple2Vec(t) .. mpt):toTuple() end
@@ -84,6 +84,15 @@ local applyResult = function(mpt, mvec, mirrored)
                 terrainAlignmentLists = result.terrainAlignmentLists and func.map(result.terrainAlignmentLists, mapTerrainList) or {},
                 groundFaces = result.groundFaces and func.map(result.groundFaces, mapGroundFaces) or {}
             })
+    end
+end
+
+
+
+stationlib.setTransform = function(m)
+    return function(result)
+        local _, mr, _ = coor.decomposite(m)
+        return applyResult(m, mr)(result)
     end
 end
 
@@ -194,6 +203,41 @@ stationlib.mergePoly = function(...)
             }
             * pipe.filter(function(e) return #e.faces > 0 end)
         end
+end
+
+stationlib.mergeResults = function(...)
+    local function merge(edgeLists, models, terminalGroups, terrainAlignmentLists, r, ...)
+        if (r) then
+            local count = {
+                terminal = #models,
+                edges = func.fold(edgeLists, 0, function(c, e) return c + #e.edges end)
+            }
+            return merge(
+                edgeLists + r.edgeLists,
+                models + r.models,
+                terminalGroups + 
+                    func.map(
+                        r.terminalGroups,
+                        function(t)
+                            return { 
+                                terminals = func.map(t.terminals, function(t) return {t[1] + count.terminal, t[2]} end),
+                                vehicleNodeOverride = t.vehicleNodeOverride + count.edges
+                            }
+                        end
+                    ),
+                terrainAlignmentLists + r.terrainAlignmentLists,
+                ...
+            )
+        else
+            return {
+                edgeLists = edgeLists,
+                models = models,
+                terminalGroups = terminalGroups,
+                terrainAlignmentLists = terrainAlignmentLists
+            }
+        end
+    end
+    return merge(pipe.new, pipe.new, pipe.new, pipe.new, ...)
 end
 
 return stationlib

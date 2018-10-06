@@ -75,6 +75,10 @@ Platform variations:
 * Unaffected platforms: The percentage of unaffected platforms among all platforms, they are all round the reference.
 
 Changelog:
+1.11
+- Fixed wrong calculation on transit track position
+- Added the option to put the main entry to sides on triangle station
+- Added French translation
 1.10
 - Fixed crash on certain configuration on triangle-like station
 - Fixed crash on certain radius configuration on triangle-like station
@@ -306,6 +310,10 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 * 未受影响的站台：所有车站中未受影响站台的百分比，他们都在参照物两侧。 
 
 更新日志：
+1.11
+- 修复了错误的正线位置计算
+- 增加了三角车站主入口位置的选项
+- 增加了法语翻译
 1.10
 - 修复了三角车站类在某些长度下的游戏奔溃
 - 修复了三角车站类在某些半径下的游戏奔溃
@@ -470,6 +478,9 @@ function data()
             ["Roof length"] = "雨棚长度",
             ["Central Platforms Common Block Length"] = "中央站台共享区域长度",
             ["Common Radius Part Length"] = "共半径部分长度",
+            ["Main entry to central platform"] = "入口位于中央站台",
+            ["Never"] = "从不",
+            ["Possible"] = "可能",
 
             ["Progressive/Counter Curvature Station"] = "渐进曲线/反向曲线车站",
             ["Station that platform and track parameters can be fine-tuned, with two different radii at two extremities of the platforms."] 
@@ -486,6 +497,81 @@ function data()
             ["Terminal Station"] = "尽头式车站",
             ["Terminal Station that platform and track parameters can be fine-tuned, with single reference radius."] 
             = "拥有一个参考曲率，可以进行站台参数微调的尽头式车站.",
+        },
+        fr_FR = {
+            ["name"] = "Gare ultime",
+            ["desc"] = descEN,
+            ["Number of tracks"] = "Nombre de voie",
+            ["Transit Tracks"] = "Nombre de voie centrale",
+            ["Position"] = "Position",
+            ["Left"] = "Gauche",
+            ["Centre"] = "Centre",
+            ["Sides"] = "Côtes",
+            ["Right"] = "Droit",
+            ["Radius"] = "Rayon",
+            ["Platform"] = "Quai",
+            ["Length"] = "Longeur",
+            ["Outter"] = "Exterieur",
+            ["Polarity"] = "Polarité",
+            ["Platform Variation"] = "Variation de plateforme",
+            ["Narrowest Extremity Width"] = "Largeur réduit d'extrémité",
+            ["Uniform"] = "Uniforme",
+            ["Linear"] = "Linéaire",
+            ["Quadratic"] = "Quadratique",
+            ["Quartic"] = "Quartique ",
+            ["Gaussian"] = "Gaussien",
+            ["Gaussian 2"] = "Gaussien2",
+            ["Shortest Platform"] = "Longueur plus réduit",
+            ["Offset Platform Max."] = "Decalage maxi.",
+            ["Track"] = "Voie",
+            ["Reference"] = "Référenceiel",
+            ["Center"] = "Centre",
+            ["Unaffected platforms"] = "Quai non varié",
+            ["Main Entry"] = "Entrée principale",
+            ["None"] = "Aucun",
+            ["Central"] = "Centrale",
+            ["Both"] = "Tous",
+            ["Entry"] = "Entrée",
+            ["Underground"] = "Sous-terrain",
+            ["Surface"] = "Surface",
+            ["Fences"] = "Clôture",
+            ["Fences Style"] = "Style",
+            ["Fences Color"] = "Couleur",
+            ["White"] = "Blanc",
+            ["Green"] = "Vert",
+            ["Yellow"] = "Jeune",
+            ["Slope"] = "Gradient",
+            ["General Altitude"] = "Altitude générale",
+            ["Height"] = "Hauteur",
+            ["Width"] = "Largeur",
+            ["Leftmost Platform"] = "Quai plus gauche",
+            ["Central Platform"] = "Quai central",
+            ["Rightmost Platform"] = "Quai plus droite",
+            ["No"] = "Non",
+            ["Yes"] = "Oui",
+            ["Convering Angle"] = "Angle de convergence",
+            ["Roof length"] = "Longeur de toit",
+            ["Central Platforms Common Block Length"] = "Longeur partagé du quai central",
+            ["Common Radius Part Length"] = "Longueur du courbe partagé",
+            ["Main entry to central platform"] = "Entrée principale à quai central",
+            ["Never"] = "Jamais",
+            ["Possible"] = "Possible",
+
+            ["Progressive/Counter Curvature Station"] = "Gare sur courbes des rayons différents",
+            ["Station that platform and track parameters can be fine-tuned, with two different radii at two extremities of the platforms."] 
+            = "Gare ayant quais et voies sur deux courbes différents, avec possibilité de varier les largeur, longueur et les positions des quais.",
+            ["Half-triangle Station"] = "Gare en demi-triangle",
+            ["Station that platform and track parameters can be fine-tuned, with two different radii on two sides of the station for half of the platforms, and one consistent radius for the other half."] 
+            = "Gare ayant quais et voies sur deux courbes des rayons différents sur une partie du côté gauche et du côté droite, et un courbe unifié sur une partie commune, avec possibilité de varier les largeur, longueur et les positions des quais.",
+            ["Triangle Station"] = "Gare en triangle",
+            ["Station that platform and track parameters can be fine-tuned, with two different radii on two sides of the station."] 
+            = "Gare ayant quais et voies sur deux courbes des rayons différents sur le côté gauche et le côté droite, avec possibilité de varier les largeur, longueur et les positions des quais.",
+            ["Generic Station"] = "Gare générale",
+            ["Station that platform and track parameters can be fine-tuned, with single reference radius."] 
+            = "Gare ayant quais et voies un courbe unifié, avec possibilité de varier les largeur, longueur et les positions des quais.",
+            ["Terminal Station"] = "Gare terminale",
+            ["Terminal Station that platform and track parameters can be fine-tuned, with single reference radius."] 
+            = "Gare termiale ayant quais et voies un courbe unifié, avec possibilité de varier les largeur, longueur et les positions des quais.",
         }
     }
 end

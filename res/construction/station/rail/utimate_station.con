@@ -1,6 +1,7 @@
 local paramsutil = require "paramsutil"
 local func = require "ustation/func"
 local coor = require "ustation/coor"
+local arc = require "ustation/coorarc"
 local line = require "ustation/coorline"
 local trackEdge = require "ustation/trackedge"
 local station = require "ustation/stationlib"
@@ -20,6 +21,7 @@ local atan = ma.atan
 local pow = ma.pow
 local cos = ma.cos
 local sin = ma.sin
+local asin = ma.asin
 local min = ma.min
 local e = ma.exp(1)
 local log = ma.log
@@ -28,10 +30,29 @@ local log10 = log(10)
 local prefixM = "ust/1990/"
 local models = ust.models(prefixM)
 
+local pure = function(pa)
+    local params = {}
+    for key,value in pairs(pa) do
+        if (key ~= "seed") then
+            params[key] = value
+        end
+    end
+    return params
+end
+
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
     return
         pipe.new
+        + 
+        {
+            {
+                key = "override",
+                name = _("Use Planner"),
+                values = {_("No"), _("Preview"), _("Build")},
+                defaultIndex = 0
+            }
+        }
         + ustm.trackType
         +
         {
@@ -174,7 +195,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local allArcs = pipe.exec * function()
         local o = coor.xyz(config.r, 0, 0)
-        
+
         if table.unpack(middleGroup).t then
             return generateArcs(
                 {
@@ -216,6 +237,11 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     * ust.allArcs(config)
     
     local arcCoords = allArcs * pipe.filter(function(a) return a.isPlatform end)
+    local trackCoords = allArcs * pipe.filter(function(a) return a.isTrack end) * pipe.map(function(a)
+        local ar = a[1]()()()()[1]
+        return ar:pt(ar.inf)
+    end
+    )
     local entryConfig = ust.entryConfig(config, allArcs, arcCoords)
     
     local build = ust.build(
@@ -226,11 +252,222 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
+    return 
+        table.unpack(
+            pipe.new * {build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))} / trackCoords
+        )
+end
+
+local function findMarkers()
+    return pipe.new
+        * game.interface.getEntities({pos = {0, 0}, radius = 900000})
+        * pipe.map(game.interface.getEntity)
+        * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station_planner.con") end)
+        * pipe.sort(function(x, y) return x.dateBuilt.year < y.dateBuilt.year or x.dateBuilt.month < y.dateBuilt.month or x.dateBuilt.day < y.dateBuilt.day or x.id < y.id end)
+end
+
+local function findPreviews()
+    return pipe.new
+        * game.interface.getEntities({pos = {pos.x, pos.y}, radius = r})
+        * pipe.map(game.interface.getEntity)
+        * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station.con") and data.params.showPreview end)
+end
+
+local updatePlanner = function(params, markers)
+
+    local retriveParams = function()
+        local s, e = table.unpack(markers)
+        local posS, rotS, _ = coor.decomposite(s.transf)
+        local posE, rotE, _ = coor.decomposite(e.transf)
+        local vecS = coor.xyz(1, 0, 0) .. rotS
+        local vecE = coor.xyz(1, 0, 0) .. rotE
+        local lnS = line.byVecPt(vecS, posS)
+        local lnE = line.byVecPt(vecE, posE)
+        local x = lnS - lnE
+        if (x) then
+            local vecXS = x - posS
+            local vecXE = x - posE
+            if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
+                if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
+                    local lb = vecXS:length()
+                    local vecES = posE - posS
+                    local m = (posE + posS) * 0.5
+                    local vecMX = (m - x):normalized():withZ(0)
+                    local o = x + vecMX * (lb * lb / vecMX:length())
+                    local r = (o - posS):length()
+                    local vecOS = o - posS
+                    local vecOE = o - posE
+                    local radius = vecOS:length()
+                    local sina = vecOS:normalized():cross(vecOE:normalized())
+                    local cosa = vecOS:normalized():dot(vecOE:normalized())
+                    local rad = asin(sina)
+                    local length = abs(rad * radius) - 15
+                    local ar = arc.byOR(o, r)
+                    
+                    return m, vecES:length(), 
+                        radius, length, 
+                        quat.byVec(coor.xyz(1, 0, 0), vecMX):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(0))
+                end
+            else
+            
+            end
+        end
+    end
+
+    local pos, r, radius, length, transf = retriveParams()
+
+    if (params.showPreview) then
+        local buildingList, buildingParamsList = require("ustation_building")("ust/1990/")
+        local trackType = ustm.trackList[params.trackType + 1]
+        local trackWidth = ustm.trackWidthList[params.trackType + 1]
+        local catenary = params.catenary == 1
+        local trackBuilder = trackEdge.builder(catenary, trackType)
+        local hPlatform = ustm.hPlatformList[params.hPlatform + 1] * 0.001
+        local wPlatform = ustm.wPlatformList[params.wPlatform + 1]
+        local roofLength = ustm.roofLengthList[params.roofLength + 1] * 0.01
+        local mainBuilding = params.entrySize > 0 and buildingList[params.entrySize]
+        local fencesLength = ustm.fencesLengthList[params.fencesStyle + 1]
+        local fencesModel = ust.fencesGen(params.fencesColor + 1, params.fencesStyle + 1)
+        
+        local nbTracks = ustm.trackNumberList[params.nbTracks + 1]
+        local slope = ustm.slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1)
+        
+
+        local entryConfig = {
+            main = {
+                pos = mainBuilding and (params.entryPos - 1),
+                isLeft = params.entrySide == 0,
+                model = mainBuilding,
+            },
+            street = {
+                pipe.mapn(
+                    {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
+                    {params.entryASide < 2, params.entryBSide < 2, params.entryCSide < 2}
+                )(function(t, v) return t and v end),
+                pipe.mapn(
+                    {params.entryAType == 1, params.entryBType == 1, params.entryCType == 1},
+                    {params.entryASide > 0, params.entryBSide > 0, params.entryCSide > 0}
+                )(function(t, v) return t and v end)
+            },
+            underground = {
+                pipe.mapn(
+                    {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
+                    {params.entryASide < 2, params.entryBSide < 2, params.entryCSide < 2}
+                )(function(t, v) return t and v end),
+                pipe.mapn(
+                    {params.entryAType == 0, params.entryBType == 0, params.entryCType == 0},
+                    {params.entryASide > 0, params.entryBSide > 0, params.entryCSide > 0}
+                )(function(t, v) return t and v end)
+            }
+        }
+    
+        local edge, streetEdge, terminals, terminalsGroup, models, terrain, trackCoords =
+            buildStation(nbTracks,
+                ust.arcPacker(length, slope),
+                {
+                    nbTransitTracks = params.nbTransitTracks,
+                    posTransitTracks = params.posTransitTracks - 2,
+                    r = radius,
+                    hPlatform = hPlatform,
+                    wPlatform = wPlatform,
+                    wExtPlatform = ustm.extWidthList[params.wExtPlatform + 1] * 0.01,
+                    lExtPlatform = ustm.extLengthList[params.lExtPlatform + 1] * 0.01,
+                    yOffsetPlatform = ustm.yOffsetList[params.yOffsetPlatform + 1] * (params.yOffsetPlatformSign == 0 and 0.01 or -0.01),
+                    varRefPos = params.varRefPos - 1,
+                    varRefIsTrack = params.varRefType == 0,
+                    varNbUnaffected = ustm.varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
+                    varModelLength = params.varModelLength + 1,
+                    varModelWidth = params.varModelWidth + 1,
+                    wTrack = trackWidth,
+                    roofLength = roofLength,
+                    buildingParams = buildingParamsList[params.entrySize],
+                    slope = slope,
+                    fencesModel = fencesModel,
+                    fencesLength = fencesLength,
+                    leftFences = params.fencesPos == 1 or params.fencesPos == 3,
+                    rightFences = params.fencesPos == 2 or params.fencesPos == 3,
+                    entries = entryConfig,
+                    models = models
+                },
+                params.hasLeftPlatform == 0,
+                params.hasRightPlatform == 0
+        )
+        
+        local disp =  trackCoords[(pipe.new 
+        / function() return 1 end
+        / function() return ceil(#trackCoords * 0.5) end
+        / function() return #trackCoords end
+        * pipe.select(params.varRefPos + 1))()]
+        local tr = coor.trans(-disp)
+    
+        return pipe.new * {
+            models = {
+                {          
+                    id = "uus/placeMarker.mdl",
+                    transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+                }
+            },
+            terrainAlignmentLists = {
+                {
+                    type = "EQUAL",
+                    faces = {}
+                }
+            },
+            groundFaces = terrain
+            * pipe.map(pipe.select("equal"))
+            * pipe.filter(pipe.noop())
+            * pipe.flatten()
+            * pipe.map(function(f) return {
+                {face = f, modes = {{type = "FILL", key = "industry_gravel_small_01"}}},
+            } end)
+            * pipe.flatten()
+        }
+        * station.setTransform(tr)
+    else
+        
+        local pre = findPreviews()
+        if (#pre == 1) then
+            game.interface.upgradeConstruction(
+                pre[1].id,
+                "station/rail/utimate_station.con",
+                func.with(pure(params), {showPreview = true})
+            )
+        else
+            local id = game.interface.buildConstruction(
+                "station/rail/utimate_station.con",
+                func.with(pure(params), {showPreview = true}),
+                transf
+            )
+            game.interface.setPlayer(id, game.interface.getPlayer())
+        end
+        return {
+            models = {
+                {          
+                    id = "uus/placeMarker.mdl",
+                    transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+                }
+            },
+            cost = 0,
+            bulldozeCost = 0,
+            maintenanceCost = 0,
+            terrainAlignmentLists = {
+                {
+                    type = "EQUAL",
+                    faces = {}
+                }
+            }
+        }
+    end
 end
 
 local updateFn = function()
     return ust.safeBuild(params, function(params)
+        
+        local markers = findMarkers()
+        if (#markers == 2 and params.override > 0) then
+            return updatePlanner(params, markers)
+        end
+
         local buildingList, buildingParamsList = require("ustation_building")("ust/1990/")
         local trackType = ustm.trackList[params.trackType + 1]
         local trackWidth = ustm.trackWidthList[params.trackType + 1]
@@ -309,6 +546,7 @@ local updateFn = function()
                 params.hasLeftPlatform == 0,
                 params.hasRightPlatform == 0
         )
+
         return
             pipe.new
             * {

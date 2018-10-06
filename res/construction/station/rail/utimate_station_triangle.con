@@ -110,7 +110,14 @@ local function params()
         }
         + ustm.exclu("varRefType", "varRefPos")(ustm.var)
         + ustm.slope
-        + ustm.entry
+        + ustm.entry + {
+            {
+                key = "canMainEntryOnCenter",
+                name = _("Main entry to central platform"),
+                values = {_("Never"), _("Possible")},
+                defaultIndex = 0
+            }
+        }
         + ustm.fence
         + ustm.alt
 end
@@ -164,7 +171,7 @@ local function retriveRef(config, allArcs)
         local ptL = arcsL.surface.rc[arcsL.platform.common + 1]
         local ptR = arcsR.surface.lc[arcsL.platform.common + 1]
         
-        if (ptL - ptR):length() > (config.buildingParams.halfWidth) * 2 then
+        if config.canMainEntryOnCenter and (ptL - ptR):length() > (config.buildingParams.halfWidth) * 2 then
             return function()
                 local refVec = (ptL - ptR):normalized() .. coor.rotZ(-0.5 * pi)
                 local refPt = ptL:avg(ptR) + refVec
@@ -421,7 +428,8 @@ local updateFn = function()
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
                     entries = entryConfig,
                     models = models,
-                    lengthMiddlePlatform = ustm.middlePlatformLength[params.lengthMiddlePlatform + 1] * 0.01
+                    lengthMiddlePlatform = ustm.middlePlatformLength[params.lengthMiddlePlatform + 1] * 0.01,
+                    canMainEntryOnCenter = params.canMainEntryOnCenter == 1
                 },
                 params.hasLeftPlatform == 1,
                 params.hasMiddlePlatform == 1,
