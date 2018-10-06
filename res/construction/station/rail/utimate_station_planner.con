@@ -54,13 +54,13 @@ local updateFn = function()
         local lnE = line.byVecPt(vecE, posE)
         local x = lnS - lnE
         if (x) then
-            if (x) then
-                game.interface.setZone("ust", {
-                    polygon = func.map({posS, posS + vecS * 10, x, posE + vecE * 10, posE}, function(i) return {i.x, i.y} end),
-                    draw = true,
-                    drawColor = {0.3, 0.3, 1, 1}
-                })
-            end
+            -- if (x) then
+            --     game.interface.setZone("ust", {
+            --         polygon = func.map({posS, posS + vecS * 10, x, posE + vecE * 10, posE}, function(i) return {i.x, i.y} end),
+            --         draw = true,
+            --         drawColor = {0.3, 0.3, 1, 1}
+            --     })
+            -- end
             local vecXS = x - posS
             local vecXE = x - posE
             if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
@@ -79,16 +79,16 @@ local updateFn = function()
                     local rad = asin(sina)
                     local length = abs(rad * r)
                     
-                    game.interface.setZone("ust2", {
-                        polygon = func.seqMap({1, 19}, 
-                            function(i) 
-                                local rad = i * pi / 10; 
-                                return {sin(rad) * r + o.x, cos(rad) * r + o.y}
-                            end
-                        ),
-                        draw = true,
-                        drawColor = {0.3, 0.3, 1, 1}
-                    })
+                    -- game.interface.setZone("ust2", {
+                    --     polygon = func.seqMap({1, 19}, 
+                    --         function(i) 
+                    --             local rad = i * pi / 10; 
+                    --             return {sin(rad) * r + o.x, cos(rad) * r + o.y}
+                    --         end
+                    --     ),
+                    --     draw = true,
+                    --     drawColor = {0.3, 0.3, 1, 1}
+                    -- })
                 end
             else
             

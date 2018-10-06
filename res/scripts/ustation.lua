@@ -1452,6 +1452,70 @@ ust.buildTerminal = function(fitModel, config)
     end
 end
 
+ust.buildPreview = function(config, fitModel, entries, generateEdges)
+    local generateTerrain = ust.generateTerrain(config)
+    local generateTerrainDual = ust.generateTerrainDual(config)
+    local generateTrackTerrain = ust.generateTrackTerrain(config)
+
+    local buildTerminal = ust.buildTerminal(fitModel, config)
+
+    local function build(trackTerrain, platformTerrain, gr, ...)
+        if (gr == nil) then
+            local buildFace = entries * pipe.map(pipe.select("terrain")) * pipe.flatten()
+            if (config.isTerminal) then
+                local _, terrain = buildTerminal({gr, ...})
+                platformTerrain = platformTerrain + terrain
+            end
+
+            return trackTerrain, platformTerrain, buildFace
+        elseif (#gr == 3 and gr[1].isTrack and gr[2].isPlatform and gr[3].isTrack) then
+            return build(
+                trackTerrain + generateTrackTerrain(gr[1][1]) + generateTrackTerrain(gr[3][1]),
+                platformTerrain + generateTerrain(gr[2]),
+                ...)
+        elseif (#gr == 2 and gr[1].isTrack and gr[2].isPlatform) then
+            return build(
+                trackTerrain + generateTrackTerrain(gr[1][1]),
+                platformTerrain + generateTerrain(gr[2]),
+                ...)
+        elseif (#gr == 2 and gr[1].isPlatform and gr[2].isTrack) then
+            return build(
+                trackTerrain + generateTrackTerrain(gr[2][1]),
+                platformTerrain + generateTerrain(gr[1]),
+                ...)
+        elseif (#gr == 1 and gr[1].isPlatform) then
+            return build(
+                trackTerrain,
+                platformTerrain + generateTerrain(gr[1]),
+                ...)
+        elseif (#gr == 2 and gr[1].isPlatform and gr[2].isPlatform) then
+            return build(
+                trackTerrain,
+                platformTerrain + generateTerrainDual(gr[1], gr[2]),
+                ...)
+        elseif (#gr == 3 and gr[1].isPlatform and gr[2].isPlatform and gr[3].isTrack) then
+            return build(
+                trackTerrain,
+                platformTerrain + generateTerrainDual(gr[1], gr[2]),
+                ...)
+        elseif (#gr == 4 and gr[1].isTrack and gr[2].isPlatform and gr[3].isPlatform and gr[4].isTrack) then
+            return build(
+                trackTerrain,
+                platformTerrain + generateTerrainDual(gr[2], gr[3]),
+                ...)
+        else
+            return build(
+                trackTerrain + generateTrackTerrain(gr[1][1]),
+                platformTerrain,
+                ...)
+        end
+    end
+    return function(track, platform, _, _, _, ...)
+        return build(track, platform, ...)
+    end
+
+end
+
 ust.build = function(config, fitModel, entries, generateEdges)
     local generateEdges = config.isTerminal and ust.generateEdgesTerminal or ust.generateEdges
     local generateModels = ust.generateModels(fitModel, config)
