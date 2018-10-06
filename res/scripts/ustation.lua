@@ -1458,16 +1458,13 @@ ust.buildPreview = function(config, fitModel, entries, generateEdges)
     local generateTrackTerrain = ust.generateTrackTerrain(config)
 
     local buildTerminal = ust.buildTerminal(fitModel, config)
-
     local function build(trackTerrain, platformTerrain, gr, ...)
         if (gr == nil) then
-            local buildFace = entries * pipe.map(pipe.select("terrain")) * pipe.flatten()
             if (config.isTerminal) then
                 local _, terrain = buildTerminal({gr, ...})
                 platformTerrain = platformTerrain + terrain
             end
-
-            return trackTerrain, platformTerrain, buildFace
+            return trackTerrain, platformTerrain, entries * pipe.map(pipe.select("terrain"))
         elseif (#gr == 3 and gr[1].isTrack and gr[2].isPlatform and gr[3].isTrack) then
             return build(
                 trackTerrain + generateTrackTerrain(gr[1][1]) + generateTrackTerrain(gr[3][1]),

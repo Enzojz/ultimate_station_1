@@ -41,7 +41,7 @@ local function findMarkers()
         * pipe.sort(function(x, y) return x.dateBuilt.year < y.dateBuilt.year or x.dateBuilt.month < y.dateBuilt.month or x.dateBuilt.day < y.dateBuilt.day or x.id < y.id end)
 end
 
-local updateFn = function()
+local updateFn = function(params)
     local markers = findMarkers()
     -- local _ = markers * pipe.range(2, #markers) * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
     if (#markers == 2) then
@@ -102,7 +102,7 @@ local updateFn = function()
                 transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
             }
         },
-        edgeLists = {
+        edgeLists = params.noEdge and {} or {
 			{
 				type = "TRACK",
 				params = {

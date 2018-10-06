@@ -277,7 +277,13 @@ local function findPreviews(pos, r)
 end
 
 local updatePlanner = function(params, markers, config)
-
+    local _ = markers * pipe.forEach(function(m)
+        game.interface.upgradeConstruction(
+            m.id,
+            m.fileName,
+            func.with(pure(m.params), {noEdge = true})
+        )
+    end)
     local retriveParams = function()
         local s, e = table.unpack(markers)
         local posS, rotS, _ = coor.decomposite(s.transf)
@@ -301,14 +307,13 @@ local updatePlanner = function(params, markers, config)
                     local vecOE = o - posE
                     local radius = vecOS:length()
                     local sina = vecOS:normalized():cross(vecOE:normalized())
-                    local cosa = vecOS:normalized():dot(vecOE:normalized())
                     local rad = asin(sina)
-                    local length = abs(rad * radius) - 10
+                    local length = abs(rad * radius)
                     local ar = arc.byOR(o, r)
-                    
+                    local f = rad > 0 and 1 or -1
                     return findPreviews(m, vecES:length()), 
-                        radius, length, (posE.z - posS.z) / length,
-                        quat.byVec(coor.xyz(1, 0, 0), vecMX:withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
+                        f * radius, length - 10, (posE.z - posS.z) / length,
+                        quat.byVec(coor.xyz(f, 0, 0), vecMX:withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
                 end
             else
             
@@ -345,12 +350,7 @@ local updatePlanner = function(params, markers, config)
                     transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
                 }
             },
-            terrainAlignmentLists = {
-                {
-                    type = "EQUAL",
-                    faces = {}
-                }
-            },
+            terrainAlignmentLists = { { type = "EQUAL", faces = {} } },
             groundFaces = track
             * pipe.map(pipe.select("equal"))
             * pipe.filter(pipe.noop())
@@ -367,8 +367,12 @@ local updatePlanner = function(params, markers, config)
                 {face = f, modes = {{type = "FILL", key = "fill_blue"}}},
             } end)
             * pipe.flatten()
-            + entry
-            * pipe.map(pipe.select("equal"))
+            + 
+            (
+                entry * pipe.map(pipe.map(pipe.select("equal")))
+                + entry * pipe.map(pipe.map(pipe.select("slot")))
+            )
+            * pipe.flatten()
             * pipe.filter(pipe.noop())
             * pipe.flatten()
             * pipe.map(function(f) return {
@@ -426,12 +430,7 @@ local updatePlanner = function(params, markers, config)
         cost = 0,
         bulldozeCost = 0,
         maintenanceCost = 0,
-        terrainAlignmentLists = {
-            {
-                type = "EQUAL",
-                faces = {}
-            }
-        }
+        terrainAlignmentLists = { { type = "EQUAL", faces = {} } }
     }
 end
 

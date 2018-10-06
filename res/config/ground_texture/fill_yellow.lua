@@ -2,10 +2,9 @@ local tu = require "texutil"
 
 function data()
 return {
-	detailTex = tu.makeTextureMipmapClamp("ground_texture/fill_yellow.tga", true, true),
-	detailNrmlTex = tu.makeTextureMipmapClamp("ground_texture/tree_ground_nrml.dds", true, true, true),
-	detailSize = { 4.0, 4.0 },
-
+	detailTex = tu.makeTextureMipmapRepeat("ground_texture/fill_yellow.tga", true, true),
+	detailNrmlTex = tu.makeTextureMipmapRepeat("ground_texture/tree_ground_nrml.dds", true, true, true),
+	detailSize = { 1.0, 1.0 },
 	priority = 20
 }
 end
