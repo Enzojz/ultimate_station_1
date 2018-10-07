@@ -49,7 +49,13 @@ local function params()
             {
                 key = "override",
                 name = _("Use Planner"),
-                values = {_("No"), _("Preview"), _("Build")},
+                values = {_("No"), _("Preview"), _("Build"), _("Clear")},
+                defaultIndex = 0
+            },
+            {
+                key = "overrideGr",
+                name = _("Planner Group"),
+                values = func.seqMap({1, 5}, tostring),
                 defaultIndex = 0
             }
         }
@@ -108,7 +114,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
     local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
     
-    local ptList = config.pattern and #config.pattern > 0 and config.pattern or ust.preBuild(totalTracks, config.nbTransitTracks, config.posTransitTracks, ignoreFst, ignoreLst)(totalTracks, pipe.new)
+    local ptList = config.pattern and #config.pattern > 0 and pipe.new * config.pattern or ust.preBuild(totalTracks, config.nbTransitTracks, config.posTransitTracks, ignoreFst, ignoreLst)(totalTracks, pipe.new)
     local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})
     local refList = ptListI
         * pipe.filter(function(x) return config.varRefIsTrack and x.t or not x.t end)
@@ -259,11 +265,11 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         )
 end
 
-local function findMarkers()
+local function findMarkers(group)
     return pipe.new
         * game.interface.getEntities({pos = {0, 0}, radius = 900000})
         * pipe.map(game.interface.getEntity)
-        * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station_planner.con") end)
+        * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station_planner.con") and data.params and data.params.group == group end)
         * pipe.sort(function(x, y) return x.dateBuilt.year < y.dateBuilt.year or x.dateBuilt.month < y.dateBuilt.month or x.dateBuilt.day < y.dateBuilt.day or x.id < y.id end)
 end
 
@@ -276,13 +282,6 @@ local function findPreviews(pos, r)
     end
 end
 local updatePlanner = function(params, markers, config)
-    local _ = markers * pipe.forEach(function(m)
-        game.interface.upgradeConstruction(
-            m.id,
-            m.fileName,
-            func.with(pure(m.params), {noEdge = true})
-        )
-    end)
 
     local retriveInfo = function(info)
         if (info) then
@@ -339,6 +338,17 @@ local updatePlanner = function(params, markers, config)
 
     local function refineParams()
         local findPreviews, f, radius, length, slope, transf = retriveParams()
+
+        local _ = markers
+        * pipe.filter(function(m) return not m.params.noEdge end) 
+        * pipe.forEach(function(m)
+            game.interface.upgradeConstruction(
+                m.id,
+                m.fileName,
+                func.with(pure(m.params), {noEdge = true})
+            )
+        end)
+
         local length = (info.length and info.length < length) and info.length or length
         local length = info.lengthRoundoff and (length > info.lengthRoundoff and (floor(length / info.lengthRoundoff) * info.lengthRoundoff) or info.lengthRoundoff) or length
         local length = length < 30 and 30 or length
@@ -437,6 +447,8 @@ local updatePlanner = function(params, markers, config)
                 })
             )
         end
+    elseif (params.override == 3) then
+        local _ = findPreviews() * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
     else
         local pre = findPreviews()
         if (#pre == 1) then
@@ -541,12 +553,15 @@ local updateFn = function()
             leftFences = params.fencesPos == 1 or params.fencesPos == 3,
             rightFences = params.fencesPos == 2 or params.fencesPos == 3,
             entries = entryConfig,
-            models = models
+            models = models,
+            pattern = params.overrideParams and params.overrideParams.pattern or nil
         }
-
-        local markers = findMarkers()
-        if (#markers == 2 and params.override > 0) then
-            return updatePlanner(params, markers, config)
+        
+        if (params.override > 0) then
+            local markers = findMarkers(params.overrideGr)
+            if (#markers == 2) then
+                return updatePlanner(params, markers, config)
+            end
         end
 
         local edge, streetEdge, terminals, terminalsGroup, models, terrain, trackCoords =
