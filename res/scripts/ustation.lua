@@ -2030,7 +2030,7 @@ ust.defaultParams = function(params)
         
         func.forEach(
             func.filter(defParams, function(p) return p.key ~= "tramTrack" end),
-            function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
+            function(i) param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
         return param
     end
 end
@@ -2096,4 +2096,21 @@ ust.preBuild = function(totalTracks, nbTransitTracks, posTransitTracks, ignoreFs
     return preBuild
 end
 
+
+ust.findMarkers = function(group)
+    return pipe.new
+        * game.interface.getEntities({pos = {0, 0}, radius = 900000})
+        * pipe.map(game.interface.getEntity)
+        * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station_planner.con") and data.params and data.params.group == group end)
+        * pipe.sort(function(x, y) return x.dateBuilt.year < y.dateBuilt.year or x.dateBuilt.month < y.dateBuilt.month or x.dateBuilt.day < y.dateBuilt.day or x.id < y.id end)
+end
+
+ust.findPreviews = function(pos, r)
+    return function()
+        return pipe.new
+            * game.interface.getEntities({pos = {pos.x, pos.y}, radius = r})
+            * pipe.map(game.interface.getEntity)
+            * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station.con") and data.params.showPreview end)
+    end
+end
 return ust

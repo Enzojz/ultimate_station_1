@@ -38,64 +38,10 @@ local function params()
 end
 
 local updateFn = function(params)
-    -- local markers = findMarkers()
-    -- -- local _ = markers * pipe.range(2, #markers) * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
-    -- if (#markers == 2) then
-    --     local s, e = table.unpack(markers)
-    --     local posS, rotS, _ = coor.decomposite(s.transf)
-    --     local posE, rotE, _ = coor.decomposite(e.transf)
-    --     local vecS = coor.xyz(1, 0, 0) .. rotS
-    --     local vecE = coor.xyz(1, 0, 0) .. rotE
-    --     local lnS = line.byVecPt(vecS, posS)
-    --     local lnE = line.byVecPt(vecE, posE)
-    --     local x = lnS - lnE
-    --     if (x) then
-    --         -- if (x) then
-    --         --     game.interface.setZone("ust", {
-    --         --         polygon = func.map({posS, posS + vecS * 10, x, posE + vecE * 10, posE}, function(i) return {i.x, i.y} end),
-    --         --         draw = true,
-    --         --         drawColor = {0.3, 0.3, 1, 1}
-    --         --     })
-    --         -- end
-    --         local vecXS = x - posS
-    --         local vecXE = x - posE
-    --         if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
-    --             if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
-    --                 local lb = vecXS:length()
-    --                 local vecES = posE - posS
-    --                 local m = (posE + posS) * 0.5
-    --                 local vecMX = m - x
-    --                 local o = x + vecMX:normalized() * (lb * lb / vecMX:length())
-    --                 local r = (o - posS):length()
-    --                 local vecOS = o - posS
-    --                 local vecOE = o - posE
-    --                 local r = vecOS:length()
-    --                 local sina = vecOS:normalized():cross(vecOE:normalized())
-    --                 local cosa = vecOS:normalized():dot(vecOE:normalized())
-    --                 local rad = asin(sina)
-    --                 local length = abs(rad * r)
-                    
-    --                 -- game.interface.setZone("ust2", {
-    --                 --     polygon = func.seqMap({1, 19}, 
-    --                 --         function(i) 
-    --                 --             local rad = i * pi / 10; 
-    --                 --             return {sin(rad) * r + o.x, cos(rad) * r + o.y}
-    --                 --         end
-    --                 --     ),
-    --                 --     draw = true,
-    --                 --     drawColor = {0.3, 0.3, 1, 1}
-    --                 -- })
-    --             end
-    --         else
-            
-    --         end
-    --     end
-    -- end
-    
     return {
         models = {
             {          
-                id = "uus/placeMarker.mdl",
+                id = "ust/indicator.mdl",
                 transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
             }
         },
@@ -108,9 +54,7 @@ local updateFn = function(params)
 				},
 				edges = {
 					{ { 0.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
-					{ { 10.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
-					{ { 10.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
-					{ { 20.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
+					{ { 10.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } }
 				},
 				snapNodes = { 0 }
 			}

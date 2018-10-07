@@ -30,16 +30,6 @@ local log10 = log(10)
 local prefixM = "ust/1990/"
 local models = ust.models(prefixM)
 
-local pure = function(pa)
-    local params = {}
-    for key,value in pairs(pa) do
-        if (key ~= "seed") then
-            params[key] = value
-        end
-    end
-    return params
-end
-
 local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
     return
@@ -265,212 +255,213 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         )
 end
 
-local function findMarkers(group)
-    return pipe.new
-        * game.interface.getEntities({pos = {0, 0}, radius = 900000})
-        * pipe.map(game.interface.getEntity)
-        * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station_planner.con") and data.params and data.params.group == group end)
-        * pipe.sort(function(x, y) return x.dateBuilt.year < y.dateBuilt.year or x.dateBuilt.month < y.dateBuilt.month or x.dateBuilt.day < y.dateBuilt.day or x.id < y.id end)
-end
+local updatePreview = function(params, config, arcPacker)
+    local nbTracks = ustm.trackNumberList[params.nbTracks + 1]
+    
+    local track, platform, entry, trackCoords =
+        buildStation(nbTracks,
+            arcPacker,
+            config,
+            params.hasLeftPlatform == 0,
+            params.hasRightPlatform == 0,
+            ust.buildPreview
+    )
+    
+    local disp =  trackCoords[(pipe.new 
+    / function() return 1 end
+    / function() return ceil(#trackCoords * 0.5) end
+    / function() return #trackCoords end
+    * pipe.select(params.varRefPos + 1))()]
 
-local function findPreviews(pos, r)
-    return function()
-        return pipe.new
-            * game.interface.getEntities({pos = {pos.x, pos.y}, radius = r})
-            * pipe.map(game.interface.getEntity)
-            * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station.con") and data.params.showPreview end)
-    end
-end
-local updatePlanner = function(params, markers, config)
-
-    local retriveInfo = function(info)
-        if (info) then
-            return {
-                length = tonumber(info:match("L(%d+)")),
-                radius = tonumber(info:match("R(%d+)")),
-                lengthRoundoff = tonumber(info:match("Lr(%d+)")),
-                radiusRoundoff = tonumber(info:match("Rr(%d+)")),
-                pattern = info:match("([TP]+)")
+    return pipe.new * {
+        models = {
+            {          
+                id = "asset/icon/marker_question.mdl",
+                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
             }
-        else
-            return {}
-        end
-    end
-
-    local info = retriveInfo(markers * pipe.filter(function(m) return string.find(m.name, "#", 0, true) == 1, 1 end) * pipe.map(pipe.select("name")) * pipe.select(1))
-    
-    local retriveParams = function()
-        local s, e = table.unpack(markers)
-        local posS, rotS, _ = coor.decomposite(s.transf)
-        local posE, rotE, _ = coor.decomposite(e.transf)
-        local vecS = coor.xyz(1, 0, 0) .. rotS
-        local vecE = coor.xyz(1, 0, 0) .. rotE
-        local lnS = line.byVecPt(vecS, posS)
-        local lnE = line.byVecPt(vecE, posE)
-        local x = lnS - lnE
-        if (x) then
-            local vecXS = x - posS
-            local vecXE = x - posE
-            if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
-                if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
-                    local vecES = posE - posS
-                    local m = (posE + posS) * 0.5
-                    local vecMX = -(x - m):normalized()
-                    local o = x + vecMX * (vecXS:length2() / (x - m):length())
-                    local r = (o - posS):length()
-                    local vecOS = o - posS
-                    local vecOE = o - posE
-                    local radius = vecOS:length()
-                    local sina = vecOS:normalized():cross(vecOE:normalized())
-                    local rad = asin(sina)
-                    local length = abs(rad * radius)
-                    local ar = arc.byOR(o, r)
-                    local f = rad > 0 and 1 or -1
-                    return findPreviews(m, vecES:length()), 
-                        f, radius, length - 10, (posE.z - posS.z) / length,
-                        quat.byVec(coor.xyz(f, 0, 0), vecMX:withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
-                end
-            else
-            
-            end
-        end
-    end
-
-    local function refineParams()
-        local findPreviews, f, radius, length, slope, transf = retriveParams()
-
-        local _ = markers
-        * pipe.filter(function(m) return not m.params.noEdge end) 
-        * pipe.forEach(function(m)
-            game.interface.upgradeConstruction(
-                m.id,
-                m.fileName,
-                func.with(pure(m.params), {noEdge = true})
-            )
-        end)
-
-        local length = (info.length and info.length < length) and info.length or length
-        local length = info.lengthRoundoff and (length > info.lengthRoundoff and (floor(length / info.lengthRoundoff) * info.lengthRoundoff) or info.lengthRoundoff) or length
-        local length = length < 30 and 30 or length
-        local radius = info.radius or radius
-        local radius = info.radiusRoundoff and ceil(radius / info.radiusRoundoff) * info.radiusRoundoff or radius
-        
-        local pattern = info.pattern and 
-            pipe.new 
-            * func.seq(1, info.pattern:len())
-            * pipe.map(function(i) return info.pattern:sub(i, i) == "T" end)
-            * pipe.fold(pipe.new, function(r, c) return c and r / c or (r[#r] and r / c or r) end)
-        or {}
-
-        return findPreviews, f * radius, length, slope, transf, pattern
-    end
-
-    local findPreviews, radius, length, slope, transf, pattern = refineParams()
-
-    if (params.showPreview) then
-        local nbTracks = ustm.trackNumberList[params.nbTracks + 1]
-        
-        local config = func.with(config, {r = radius, length = length, slope = slope, pattern = pattern})
-    
-        local track, platform, entry, trackCoords =
-            buildStation(nbTracks,
-                ust.arcPacker(length, slope),
-                config,
-                params.hasLeftPlatform == 0,
-                params.hasRightPlatform == 0,
-                ust.buildPreview
+        },
+        terrainAlignmentLists = { { type = "EQUAL", faces = {} } },
+        groundFaces = track
+        * pipe.map(pipe.select("equal"))
+        * pipe.filter(pipe.noop())
+        * pipe.flatten()
+        * pipe.map(function(f) return {
+            {face = f, modes = {{type = "FILL", key = "fill_red"}}},
+        } end)
+        * pipe.flatten()
+        + platform
+        * pipe.map(pipe.select("equal"))
+        * pipe.filter(pipe.noop())
+        * pipe.flatten()
+        * pipe.map(function(f) return {
+            {face = f, modes = {{type = "FILL", key = "fill_blue"}}},
+        } end)
+        * pipe.flatten()
+        + 
+        (
+            entry * pipe.map(pipe.map(pipe.select("equal")))
+            + entry * pipe.map(pipe.map(pipe.select("slot")))
         )
-        
-        local disp =  trackCoords[(pipe.new 
-        / function() return 1 end
-        / function() return ceil(#trackCoords * 0.5) end
-        / function() return #trackCoords end
-        * pipe.select(params.varRefPos + 1))()]
-    
-        return pipe.new * {
-            models = {
-                {          
-                    id = "asset/icon/marker_question.mdl",
-                    transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
-                }
-            },
-            terrainAlignmentLists = { { type = "EQUAL", faces = {} } },
-            groundFaces = track
-            * pipe.map(pipe.select("equal"))
-            * pipe.filter(pipe.noop())
-            * pipe.flatten()
-            * pipe.map(function(f) return {
-                {face = f, modes = {{type = "FILL", key = "fill_red"}}},
-            } end)
-            * pipe.flatten()
-            + platform
-            * pipe.map(pipe.select("equal"))
-            * pipe.filter(pipe.noop())
-            * pipe.flatten()
-            * pipe.map(function(f) return {
-                {face = f, modes = {{type = "FILL", key = "fill_blue"}}},
-            } end)
-            * pipe.flatten()
-            + 
-            (
-                entry * pipe.map(pipe.map(pipe.select("equal")))
-                + entry * pipe.map(pipe.map(pipe.select("slot")))
-            )
-            * pipe.flatten()
-            * pipe.filter(pipe.noop())
-            * pipe.flatten()
-            * pipe.map(function(f) return {
-                {face = f, modes = {{type = "FILL", key = "fill_yellow"}}},
-            } end)
-            * pipe.flatten()
+        * pipe.flatten()
+        * pipe.filter(pipe.noop())
+        * pipe.flatten()
+        * pipe.map(function(f) return {
+            {face = f, modes = {{type = "FILL", key = "fill_yellow"}}},
+        } end)
+        * pipe.flatten()
+    }
+    * station.setTransform(coor.trans(-disp))
+end
+
+local retriveInfo = function(info)
+    if (info) then
+        return {
+            length = tonumber(info:match("L(%d+)")),
+            radius = tonumber(info:match("R(%d+)")),
+            lengthRoundoff = tonumber(info:match("Lr(%d+)")),
+            radiusRoundoff = tonumber(info:match("Rr(%d+)")),
+            pattern = info:match("([TP]+)")
         }
-        * station.setTransform(coor.trans(-disp))
-    elseif (params.override == 2) then
-        local pre = findPreviews()
-        if (#pre == 1) then
-            local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
-            game.interface.upgradeConstruction(
-                pre[1].id,
-                "station/rail/utimate_station.con",
-                func.with(pure(params), 
-                {
-                    override = 0, 
-                    showPreview = false, 
-                    isBuild = true,  
-                    overrideParams = 
-                    {
-                        radius = radius,
-                        length = length,
-                        slope = slope,
-                        pattern = pattern
-                    }
-                })
-            )
-        end
-    elseif (params.override == 3) then
-        local _ = findPreviews() * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
     else
+        return {}
+    end
+end
+
+local retriveParams = function(markers)
+    local s, e = table.unpack(markers)
+    local posS, rotS, _ = coor.decomposite(s.transf)
+    local posE, rotE, _ = coor.decomposite(e.transf)
+    local vecS = coor.xyz(1, 0, 0) .. rotS
+    local vecE = coor.xyz(1, 0, 0) .. rotE
+    local lnS = line.byVecPt(vecS, posS)
+    local lnE = line.byVecPt(vecE, posE)
+    local x = lnS - lnE
+    if (x) then
+        local vecXS = x - posS
+        local vecXE = x - posE
+        if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
+            if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
+                local vecES = posE - posS
+                local m = (posE + posS) * 0.5
+                local vecMX = -(x - m):normalized()
+                local o = x + vecMX * (vecXS:length2() / (x - m):length())
+                local r = (o - posS):length()
+                local vecOS = o - posS
+                local vecOE = o - posE
+                local radius = vecOS:length()
+                local sina = vecOS:normalized():cross(vecOE:normalized())
+                local rad = asin(sina)
+                local length = abs(rad * radius)
+                local ar = arc.byOR(o, r)
+                local f = rad > 0 and 1 or -1
+                return ust.findPreviews(m, vecES:length()), 
+                    f, radius, length - 10, (posE.z - posS.z) / length,
+                    quat.byVec(coor.xyz(f, 0, 0), vecMX:withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
+            end
+        else
+        
+        end
+    end
+end
+
+local function refineParams(params, markers)
+    local info = retriveInfo(
+        markers 
+        * pipe.filter(function(m) return string.find(m.name, "#", 0, true) == 1, 1 end) 
+        * pipe.map(pipe.select("name")) * pipe.select(1)
+    )
+
+    local findPreviews, f, radius, length, slope, transf = retriveParams(markers)
+
+    local _ = markers
+    * pipe.filter(function(m) return not m.params.noEdge end) 
+    * pipe.forEach(function(m)
+        game.interface.upgradeConstruction(
+            m.id,
+            m.fileName,
+            func.with(station.pureParams(m.params), {noEdge = true})
+        )
+    end)
+
+    local length = (info.length and info.length < length) and info.length or length
+    local length = info.lengthRoundoff and (length > info.lengthRoundoff and (floor(length / info.lengthRoundoff) * info.lengthRoundoff) or info.lengthRoundoff) or length
+    local length = length < 30 and 30 or length
+    local radius = info.radius or radius
+    local radius = info.radiusRoundoff and ceil(radius / info.radiusRoundoff) * info.radiusRoundoff or radius
+    
+    local pattern = info.pattern and 
+        pipe.new 
+        * func.seq(1, info.pattern:len())
+        * pipe.map(function(i) return info.pattern:sub(i, i) == "T" end)
+        * pipe.fold(pipe.new, function(r, c) return c and r / c or (r[#r] and r / c or r) end)
+    or {}
+
+    return findPreviews, f * radius, length, slope, transf, pattern
+end
+
+local findPreviews = function(params)
+    return pipe.new
+    * game.interface.getEntities({pos = {0, 0}, radius = 900000})
+    * pipe.map(game.interface.getEntity)
+    * pipe.filter(function(data) return data.params and data.params.seed == params.seed end)
+end
+
+local updatePlanner = function(params, markers, config)
+    if (params.override == 1) then
+        local findPreviews, radius, length, slope, transf, pattern = refineParams(params, markers)
+        local overrideParams = {
+            radius = radius,
+            length = length,
+            slope = slope,
+            pattern = pattern
+        }
+    
         local pre = findPreviews()
+        local previewParams = func.with(station.pureParams(params), 
+        {
+            showPreview = true,
+            overrideParams = overrideParams
+        })
+
         if (#pre == 1) then
             game.interface.upgradeConstruction(
                 pre[1].id,
                 "station/rail/utimate_station.con",
-                func.with(pure(params), {showPreview = true})
+                previewParams
             )
         else
             local id = game.interface.buildConstruction(
                 "station/rail/utimate_station.con",
-                func.with(pure(params), {showPreview = true}),
+                previewParams,
                 transf
             )
             game.interface.setPlayer(id, game.interface.getPlayer())
+        end
+    else
+        local pre = #markers == 2 and retriveParams(markers)() or findPreviews(params)
+        if (params.override == 2) then
+            if (#pre == 1) then
+                local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
+                game.interface.upgradeConstruction(
+                    pre[1].id,
+                    "station/rail/utimate_station.con",
+                    func.with(station.pureParams(pre[1].params), 
+                    {
+                        override = 0, 
+                        showPreview = false, 
+                        isBuild = true
+                    })
+                )
+            end
+        elseif (params.override == 3) then
+            local _ = pre * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
         end
     end
     
     return {
         models = {
             {          
-                id = "uus/placeMarker.mdl",
+                id = "asset/icon/marker_question.mdl",
                 transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
             }
         },
@@ -495,7 +486,6 @@ local updateFn = function()
         local mainBuilding = params.entrySize > 0 and buildingList[params.entrySize]
         local fencesLength = ustm.fencesLengthList[params.fencesStyle + 1]
         local fencesModel = ust.fencesGen(params.fencesColor + 1, params.fencesStyle + 1)
-        
         
         local nbTracks = ustm.trackNumberList[params.nbTracks + 1]
         local radius = params.overrideParams and params.overrideParams.radius or ((ustm.rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1))
@@ -557,16 +547,21 @@ local updateFn = function()
             pattern = params.overrideParams and params.overrideParams.pattern or nil
         }
         
-        if (params.override > 0) then
-            local markers = findMarkers(params.overrideGr)
-            if (#markers == 2) then
+        local arcPacker = ust.arcPacker(length, slope)
+        
+        if (params.showPreview) then
+            return updatePreview(params, config, arcPacker)
+        elseif (params.override > 0) then
+            local markers = ust.findMarkers(params.overrideGr)
+            if (#markers == 2 or params.override > 1) then
                 return updatePlanner(params, markers, config)
             end
         end
-
+        
+        
         local edge, streetEdge, terminals, terminalsGroup, models, terrain, trackCoords =
             buildStation(nbTracks,
-                ust.arcPacker(length, slope),
+                arcPacker,
                 config,
                 params.hasLeftPlatform == 0,
                 params.hasRightPlatform == 0

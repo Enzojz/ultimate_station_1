@@ -240,4 +240,14 @@ stationlib.mergeResults = function(...)
     return merge(pipe.new, pipe.new, pipe.new, pipe.new, ...)
 end
 
+stationlib.pureParams = function(pa)
+    local params = {}
+    for key,value in pairs(pa) do
+        if (key ~= "seed") then
+            params[key] = value
+        end
+    end
+    return params
+end
+
 return stationlib
