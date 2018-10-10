@@ -1,9 +1,11 @@
 local coor = require "ustation/coor"
+
 local line = {}
 
 local math = math
 local sin = math.sin
 local cos = math.cos
+local abs = math.abs
 
 -- line in form of
 -- a.x + b.y + 1 = 0, if c != 0
@@ -64,7 +66,7 @@ function line.intersection(l1, l2)
     local b2 = -l2.c
     
     local iidet = (a11 * a22 - a21 * a12)
-    if (iidet == 0) then 
+    if (abs(iidet) < 1e-10) then 
         return nil
     else
         local idet = 1 / iidet

@@ -26,6 +26,23 @@ local e = ma.exp(1)
 local log = ma.log
 local log10 = log(10)
 
+local instruction = 
+[[Instruction:
+1. Place two markers of the same group on the extremity of the planned station
+2. Activate "Generic Station" menu
+3. Choose the same group, click on "Preview" button to enter into preview mode, configurate other paramters
+4. Click on "Build" to construct the station, click on "Clear" to erease the preview
+4. The length, slope and radius are locked by the planners, you can't modify them via menu
+5. You can rename one of the planner to use override instructions, use the format as follows (00 means number):
+ - Start with #
+ - L00: length override e.g L120 -> Ref. length = 120m
+ - R00: radius override e.g R1500 -> Ref. length = 1500m
+ - Lr00: length round-off e.g Lr10 -> Roundoff the length by 10m
+ - Rr00: length round-off e.g Rr100 -> Roundoff the radius by 100m
+ - T/P: Track and platform configuration, T = Track, P = Platform.
+   E.g PTTPTTT -> A 3-track-2-platform station with two transit tracks
+]]
+
 local function params()
     return {
         {

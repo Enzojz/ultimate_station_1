@@ -327,6 +327,21 @@ local retriveInfo = function(info)
     end
 end
 
+local findCircle = function(posS, posE, vecS, vecE)
+    local lnPS = line.byVecPt(vecS .. coor.rotZ(0.5 * pi), posS)
+    local lnPE = line.byVecPt(vecE .. coor.rotZ(0.5 * pi), posE)
+    local o = lnPS - lnPE
+    local vecOS = o - posS
+    local vecOE = o - posE
+    local radius = vecOS:length()
+    local sina = vecOS:normalized():cross(vecOE:normalized())
+    local rad = asin(sina)
+    local length = abs(rad * radius)
+    local ar = arc.byOR(o, radius)
+    local f = rad > 0 and 1 or -1
+    return ar, f, length
+end
+
 local retriveParams = function(markers)
     local s, e = table.unpack(markers)
     local posS, rotS, _ = coor.decomposite(s.transf)
@@ -335,31 +350,45 @@ local retriveParams = function(markers)
     local vecE = coor.xyz(1, 0, 0) .. rotE
     local lnS = line.byVecPt(vecS, posS)
     local lnE = line.byVecPt(vecE, posE)
+    local m = (posE + posS) * 0.5
+    local vecES = posE - posS
     local x = lnS - lnE
+    
     if (x) then
         local vecXS = x - posS
         local vecXE = x - posE
         if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
             if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
-                local vecES = posE - posS
-                local m = (posE + posS) * 0.5
-                local vecMX = -(x - m):normalized()
-                local o = x + vecMX * (vecXS:length2() / (x - m):length())
-                local r = (o - posS):length()
-                local vecOS = o - posS
-                local vecOE = o - posE
-                local radius = vecOS:length()
-                local sina = vecOS:normalized():cross(vecOE:normalized())
-                local rad = asin(sina)
-                local length = abs(rad * radius)
-                local ar = arc.byOR(o, r)
-                local f = rad > 0 and 1 or -1
-                return ust.findPreviews(m, vecES:length()), 
-                    f, radius, length - 10, (posE.z - posS.z) / length,
-                    quat.byVec(coor.xyz(f, 0, 0), vecMX:withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
+                local ar, f, length = findCircle(posS, posE, vecS, vecE)
+                return ust.findPreviews(m, vecES:length(), "utimate_station.con"), 
+                    f, ar.r, length - 10, (posE.z - posS.z) / length,
+                    quat.byVec(coor.xyz(f, 0, 0), (m - x):withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
             end
+            -- if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
+        end
+    else
+        local lnPenE = line.byVecPt(lnS:vector():withZ(0) .. coor.rotZ(0.5 * pi), posE)
+        local posP = lnPenE - lnS
+        local vecEP = posE - posP
+        if (vecEP:length() < 1e-5) then
+            local radius = ust.infi
+            local o = posS + (lnPenE:vector():normalized() * radius)
+            local ar = arc.byOR(o, radius)
+            local length = vecES:length()
+            local f = 1
+            return ust.findPreviews(m, vecES:length(), "utimate_station.con"),
+                f, radius, length - 10, (posE.z - posS.z) / length,
+                quat.byVec(coor.xyz(f, 0, 0), (o - m):normalized():withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
         else
-        
+            local mRot = quat.byVec(vecS, vecES:normalized()):mRot()
+            local vecT = vecES .. mRot
+            local lnT = line.byVecPt(vecT, m)
+            local ar1, f1, length1 = findCircle(posS, m, vecS, -vecT)
+            local ar2, f2, length2 = findCircle(m, posE, vecT, vecE)
+            return ust.findPreviews(m, vecES:length(), "utimate_station_double_curvature.con"),
+            f1, ar1.r, (length1 + length2) - 10, (posS.z - posE.z) / (length1 + length2),
+            quat.byVec(coor.xyz(0, f1, 0), (vecT):withZ(0)):mRot() * coor.trans(m),
+            f2, ar2.r
         end
     end
 end
@@ -371,7 +400,7 @@ local function refineParams(params, markers)
         * pipe.map(pipe.select("name")) * pipe.select(1)
     )
 
-    local findPreviews, f, radius, length, slope, transf = retriveParams(markers)
+    local findPreviews, f, radius, length, slope, transf, f2, radius2 = retriveParams(markers)
 
     local _ = markers
     * pipe.filter(function(m) return not m.params.noEdge end) 
@@ -396,7 +425,7 @@ local function refineParams(params, markers)
         * pipe.fold(pipe.new, function(r, c) return c and r / c or (r[#r] and r / c or r) end)
     or {}
 
-    return findPreviews, f * radius, length, slope, transf, pattern
+    return findPreviews, f * radius, length, slope, transf, pattern, f2 * radius2
 end
 
 local findPreviews = function(params)
@@ -408,13 +437,21 @@ end
 
 local updatePlanner = function(params, markers, config)
     if (params.override == 1) then
-        local findPreviews, radius, length, slope, transf, pattern = refineParams(params, markers)
-        local overrideParams = {
+        local findPreviews, radius, length, slope, transf, pattern, radius2 = refineParams(params, markers)
+        local overrideParams = radius2 and {
+            radiusA = radius,
+            radiusB = radius2,
+            length = length,
+            slope = slope,
+            pattern = pattern
+        } or {
             radius = radius,
             length = length,
             slope = slope,
             pattern = pattern
         }
+        
+        local con = radius2 and "station/rail/utimate_station_double_curvature.con" or "station/rail/utimate_station.con"
     
         local pre = findPreviews()
         local previewParams = func.with(station.pureParams(params), 
@@ -426,12 +463,12 @@ local updatePlanner = function(params, markers, config)
         if (#pre == 1) then
             game.interface.upgradeConstruction(
                 pre[1].id,
-                "station/rail/utimate_station.con",
+                con,
                 previewParams
             )
         else
             local id = game.interface.buildConstruction(
-                "station/rail/utimate_station.con",
+                con,
                 previewParams,
                 transf
             )
@@ -444,7 +481,7 @@ local updatePlanner = function(params, markers, config)
                 local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
                 game.interface.upgradeConstruction(
                     pre[1].id,
-                    "station/rail/utimate_station.con",
+                    pre[1].fileName,
                     func.with(station.pureParams(pre[1].params), 
                     {
                         override = 0, 

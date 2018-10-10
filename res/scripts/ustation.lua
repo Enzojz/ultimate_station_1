@@ -5,6 +5,7 @@ local line = require "ustation/coorline"
 local quat = require "ustation/quaternion"
 local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
+local dump = require "datadumper"
 local ust = {}
 
 local math = math
@@ -2105,12 +2106,12 @@ ust.findMarkers = function(group)
         * pipe.sort(function(x, y) return x.dateBuilt.year < y.dateBuilt.year or x.dateBuilt.month < y.dateBuilt.month or x.dateBuilt.day < y.dateBuilt.day or x.id < y.id end)
 end
 
-ust.findPreviews = function(pos, r)
+ust.findPreviews = function(pos, r, con)
     return function()
         return pipe.new
             * game.interface.getEntities({pos = {pos.x, pos.y}, radius = r})
             * pipe.map(game.interface.getEntity)
-            * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station.con") and data.params.showPreview end)
+            * pipe.filter(function(data) return data.fileName and string.match(data.fileName, con) and data.params.showPreview end)
     end
 end
 return ust
