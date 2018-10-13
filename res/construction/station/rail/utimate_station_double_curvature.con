@@ -372,7 +372,7 @@ end
 
 local updatePlanner = function(params, markers, config)
     if (params.override == 1) then
-        local findPreviews, radius, length, slope, transf, pattern, radius2 = refineParams(params, markers)
+        local findPreviews, con, radius, radius2, length, slope, transf, pattern = refineParams(params, markers)
         local overrideParams = radius2 and {
             radiusA = radius,
             radiusB = radius2,
@@ -385,8 +385,6 @@ local updatePlanner = function(params, markers, config)
             slope = slope,
             pattern = pattern
         }
-
-        local con = radius2 and "utimate_station_double_curvature.con" or "station/rail/utimate_station.con"
     
         local pre = findPreviews()
         local previewParams = func.with(station.pureParams(params), 
@@ -416,7 +414,7 @@ local updatePlanner = function(params, markers, config)
                 local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
                 game.interface.upgradeConstruction(
                     pre[1].id,
-                    con,
+                    pre[1].fileName,
                     func.with(station.pureParams(pre[1].params), 
                     {
                         override = 0, 

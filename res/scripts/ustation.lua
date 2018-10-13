@@ -2106,12 +2106,14 @@ ust.findMarkers = function(group)
         * pipe.sort(function(x, y) return x.dateBuilt.year < y.dateBuilt.year or x.dateBuilt.month < y.dateBuilt.month or x.dateBuilt.day < y.dateBuilt.day or x.id < y.id end)
 end
 
-ust.findPreviews = function(pos, r, con)
-    return function()
-        return pipe.new
-            * game.interface.getEntities({pos = {pos.x, pos.y}, radius = r})
-            * pipe.map(game.interface.getEntity)
-            * pipe.filter(function(data) return data.fileName and string.match(data.fileName, con) and data.params.showPreview end)
+ust.findPreviews = function(pos, r)
+    return function(con)
+        return function()
+            return pipe.new
+                * game.interface.getEntities({pos = {pos.x, pos.y}, radius = r})
+                * pipe.map(game.interface.getEntity)
+                * pipe.filter(function(data) return data.fileName and string.match(data.fileName, con) and data.params.showPreview end)
+        end
     end
 end
 return ust
