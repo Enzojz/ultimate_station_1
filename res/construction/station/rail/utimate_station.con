@@ -49,6 +49,12 @@ local function params()
                 name = _("Planner Group"),
                 values = func.seqMap({1, 5}, tostring),
                 defaultIndex = 0
+            },
+            {
+                key = "lengthOverride",
+                name = _("Length Source"),
+                values = {_("Menu"), _("Instructions"), _("Planner positions")},
+                defaultIndex = 0
             }
         }
         + ustm.trackType
@@ -422,7 +428,7 @@ local retriveParams = function(markers)
                             f1, ar1.r,
                             f2, ar2.r,
                             func.min({length1, length2}) * 2 - 10, (posE.z - posS.z) / solution.length,
-                            quat.byVec(coor.xyz(0, f2, 0), (solution.vecY):withZ(0)):mRot() * coor.trans(solution.m)
+                            quat.byVec(coor.xyz(0, -f2, 0), (solution.vecY):withZ(0)):mRot() * coor.trans(solution.m)
                     end
                 end
                 return work(0, u, 4)
@@ -511,7 +517,7 @@ local function refineParams(params, markers)
         )
     end)
 
-    local length = (info.length and info.length < length) and info.length or length
+    local length = (info.length and params.lengthOverride == 1 and info.length < length) and info.length or length
     local length = info.lengthRoundoff and (length > info.lengthRoundoff and (floor(length / info.lengthRoundoff) * info.lengthRoundoff) or info.lengthRoundoff) or length
     local length = length < 30 and 30 or length
     local radius = info.radius or radius
@@ -540,12 +546,12 @@ local updatePlanner = function(params, markers, config)
         local overrideParams = radius2 and {
             radiusA = radius,
             radiusB = radius2,
-            length = length,
+            length = params.lengthOverride > 0 and length,
             slope = slope,
             pattern = pattern
         } or {
             radius = radius,
-            length = length,
+            length = params.lengthOverride > 0 and length,
             slope = slope,
             pattern = pattern
         }
