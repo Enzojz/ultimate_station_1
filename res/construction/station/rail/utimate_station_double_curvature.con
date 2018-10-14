@@ -153,15 +153,16 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local ptList = config.pattern and #config.pattern > 0 and pipe.new * config.pattern or ust.preBuild(totalTracks, config.nbTransitTracks, config.posTransitTracks, ignoreFst, ignoreLst)(totalTracks, pipe.new)
     local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})
+    
     local refList = ptListI
-        * pipe.filter(function(x) return config.varRefIsTrack and x.t or not x.t end)
+        * pipe.filter(function(x) return config.varRefIsTrack == x.t end)
         * pipe.map(pipe.select("i"))
         * pipe.sort(function(x, y) return x < y end)
     local middlePos =
         config.varRefPos < 0 and refList[1]
         or config.varRefPos > 0 and refList[#refList]
         or #refList % 2 == 1 and refList[(#refList + 1) * 0.5] or refList[#refList * 0.5]
-    
+        
     local leftGroup = ptListI * pipe.filter(function(p) return p.i < middlePos end) * pipe.rev()
     local middleGroup = ptListI * pipe.filter(function(p) return p.i == middlePos end)
     local rightGroup = ptListI * pipe.filter(function(p) return p.i > middlePos end)
@@ -462,7 +463,7 @@ local updateFn = function()
         local alt = ustm.hStation[params.altitude + 1] * (params.altitudeSign == 0 and 1 or -1)
         
         local length = params.overrideParams and params.overrideParams.length or min(ustm.trackLengths[params.length + 1], abs(radiusA * pi * 0.75) + abs(radiusB * pi * 0.75))
-    
+        
         local entryConfig = {
             main = {
                 pos = mainBuilding and (params.entryPos - 1),
@@ -502,7 +503,7 @@ local updateFn = function()
             lExtPlatform = ustm.extLengthList[params.lExtPlatform + 1] * 0.01,
             yOffsetPlatform = ustm.yOffsetList[params.yOffsetPlatform + 1] * (params.yOffsetPlatformSign == 0 and 0.01 or -0.01),
             varRefPos = params.varRefPos - 1,
-            varRefIsTrack = params.varRefType == 0,
+            varRefIsTrack = (params.overrideParams and params.overrideParams.varRefTrack) or params.varRefType == 0,
             varNbUnaffected = ustm.varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
             varModelLength = params.varModelLength + 1,
             varModelWidth = params.varModelWidth + 1,
@@ -518,7 +519,8 @@ local updateFn = function()
             models = models,
             pattern = params.overrideParams and params.overrideParams.pattern or nil
         }
-
+        
+        
         local arcPacker = arcPacker(length, slope)
 
         if (params.showPreview) then

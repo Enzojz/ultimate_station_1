@@ -1,31 +1,3 @@
-local paramsutil = require "paramsutil"
-local func = require "ustation/func"
-local coor = require "ustation/coor"
-local line = require "ustation/coorline"
-local trackEdge = require "ustation/trackedge"
-local station = require "ustation/stationlib"
-local quat = require "ustation/quaternion"
-local pipe = require "ustation/pipe"
-local ust = require "ustation"
-local uste = require "ustation_entries"
-local ustm = require "ustation_menu"
-
-local ma = math
-
-local abs = ma.abs
-local ceil = ma.ceil
-local floor = ma.floor
-local pi = ma.pi
-local atan = ma.atan
-local pow = ma.pow
-local cos = ma.cos
-local sin = ma.sin
-local asin = ma.asin
-local min = ma.min
-local e = ma.exp(1)
-local log = ma.log
-local log10 = log(10)
-
 local instruction = 
 [[Instruction:
 1. Place two markers of the same group on the extremity of the planned station
@@ -43,17 +15,6 @@ local instruction =
    E.g PTTPTTT -> A 3-track-2-platform station with two transit tracks
 ]]
 
-local function params()
-    return {
-        {
-            key = "group",
-            name = _("Group"),
-            values = func.seqMap({1, 5}, tostring),
-            defaultIndex = 0
-        }
-    }
-end
-
 local updateFn = function(params)
     return {
         models = {
@@ -62,7 +23,7 @@ local updateFn = function(params)
                 transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
             }
         },
-        edgeLists = params.noEdge and {} or {
+        edgeLists = {
 			{
 				type = "TRACK",
 				params = {
@@ -70,8 +31,8 @@ local updateFn = function(params)
 					catenary = false
 				},
 				edges = {
-					{ { 0.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } },
-					{ { 10.0, 0.0, 0.0 }, 	{ 10.0, 0.0, 0.0 } }
+					{ { 0.0, 0.0, 0.0 }, 	{ 5.0, 0.0, 0.0 } },
+					{ { 5.0, 0.0, 0.0 }, 	{ 5.0, 0.0, 0.0 } }
 				},
 				snapNodes = { 0 }
 			}
@@ -91,7 +52,6 @@ end
 function data()
     return {
         type = "RAIL_STATION",
-        -- buildMode = "MULTI",
         description = {
             name = _("Ultimate Station Planner"),
             description = _("")
@@ -100,10 +60,17 @@ function data()
             yearFrom = 1850,
             yearTo = 0,
         },
-        order = 5011,
+        order = 5010,
         skipCollision = true,
         autoRemovable = false,
-        params = params(),
+        params = {
+            {
+                key = "group",
+                name = _("Group"),
+                values = {"1", "2", "3", "4", "5"},
+                defaultIndex = 0
+            }
+        },
         updateFn = updateFn
     }
 end

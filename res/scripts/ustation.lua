@@ -2108,11 +2108,11 @@ end
 
 ust.findPreviews = function(pos, r)
     return function(con)
-        return function()
+        return function(params)
             return pipe.new
                 * game.interface.getEntities({pos = {pos.x, pos.y}, radius = r})
                 * pipe.map(game.interface.getEntity)
-                * pipe.filter(function(data) return data.fileName and string.match(data.fileName, con) and data.params.showPreview end)
+                * pipe.filter(function(data) return data.fileName and string.match(data.fileName, con) and data.params.showPreview and data.params.overrideGr == params.overrideGr end)
         end
     end
 end

@@ -10,7 +10,6 @@ local pipe = require "ustation/pipe"
 local ust = require "ustation"
 local uste = require "ustation_entries"
 local ustm = require "ustation_menu"
-local dump = require "datadumper"
 
 
 local ma = math
@@ -115,7 +114,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local ptList = config.pattern and #config.pattern > 0 and pipe.new * config.pattern or ust.preBuild(totalTracks, config.nbTransitTracks, config.posTransitTracks, ignoreFst, ignoreLst)(totalTracks, pipe.new)
     local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})
     local refList = ptListI
-        * pipe.filter(function(x) return config.varRefIsTrack and x.t or not x.t end)
+        * pipe.filter(function(x) return config.varRefIsTrack == x.t end)
         * pipe.map(pipe.select("i"))
         * pipe.sort(function(x, y) return x < y end)
     local middlePos =
@@ -342,8 +341,7 @@ local findCircle = function(posS, posE, vecS, vecE)
     local vecOS = o - posS
     local vecOE = o - posE
     local radius = vecOS:length()
-    local sina = vecOS:normalized():cross(vecOE:normalized())
-    local rad = asin(sina)
+    local rad = asin(vecOS:normalized():cross(vecOE:normalized()))
     local length = abs(rad * radius)
     local ar = arc.byOR(o, radius)
     local f = rad > 0 and 1 or -1
@@ -423,12 +421,11 @@ local retriveParams = function(markers)
                     else
                         local ar1, f1, length1 = findCircle(posS, solution.m, vecS, solution.vecX:withZ(0))
                         local ar2, f2, length2 = findCircle(solution.m, posE, solution.vecY:withZ(0), vecE)
-                        
                         return findPreviews, "utimate_station_double_curvature.con",
                             f1, ar1.r,
                             f2, ar2.r,
                             func.min({length1, length2}) * 2 - 10, (posE.z - posS.z) / solution.length,
-                            quat.byVec(coor.xyz(0, -f2, 0), (solution.vecY):withZ(0)):mRot() * coor.trans(solution.m)
+                            quat.byVec(coor.xyz(0, 1, 0), (solution.vecX):withZ(0)):mRot() * coor.trans(solution.m)
                     end
                 end
                 return work(0, u, 4)
@@ -479,7 +476,7 @@ local retriveParams = function(markers)
                     f, radius,
                     nil, nil,
                     length - 10, (posE.z - posS.z) / length,
-                    quat.byVec(coor.xyz(f, 0, 0), (o - m):normalized():withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
+                    quat.byVec(coor.xyz(1, 0, 0), (o - m):normalized():withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
             else
                 local mRot = quat.byVec(vecS, vecES:normalized()):mRot()
                 local vecT = vecES .. mRot
@@ -490,7 +487,7 @@ local retriveParams = function(markers)
                 f1, ar1.r,
                 f2, ar2.r,
                 (length1 + length2) - 10, (posS.z - posE.z) / (length1 + length2),
-                quat.byVec(coor.xyz(0, f1, 0), (vecT):withZ(0)):mRot() * coor.trans(m)
+                quat.byVec(coor.xyz(0, 1, 0), (vecT):withZ(0)):mRot() * coor.trans(m)
             end
         end
     end
@@ -506,16 +503,6 @@ local function refineParams(params, markers)
     )
 
     local findPreviews, con, f, radius, f2, radius2, length, slope, transf = retriveParams(markers)
-
-    local _ = markers
-    * pipe.filter(function(m) return not m.params.noEdge end) 
-    * pipe.forEach(function(m)
-        game.interface.upgradeConstruction(
-            m.id,
-            m.fileName,
-            func.with(station.pureParams(m.params), {noEdge = true})
-        )
-    end)
 
     local length = (info.length and params.lengthOverride == 1 and info.length < length) and info.length or length
     local length = info.lengthRoundoff and (length > info.lengthRoundoff and (floor(length / info.lengthRoundoff) * info.lengthRoundoff) or info.lengthRoundoff) or length
@@ -548,37 +535,34 @@ local updatePlanner = function(params, markers, config)
             radiusB = radius2,
             length = params.lengthOverride > 0 and length,
             slope = slope,
-            pattern = pattern
+            pattern = pattern,
+            varRefTrack = true
         } or {
             radius = radius,
             length = params.lengthOverride > 0 and length,
             slope = slope,
-            pattern = pattern
+            pattern = pattern,
+            varRefTrack = true
         }
     
-        local pre = findPreviews()
+        local pre = findPreviews(params)
         local previewParams = func.with(station.pureParams(params), 
         {
             showPreview = true,
             overrideParams = overrideParams
         })
 
-        if (#pre == 1) then
-            game.interface.upgradeConstruction(
-                pre[1].id,
-                con,
-                previewParams
-            )
-        else
-            local id = game.interface.buildConstruction(
-                con,
-                previewParams,
-                transf
-            )
-            game.interface.setPlayer(id, game.interface.getPlayer())
-        end
+        local _ = pre * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
+        
+        local id = game.interface.buildConstruction(
+            con,
+            previewParams,
+            transf
+        )
+        game.interface.setPlayer(id, game.interface.getPlayer())
+    
     else
-        local pre = #markers == 2 and retriveParams(markers)() or findPreviews(params)
+        local pre = #markers == 2 and retriveParams(markers)(params) or findPreviews(params)
         if (params.override == 2) then
             if (#pre == 1) then
                 local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
@@ -631,7 +615,7 @@ local updateFn = function()
         local radius = params.overrideParams and params.overrideParams.radius or ((ustm.rList[params.radius + 1] * 1000) * (params.sign == 0 and 1 or -1))
         local slope = params.overrideParams and params.overrideParams.slope or (ustm.slopeList[params.slope + 1] * 0.001 * (params.slopeSign == 0 and 1 or -1))
         local length = params.overrideParams and params.overrideParams.length or min(ustm.trackLengths[params.length + 1], abs(radius * pi * 1.5))
-
+        
         local entryConfig = {
             main = {
                 pos = mainBuilding and (params.entryPos - 1),
@@ -670,7 +654,7 @@ local updateFn = function()
             lExtPlatform = ustm.extLengthList[params.lExtPlatform + 1] * 0.01,
             yOffsetPlatform = ustm.yOffsetList[params.yOffsetPlatform + 1] * (params.yOffsetPlatformSign == 0 and 0.01 or -0.01),
             varRefPos = params.varRefPos - 1,
-            varRefIsTrack = params.varRefType == 0,
+            varRefIsTrack = (params.overrideParams and params.overrideParams.varRefTrack) or params.varRefType == 0,
             varNbUnaffected = ustm.varUnaffectedList[params.varNbUnaffected + 1] * 0.01,
             varModelLength = params.varModelLength + 1,
             varModelWidth = params.varModelWidth + 1,
