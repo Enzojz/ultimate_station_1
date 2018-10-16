@@ -11,8 +11,8 @@ local instruction =
  - R00: radius override e.g R1500 -> Ref. length = 1500m
  - Lr00: length round-off e.g Lr10 -> Roundoff the length by 10m
  - Rr00: length round-off e.g Rr100 -> Roundoff the radius by 100m
- - T/P: Track and platform configuration, T = Track, P = Platform.
-   E.g PTTPTTT -> A 3-track-2-platform station with two transit tracks
+ - T/P: Track and platform configuration, T = Track, P = Platform, t = Designated Track.
+   E.g PTTPtTT -> A 3-track-2-platform station with two transit tracks, and the third track is the reference track
 ]]
 
 local updateFn = function(params)

@@ -1,11 +1,4 @@
-local descEN = [[=== Failure detection and bug report ===
-Due to the complicity of the algorithm of the mod, you may face to calculate failure that lead to game crash.
-After version 1.4, all crashes are avoid but the mod will use default parameter to build the station.
-Once you find any case like this, it will be kind to send a bug report helping to debugging the failure out.
-The information about the failure is under stdout.txt which can be found under 446800\local\crash_dump of your Steam user folder, only the last chapiter called "Ultimate Station failure" is needed for report.
-=== End of Failure detection and bug report ===
-
-This Ultimate Station mod is designed to create station with various type of platforms, it includes 4 basic types:
+local descEN = [[This Ultimate Station mod is designed to create station with various type of platforms, it includes 4 basic types:
 1. Generic Station
 2. Double Curvature Station
 3. Triangle Station
@@ -74,8 +67,28 @@ Platform variations:
 * Reference: The reference, which is not affected by any variation settings, can be a track or a platform, if can be the leftmost/rightmost or the middle one.
 * Unaffected platforms: The percentage of unaffected platforms among all platforms, they are all round the reference.
 
+The Planner
+The planner can be used to build station with visual input, and override the input of parameters panel. It can be used to build stations with great precision.
+The planner for the moment can only be used on Generic Station and Double Curvature Station, the type of station is automatically chosen by the planner depending on their positions.
+Instruction:
+1. Place two markers of the same group on the extremity of the planned station. Two arrow markers should be face to face.
+2. Activate "Generic Station" menu
+3. Choose the same group, click on "Preview" button to enter into preview mode, configurate other parameters
+4. Click on "Build" to construct the station, click on "Clear" to erase the preview
+4. The length, slope and radius can be locked by the planners, you can choose the parameter source for these two them via menu
+5. You can rename one of the planner to use override instructions, use the format as follows (00 means number):
+- Start with #
+- L00: length override e.g L120 -> Ref. length = 120m
+- R00: radius override e.g R1500 -> Ref. length = 1500m
+- Lr00: length round-off e.g Lr10 -> Roundoff the length by 10m
+- Rr00: length round-off e.g Rr100 -> Roundoff the radius by 100m
+- T/P: Track and platform configuration, T = Track, P = Platform, t = Designated Track.
+   E.g PTTPtTT -> A 3-track-2-platform station with two transit tracks, and the third track is the reference track where the main curve goes through
+
 Changelog:
 1.11
+- Added "Planner" function to have a ultra flexible build process (c.f description and video for use)
+- Fixed wrong calculation on reference when reference is a track
 - Fixed wrong calculation on transit track position
 - Added the option to put the main entry to sides on triangle station
 - Added French translation
@@ -85,33 +98,6 @@ Changelog:
 1.9
 - Fixed polygen error on half-triangle station when length on part A is different to part B
 - Add option to adjust common radius part length
-1.8
-- Add main entry side option
-- Fixed polygen error on triangle station when length on part A is different to part B
-1.7
-- Add terminal station
-1.6
-- The middle platforms on triangle station and half-triangle station are re-designed to have full-length ones
-- Fixed inclined platform roof poles on slope configuration with curves.
-1.5
-- Fixed unusable main entry on triangle station when the converging angle close to 90°
-- Fixed visual fences bug 
-1.4 
-- Crash information dump and auto-recovery
-1.3
-- CommonAPI support added
-1.2
-- Fixed crash on "assertion failure"
-- Fixed some crashed without any messages
-- Added Chinese description
-1.1
-- Fixed crash when R = 50
-- Fixed wrong passenger standing orientation
-- Added Germain description
-* Note: For R = 50, you need to change the reference to the "right track" to avoid "too much curvature error".
-
-Credit:
-RPGFabi for German translation.
 
 Credits for resources:
 The fences B/C models are based on models from https://3dwarehouse.sketchup.com/, with modification and adaptations.
@@ -309,6 +295,24 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 * 参照物：参照物不受任何变化设置影响，可以是轨道或站台，可以是最左侧/最右侧或中间的。 
 * 未受影响的站台：所有车站中未受影响站台的百分比，他们都在参照物两侧。 
 
+规划工具
+规划工具可以提供以可视化方式建造车站的方法，用这个方法可以替代一些通过参数面板进行的参数输入。目前该工具只能用在普通和双曲线车站上，规划工具会依据给定的位置自动选择合适的车站类型。
+
+使用方法:
+1. 在地图上放置两个同组的规划标志。规划标志的箭头必须是相对朝内的。
+2. 激活“普通车站”建造菜单
+3. 选择和规划标志相同的组，点击“预览/刷新”进入预览模式，然后可以调整其他参数
+4. 点击“建造”建造车站，点击“清楚”删除预览
+4. 车站长度和坡度可以通过规划工具计算提供，你可以在菜单中选择他们的参数来源
+5. 你可以用修改其中一个规划工具的名称用来执行“强制指令”，强制指令的格式如下，00表示数字：
+ - 以#开始
+ - L00: 强制长度，比如 L120 -> 长度 = 120m
+ - R00: 强制半径，比如 R1500 -> 半径 = 1500m，该参数只有在普通车站类型中有效
+ - Lr00: 强制长度取整 比如 Lr10 -> 长度以10m取整
+ - Rr00: 强制半径取整 比如 Rr100 -> 半径以100m取整
+ - T/P: 轨道和站台布局配置, T = 轨道, P = 站台, t = 指定参照轨道（主曲线通过的轨道）。
+   比如 PTTPtTT -> 一个三轨道两站台车站，有两条正线在外侧，其中第三条轨道是参照轨道。
+
 更新日志：
 1.11
 - 修复了错误的正线位置计算
@@ -413,7 +417,7 @@ function data()
             ["Yes"] = "Ja",
             ["Convering Angle"] = "Winkel",
             ["Roof length"] = "Dachlänge",
-
+            
             -- ["Progressive/Counter Curvature Station"] = "Progressiver/Konzentrischer Bahnhof mit Radius",
             ["Station that platform and track parameters can be fine-tuned, with two different radii at two extremities of the platforms."] = "Bahnhof mit Bahnsteig und Gleis Parametern um 2 verschiedene Radien an 2 verschiedenen Enden der Bahnsteige zu bauen.",
             ["Half-triangle Station"] = "Halb dreieckiger Bahnhof",
@@ -481,7 +485,18 @@ function data()
             ["Main entry to central platform"] = "入口位于中央站台",
             ["Never"] = "从不",
             ["Possible"] = "可能",
+            ["Use Planner"] = "规划工具",
+            ["Preview/Refresh"] = "预览/刷新",
+            ["Build"] = "建造",
+            ["Clear"] = "清除",
+            ["Planner Group"] = "规划分组",
+            ["Length Source"] = "车站长度依据",
+            ["Slope Source"] = "车站坡度依据",
+            ["Menu"] = "菜单",
+            ["Instructions"] = "指令",
+            ["Planner positions"] = "规划标志位置",
 
+            ["Ultimate Station Planner"] = "车站规划工具",
             ["Progressive/Counter Curvature Station"] = "渐进曲线/反向曲线车站",
             ["Station that platform and track parameters can be fine-tuned, with two different radii at two extremities of the platforms."] 
             = "在车站前后两部分拥有不同曲率曲线的，可以进行站台参数微调的车站",
@@ -556,7 +571,18 @@ function data()
             ["Main entry to central platform"] = "Entrée principale à quai central",
             ["Never"] = "Jamais",
             ["Possible"] = "Possible",
+            ["Use Planner"] = "Planificateur",
+            ["Preview/Refresh"] = "Aperçu/MàJ",
+            ["Build"] = "Construction",
+            ["Clear"] = "MàZ",
+            ["Planner Group"] = "Groupement de planification",
+            ["Length Source"] = "Réf. de longueur",
+            ["Slope Source"] = "Réf de gradient",
+            ["Menu"] = "Menu",
+            ["Instructions"] = "Instructions",
+            ["Planner positions"] = "Localisation de planificateur",
 
+            ["Ultimate Station Planner"] = "Planificateur de gare",
             ["Progressive/Counter Curvature Station"] = "Gare sur courbes des rayons différents",
             ["Station that platform and track parameters can be fine-tuned, with two different radii at two extremities of the platforms."] 
             = "Gare ayant quais et voies sur deux courbes différents, avec possibilité de varier les largeur, longueur et les positions des quais.",

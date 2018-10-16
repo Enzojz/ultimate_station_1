@@ -10,6 +10,8 @@ local pipe = require "ustation/pipe"
 local ust = require "ustation"
 local uste = require "ustation_entries"
 local ustm = require "ustation_menu"
+local ustp = require "ustation_planner"
+
 local ma = math
 
 local abs = ma.abs
@@ -22,9 +24,6 @@ local cos = ma.cos
 local sin = ma.sin
 local asin = ma.asin
 local min = ma.min
-local e = ma.exp(1)
-local log = ma.log
-local log10 = log(10)
 
 local prefixM = "ust/1990/"
 local buildingList, buildingParamsList = require("ustation_building")(prefixM)
@@ -47,6 +46,18 @@ local function params()
                 name = _("Planner Group"),
                 values = func.seqMap({1, 5}, tostring),
                 defaultIndex = 0
+            },
+            {
+                key = "lengthOverride",
+                name = _("Length Source"),
+                values = {_("Menu"), _("Instructions"), _("Planner positions")},
+                defaultIndex = 0
+            },
+            {
+                key = "slopeOverride",
+                name = _("Slope Source"),
+                values = {_("Menu"), _("Planner positions")},
+                defaultIndex = 1
             }
         }
         + ustm.trackType
@@ -142,7 +153,6 @@ local arcPacker = function(length, slope)
     end
 end
 
-
 local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreLst, build)
     local build = build or ust.build
     local pW = config.wPlatform
@@ -151,7 +161,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
     local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
     
-    local ptList = config.pattern and #config.pattern > 0 and pipe.new * config.pattern or ust.preBuild(totalTracks, config.nbTransitTracks, config.posTransitTracks, ignoreFst, ignoreLst)(totalTracks, pipe.new)
+    local ptList = config.pattern and #config.pattern.p > 0 and pipe.new * config.pattern.p or ust.preBuild(totalTracks, config.nbTransitTracks, config.posTransitTracks, ignoreFst, ignoreLst)(totalTracks, pipe.new)
     local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})
     
     local refList = ptListI
@@ -159,7 +169,8 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         * pipe.map(pipe.select("i"))
         * pipe.sort(function(x, y) return x < y end)
     local middlePos =
-        config.varRefPos < 0 and refList[1]
+        config.pattern and config.pattern.m
+        or config.varRefPos < 0 and refList[1]
         or config.varRefPos > 0 and refList[#refList]
         or #refList % 2 == 1 and refList[(#refList + 1) * 0.5] or refList[#refList * 0.5]
         
@@ -292,11 +303,15 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     * ust.allArcs(config)
     
     local arcCoords = allArcs * pipe.filter(function(a) return a.isPlatform end)
-    local trackCoords = allArcs * pipe.filter(function(a) return a.isTrack end) * pipe.map(function(a)
-        local ar = a[1]()()()()[1]
-        return ar:pt(ar.inf)
+    local trackCoords = allArcs * pipe.map(function(a)
+        if (a.isTrack) then 
+            local ar = a[1]()()()()[1]
+            return ar:pt(ar.inf)
+        else
+            return false
+        end
     end
-    )    
+    )
     local entryConfig = ust.entryConfig(config, allArcs, arcCoords)
     
     local build = build(
@@ -313,138 +328,20 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         )
 end
 
-local updatePreview = function(params, config, arcPacker)
-    local nbTracks = ustm.trackNumberList[params.nbTracks + 1]
-    
-    local track, platform, entry, trackCoords =
-        buildStation(nbTracks,
-            arcPacker,
-            config,
-            params.hasLeftPlatform == 0,
-            params.hasRightPlatform == 0,
-            ust.buildPreview
-    )
-    
-    local disp =  trackCoords[(pipe.new 
-    / function() return 1 end
-    / function() return ceil(#trackCoords * 0.5) end
-    / function() return #trackCoords end
-    * pipe.select(params.varRefPos + 1))()]
-
-    return pipe.new * {
-        models = {
-            {          
-                id = "asset/icon/marker_question.mdl",
-                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
-            }
-        },
-        terrainAlignmentLists = { { type = "EQUAL", faces = {} } },
-        groundFaces = track
-        * pipe.map(pipe.select("equal"))
-        * pipe.filter(pipe.noop())
-        * pipe.flatten()
-        * pipe.map(function(f) return {
-            {face = f, modes = {{type = "FILL", key = "fill_red"}}},
-        } end)
-        * pipe.flatten()
-        + platform
-        * pipe.map(pipe.select("equal"))
-        * pipe.filter(pipe.noop())
-        * pipe.flatten()
-        * pipe.map(function(f) return {
-            {face = f, modes = {{type = "FILL", key = "fill_blue"}}},
-        } end)
-        * pipe.flatten()
-        + 
-        (
-            entry * pipe.map(pipe.map(pipe.select("equal")))
-            + entry * pipe.map(pipe.map(pipe.select("slot")))
-        )
-        * pipe.flatten()
-        * pipe.filter(pipe.noop())
-        * pipe.flatten()
-        * pipe.map(function(f) return {
-            {face = f, modes = {{type = "FILL", key = "fill_yellow"}}},
-        } end)
-        * pipe.flatten()
-    }
-    * station.setTransform(coor.trans(-disp))
-end
-
-local updatePlanner = function(params, markers, config)
-    if (params.override == 1) then
-        local findPreviews, con, radius, radius2, length, slope, transf, pattern = refineParams(params, markers)
-        local overrideParams = radius2 and {
-            radiusA = radius,
-            radiusB = radius2,
-            length = length,
-            slope = slope,
-            pattern = pattern
-        } or {
-            radius = radius,
-            length = length,
-            slope = slope,
-            pattern = pattern
-        }
-    
-        local pre = findPreviews()
-        local previewParams = func.with(station.pureParams(params), 
-        {
-            showPreview = true,
-            overrideParams = overrideParams
-        })
-
-        if (#pre == 1) then
-            game.interface.upgradeConstruction(
-                pre[1].id,
-                con,
-                previewParams
-            )
-        else
-            local id = game.interface.buildConstruction(
-                con,
-                previewParams,
-                transf
-            )
-            game.interface.setPlayer(id, game.interface.getPlayer())
-        end
-    else
-        local pre = #markers == 2 and retriveParams(markers)() or findPreviews(params)
-        if (params.override == 2) then
-            if (#pre == 1) then
-                local _ = markers * pipe.map(function(m) return m.id end) * pipe.forEach(game.interface.bulldoze)
-                game.interface.upgradeConstruction(
-                    pre[1].id,
-                    pre[1].fileName,
-                    func.with(station.pureParams(pre[1].params), 
-                    {
-                        override = 0, 
-                        showPreview = false, 
-                        isBuild = true
-                    })
-                )
-            end
-        elseif (params.override == 3) then
-            local _ = pre * pipe.map(pipe.select("id")) * pipe.forEach(game.interface.bulldoze)
-        end
-    end
-    
-    return {
-        models = {
-            {          
-                id = "asset/icon/marker_question.mdl",
-                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
-            }
-        },
-        cost = 0,
-        bulldozeCost = 0,
-        maintenanceCost = 0,
-        terrainAlignmentLists = { { type = "EQUAL", faces = {} } }
-    }
-end
-
 local updateFn = function()
     return ust.safeBuild(params, function(params)
+        if (params.override == 2 and not params.isBuild) then
+            local instance = pipe.new
+            * game.interface.getEntities({pos = {0, 0}, radius = 900000})
+            * pipe.map(game.interface.getEntity)
+            * pipe.filter(function(data) return data.params and data.params.seed == params.seed end)
+
+            if (#instance == 1) then
+                params.overrideParams = instance[1].params.overrideParams
+                params.isBuild = true
+            end
+        end
+        
         local trackType = ustm.trackList[params.trackType + 1]
         local trackWidth = ustm.trackWidthList[params.trackType + 1]
         local catenary = params.catenary == 1
@@ -517,21 +414,21 @@ local updateFn = function()
             rightFences = params.fencesPos == 2 or params.fencesPos == 3,
             entries = entryConfig,
             models = models,
-            pattern = params.overrideParams and params.overrideParams.pattern or nil
+            pattern = params.overrideParams and params.overrideParams.pattern or nil,
+            length = length
         }
         
         
         local arcPacker = arcPacker(length, slope)
 
         if (params.showPreview) then
-            return updatePreview(params, config, arcPacker)
-        elseif (params.override > 0) then
-            local markers = ust.findMarkers(params.overrideGr)
+            return ustp.updatePreview(params, config, arcPacker, buildStation)
+        elseif (params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) then
+            local markers = ustp.findMarkers(params.overrideGr)
             if (#markers == 2 or params.override > 1) then
-                return updatePlanner(params, markers, config)
+                return ustp.updatePlanner(params, markers, config)
             end
         end
-        
         
         local edge, streetEdge, terminals, terminalsGroup, models, terrain, trackCoords =
             buildStation(nbTracks,
@@ -540,6 +437,7 @@ local updateFn = function()
                 params.hasLeftPlatform == 0,
                 params.hasRightPlatform == 0
         )
+        
         return
             pipe.new
             * {
@@ -561,15 +459,8 @@ local updateFn = function()
             }
             * station.setHeight(alt)
             * (
-                params.isBuild and
-                function(r)
-                    local disp =  trackCoords[(pipe.new 
-                    / function() return 1 end
-                    / function() return ceil(#trackCoords * 0.5) end
-                    / function() return #trackCoords end
-                    * pipe.select(params.varRefPos + 1))()]
-                    return r * station.setTransform(coor.trans(-disp))
-                end
+                params.isBuild 
+                and ustp.displace(config, trackCoords)
                 or pipe.noop()
             )
     end)
