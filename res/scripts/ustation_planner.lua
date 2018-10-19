@@ -72,7 +72,7 @@ ustp.updatePreview = function(params, config, arcPacker, buildStation)
         or ("R" .. tostring(floor(config.rA * 10) * 0.1 ) .. " / ".. tostring(floor(config.rB * 10) * 0.1 ))
     )
     local ltext, wl = livetext(7, 0)("L" .. tostring(floor(config.length * 10) * 0.1))
-    local stext, ws = livetext(7, -7)("S" .. tostring(floor(config.slope * 10000) * 0.1) .. "/1000")
+    local stext, ws = livetext(7, -7)("S" .. tostring(floor(config.slope * 10000) * 0.1) .. "‰")
 
     return pipe.new * {
         models = pipe.new
