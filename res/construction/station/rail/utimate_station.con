@@ -282,6 +282,7 @@ local updateFn = function()
             if (#instance == 1) then
                 params.overrideParams = instance[1].params.overrideParams
                 params.isBuild = true
+                params.stationName = instance[1].name or instance[1].params.stationName or nil
             end
         end
 
@@ -355,7 +356,8 @@ local updateFn = function()
             entries = entryConfig,
             models = models,
             pattern = params.overrideParams and params.overrideParams.pattern or nil,
-            length = length
+            length = length,
+            name = params.stationName or nil
         }
         
         local arcPacker = ust.arcPacker(length, slope)
@@ -367,6 +369,10 @@ local updateFn = function()
             if (#markers == 2 or params.override > 1) then
                 return ustp.updatePlanner(params, markers, config)
             end
+        end
+
+        if (params.override == 1) then
+            return ustp.updatePreview(params, config, arcPacker, buildStation)
         end
         
         

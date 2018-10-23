@@ -9,23 +9,23 @@ indices =
         {
 normal = 
           {
-count = 336,
-offset = 4032
+count = 360,
+offset = 4320
            },
 position = 
           {
-count = 336,
-offset = 4032
+count = 360,
+offset = 4320
            },
 tangent = 
           {
-count = 336,
-offset = 4032
+count = 360,
+offset = 4320
            },
 uv0 = 
           {
-count = 336,
-offset = 4032
+count = 360,
+offset = 4320
            }
          },
 materials = 
@@ -36,27 +36,27 @@ vertexAttr =
     {
 normal = 
       {
-count = 1008,
+count = 1080,
 numComp = 3,
-offset = 1680
+offset = 1800
        },
 position = 
       {
-count = 1008,
+count = 1080,
 numComp = 3,
 offset = 0
        },
 tangent = 
       {
-count = 1344,
+count = 1440,
 numComp = 4,
-offset = 2688
+offset = 2880
        },
 uv0 = 
       {
-count = 672,
+count = 720,
 numComp = 2,
-offset = 1008
+offset = 1080
        }
      }
    } end

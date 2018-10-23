@@ -65,20 +65,17 @@ ustp.updatePreview = function(params, config, arcPacker, buildStation)
             params.hasRightPlatform == 0,
             ust.buildPreview
     )
-    
-    local rtext, wr = livetext(7, 7)(
+    local radius2String = function(r) return abs(r) > 1e6 and (r > 0 and "+∞" or "-∞") or tostring(floor(r * 10) * 0.1 ) end
+    local fPos = function(w) return coor.transX(-0.5 * w) * coor.rotX(-pi * 0.5) * coor.rotZ(pi * 0.5) * coor.transZ(3) end
+    local rtext = livetext(7, 0)(
         config.r 
-        and ("R" .. tostring(floor(config.r * 10) * 0.1 )) 
-        or ("R" .. tostring(floor(config.rA * 10) * 0.1 ) .. " / ".. tostring(floor(config.rB * 10) * 0.1 ))
-    )
-    local ltext, wl = livetext(7, 0)("L" .. tostring(floor(config.length * 10) * 0.1))
-    local stext, ws = livetext(7, -7)("S" .. tostring(floor(config.slope * 10000) * 0.1) .. "‰")
-
+        and ("R" .. radius2String(config.r)) 
+        or ("R" .. radius2String(config.rA) .. " / ".. radius2String(config.rB))
+    )(fPos)
+    local ltext = livetext(7, -1)("L" .. tostring(floor(config.length * 10) * 0.1))(fPos)
+    local stext = livetext(7, -2)("S" .. tostring(floor(config.slope * 10000) * 0.1) .. "‰")(fPos)
     return pipe.new * {
-        models = pipe.new
-        + ltext(coor.transX(-0.5 * wl) * coor.rotX(-pi * 0.5) * coor.rotZ(pi * 0.5) * coor.transZ(3))
-        + rtext(coor.transX(-0.5 * wr) * coor.rotX(-pi * 0.5) * coor.rotZ(pi * 0.5) * coor.transZ(3))
-        + stext(coor.transX(-0.5 * ws) * coor.rotX(-pi * 0.5) * coor.rotZ(pi * 0.5) * coor.transZ(3)),
+        models = pipe.new + ltext + rtext + stext,
         terrainAlignmentLists = { { type = "EQUAL", faces = {} } },
         groundFaces = track
         * pipe.map(pipe.select("equal"))
@@ -374,7 +371,8 @@ ustp.updatePlanner = function(params, markers, config)
                     {
                         override = 2, 
                         showPreview = false, 
-                        isBuild = true
+                        isBuild = true,
+                        stationName = pre[1].name
                     })
                 )
             end

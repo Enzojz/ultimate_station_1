@@ -1,0 +1,39 @@
+function data() return 
+  { animations = {  }, matConfigs = { { 0, 0 } }, 
+    subMeshes = 
+      { 
+        { 
+          indices = 
+            { 
+              normal = { count = 24, offset = 1728 }, 
+              position = { count = 24, offset = 1728 }, 
+              tangent = { count = 24, offset = 1728 }, 
+              uv0 = { count = 24, offset = 1728 }, 
+             }, 
+          materials = 
+            { "ust/platform_board_back.mtl" }
+         }, 
+        { 
+          indices = 
+            { 
+              normal = { count = 120, offset = 1752 }, 
+              position = { count = 120, offset = 1752 }, 
+              tangent = { count = 120, offset = 1752 }, 
+              uv0 = { count = 120, offset = 1752 }, 
+             }, 
+          materials = 
+            { "ust/platform_board_face.mtl" }
+         }
+       }, 
+    vertexAttr = 
+      { 
+        normal = 
+          { count = 432, numComp = 3, offset = 720 }, 
+        position = 
+          { count = 432, numComp = 3, offset = 0 }, 
+        tangent = 
+          { count = 576, numComp = 4, offset = 1152 }, 
+        uv0 = 
+          { count = 288, numComp = 2, offset = 432 }, 
+       }
+   } end

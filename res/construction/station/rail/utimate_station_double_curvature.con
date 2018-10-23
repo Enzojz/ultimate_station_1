@@ -339,6 +339,7 @@ local updateFn = function()
             if (#instance == 1) then
                 params.overrideParams = instance[1].params.overrideParams
                 params.isBuild = true
+                params.stationName = instance[1].name or instance[1].params.stationName or nil
             end
         end
         
@@ -415,7 +416,8 @@ local updateFn = function()
             entries = entryConfig,
             models = models,
             pattern = params.overrideParams and params.overrideParams.pattern or nil,
-            length = length
+            length = length,
+            name = params.stationName or nil
         }
         
         
