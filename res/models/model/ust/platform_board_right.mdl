@@ -1,0 +1,46 @@
+function data()
+    return {
+        collider = {
+            params = {
+            
+            },
+            type = "MESH",
+        },
+        lods = {
+            {
+                animations = {
+                
+                },
+                children = {
+                    {
+                        id = "ust/platform_board_left.msh",
+                        transf = {
+                            -1, 0, 0, 0, 
+                            0, 1, 0, 0, 
+                            0, 0, -1, 0, 
+                            0, 0, 0.5, 1,
+                        },
+                        type = "MESH",
+                    },
+                
+                },
+                events = {
+                
+                },
+                matConfigs = {
+                    {
+                        0, 0, 0,
+                    },
+                },
+                static = true,
+                visibleFrom = 0,
+                visibleTo = 2000,
+            
+            },
+        },
+        metadata = {
+        }
+    
+    
+    }
+end

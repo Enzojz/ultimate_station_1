@@ -5,21 +5,20 @@ function data() return
         { 
           indices = 
             { 
-              normal = { count = 24, offset = 1728 }, 
-              position = { count = 24, offset = 1728 }, 
-              tangent = { count = 24, offset = 1728 }, 
-              uv0 = { count = 24, offset = 1728 }, 
+              normal = { count = 24, offset = 2304 }, 
+              position = { count = 24, offset = 2304 }, 
+              tangent = { count = 24, offset = 2304 }, 
+              uv0 = { count = 24, offset = 2304 }, 
              }, 
-          materials = 
-            { "ust/platform_board_back.mtl" }
+             materials = { "ust/platform_board_back.mtl" }
          }, 
         { 
           indices = 
             { 
-              normal = { count = 120, offset = 1752 }, 
-              position = { count = 120, offset = 1752 }, 
-              tangent = { count = 120, offset = 1752 }, 
-              uv0 = { count = 120, offset = 1752 }, 
+              normal = { count = 168, offset = 2328 }, 
+              position = { count = 168, offset = 2328 }, 
+              tangent = { count = 168, offset = 2328 }, 
+              uv0 = { count = 168, offset = 2328 }, 
              }, 
           materials = 
             { "ust/platform_board_face.mtl" }
@@ -28,12 +27,12 @@ function data() return
     vertexAttr = 
       { 
         normal = 
-          { count = 432, numComp = 3, offset = 720 }, 
+          { count = 576, numComp = 3, offset = 960 }, 
         position = 
-          { count = 432, numComp = 3, offset = 0 }, 
+          { count = 576, numComp = 3, offset = 0 }, 
         tangent = 
-          { count = 576, numComp = 4, offset = 1152 }, 
+          { count = 768, numComp = 4, offset = 1536 }, 
         uv0 = 
-          { count = 288, numComp = 2, offset = 432 }, 
+          { count = 384, numComp = 2, offset = 576 }, 
        }
    } end

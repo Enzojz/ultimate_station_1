@@ -653,14 +653,36 @@ local function buildPoles(config, platformZ, tZ)
             + (b and 
                 pipe.new
                 / station.newModel("ust/platform_board.mdl", 
-                coor.scale(coor.xyz(width + 0.5, 0.05, 0.5)),
+                coor.scale(coor.xyz(width + 0.5, 1, 1)),
                 coor.trans(coor.xyz(0, -0.14, 2.5)),
                 quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
                 coor.trans(mc.i:avg(mc.s))
                 ) 
+                / station.newModel("ust/platform_board_left.mdl", 
+                coor.trans(coor.xyz(-width * 0.5, -0.14, 2.5)),
+                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                coor.trans(mc.i:avg(mc.s))
+                ) 
+                / station.newModel("ust/platform_board_right.mdl", 
+                coor.trans(coor.xyz(width * 0.5, -0.14, 2.5)),
+                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                coor.trans(mc.i:avg(mc.s))
+                ) 
                 / station.newModel("ust/platform_board.mdl", 
-                coor.scale(coor.xyz(width + 0.5, 0.05, 0.5)),
+                coor.scale(coor.xyz(width + 0.5, 1, 1)),
                 coor.trans(coor.xyz(0, -0.14, 2.5)),
+                coor.rotZ(pi),
+                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                coor.trans(mc.i:avg(mc.s))
+                ) 
+                / station.newModel("ust/platform_board_left.mdl", 
+                coor.trans(coor.xyz(-width * 0.5, -0.14, 2.5)),
+                coor.rotZ(pi),
+                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                coor.trans(mc.i:avg(mc.s))
+                ) 
+                / station.newModel("ust/platform_board_right.mdl", 
+                coor.trans(coor.xyz(width * 0.5, -0.14, 2.5)),
                 coor.rotZ(pi),
                 quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
                 coor.trans(mc.i:avg(mc.s))
