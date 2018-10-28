@@ -86,6 +86,8 @@ Instruction:
    E.g PTTPtTT -> A 3-track-2-platform station with two transit tracks, and the third track is the reference track where the main curve goes through
 
 Changelog:
+1.12
+- Station built with planner has now a station name board on the platform
 1.11
 - Added "Planner" function to have a ultra flexible build process (c.f description and video for use)
 - Fixed wrong calculation on reference when reference is a track
@@ -314,7 +316,10 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
    比如 PTTPtTT -> 一个三轨道两站台车站，有两条正线在外侧，其中第三条轨道是参照轨道。
 
 更新日志：
+1.12
+- 用规划工具建造的车站拥有站台牌（仅拉丁站名有效）
 1.11
+- 增加了规划工具得以灵活的方式建造车站
 - 修复了错误的正线位置计算
 - 增加了三角车站主入口位置的选项
 - 增加了法语翻译
