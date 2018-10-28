@@ -39,7 +39,7 @@ local gen = function(scale, z)
     local z = z or 0
     return function(text)
         local result = utf2unicode(text)
-            * pipe.fold(pipe.new, 
+            * pipe.fold(pipe.new * {}, 
             function(r, c)
                 local lastPos = #r > 0 and r[#r].to or 0
                 local abc = abc[c]
@@ -52,15 +52,19 @@ local gen = function(scale, z)
                     return r
                 end
             end)
-        local width = #result > 0 and result[#result].to * scale or false
-        return 
-            function(fTrans) return func.map(result, function(r)
-                return {
-                    id = "livetext/lato/" .. tostring(r.c) .. ".mdl",
-                    transf = coor.transX(r.from) * coor.scale(coor.xyz(scale, scale, scale)) * coor.transZ(z * scale) * (fTrans(width) or coor.I())
-                }
-            end)
-        end, width
+        if (#result > 0) then
+            local width = result[#result].to * scale
+            return 
+                function(fTrans) return func.map(result, function(r)
+                    return {
+                        id = "livetext/lato/" .. tostring(r.c) .. ".mdl",
+                        transf = coor.transX(r.from) * coor.scale(coor.xyz(scale, scale, scale)) * coor.transZ(z * scale) * (fTrans(width) or coor.I())
+                    }
+                end)
+            end, width
+        else
+            return false, false
+        end
     end
 end
 

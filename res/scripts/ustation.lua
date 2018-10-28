@@ -628,20 +628,20 @@ local function buildPoles(config, platformZ, tZ)
             / config.models.roofPoleExtreme
             * function(ls) return ls * pipe.rev() + ls end
             
-        local seqBoard = pipe.new
-            * pipe.rep(c - 1)(false)
-            * pipe.mapi(function(_, i) return (i % 3 == 2) and config.name or false end)
-            * function(ls) return ls * pipe.rev() + ls end
         
         local nameModelsF, width = table.unpack(config.name and {livetext(0.35)(config.name)} or {})
         
+        local seqBoard = pipe.new
+            * pipe.rep(c - 1)(false)
+            * pipe.mapi(function(_, i) return (i % 3 == 2) and nameModelsF and width or false end)
+            * function(ls) return ls * pipe.rev() + ls end
+            
         return func.flatten(pipe.mapn(
             pipe.range(f, t)(pipe.mapi(function(mc, i) return i >= c and coor.I() or coor.flipY() end)(seq)),
             pipe.range(f, t)(il(mc)),
             pipe.range(f, t)(seq),
             pipe.range(f, t)(seqBoard)
         )
-        
         (function(t, mc, m, b)
             local vecPo = mc.s - mc.i
             return pipe.new
@@ -650,7 +650,7 @@ local function buildPoles(config, platformZ, tZ)
                 quat.byVec(coor.xyz(0, 10, 0), vecPo):mRot(),
                 coor.trans(mc.i:avg(mc.s)),
                 coor.transZ(-platformZ))
-            + (b and 
+            + (b and
                 pipe.new
                 / station.newModel("ust/platform_board.mdl", 
                 coor.scale(coor.xyz(width + 0.5, 1, 1)),
@@ -686,7 +686,7 @@ local function buildPoles(config, platformZ, tZ)
                 coor.rotZ(pi),
                 quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
                 coor.trans(mc.i:avg(mc.s))
-                ) 
+                )
                 + nameModelsF(function(w) return 
                     coor.trans(coor.xyz(-0.5 * w, -0.195, 2.5 + 0.175 * 3 / 4))
                     * quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot() 
@@ -697,7 +697,6 @@ local function buildPoles(config, platformZ, tZ)
                     * quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot() 
                     * coor.trans(mc.i:avg(mc.s)) end)
                 or {}
-            
             )
         end))
     end
