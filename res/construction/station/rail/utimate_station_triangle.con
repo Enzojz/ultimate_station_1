@@ -53,8 +53,8 @@ local function params()
             {
                 key = "posTransitTracksA",
                 name = _("Position"),
-                values = {_("Centre"), _("Outter")},
-                defaultIndex = 0
+                values = {_("Left"), _("Centre"), _("Sides"), _("Right")},
+                defaultIndex = 1
             },
             {
                 key = "nbTransitTracksB",
@@ -65,8 +65,8 @@ local function params()
             {
                 key = "posTransitTracksB",
                 name = _("Position"),
-                values = {_("Centre"), _("Outter")},
-                defaultIndex = 0
+                values = {_("Left"), _("Centre"), _("Sides"), _("Right")},
+                defaultIndex = 1
             },
             {
                 key = "radiusA",
@@ -404,9 +404,9 @@ local updateFn = function()
                 arcPacker(lengthB, slope, lengthB / radiusB * 0.5, pi * ustm.convAngle[params.convAngle + 1] / 180),
                 {
                     nbTransitTracksA = params.nbTransitTracksA,
-                    posTransitTracksA = params.posTransitTracksA,
+                    posTransitTracksA = params.posTransitTracksA - 2,
                     nbTransitTracksB = params.nbTransitTracksB,
-                    posTransitTracksB = params.posTransitTracksB,
+                    posTransitTracksB = params.posTransitTracksB - 2,
                     convRad = pi * ustm.convAngle[params.convAngle + 1] / 180,
                     rA = radiusA,
                     rB = radiusB,

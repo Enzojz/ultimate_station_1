@@ -57,8 +57,8 @@ local function params()
             {
                 key = "posTransitTracksA",
                 name = _("Position"),
-                values = {_("Centre"), _("Outter")},
-                defaultIndex = 0
+                values = {_("Left"), _("Centre"), _("Sides"), _("Right")},
+                defaultIndex = 1
             },
             {
                 key = "nbTransitTracksB",
@@ -69,8 +69,8 @@ local function params()
             {
                 key = "posTransitTracksB",
                 name = _("Position"),
-                values = {_("Centre"), _("Outter")},
-                defaultIndex = 0
+                values = {_("Left"), _("Centre"), _("Sides"), _("Right")},
+                defaultIndex = 1
             },
             {
                 key = "radiusA",
@@ -392,9 +392,9 @@ local updateFn = function()
                 arcPacker(lengthB, slope, func.min({lengthA, lengthB}), ({0.3, 0.4, 0.5, 0.6, 0.7})[params.lengthCommon + 1]),
                 {
                     nbTransitTracksA = params.nbTransitTracksA,
-                    posTransitTracksA = params.posTransitTracksA,
+                    posTransitTracksA = params.posTransitTracksA - 2,
                     nbTransitTracksB = params.nbTransitTracksB,
-                    posTransitTracksB = params.posTransitTracksB,
+                    posTransitTracksB = params.posTransitTracksB - 2,
                     rA = radiusA,
                     rB = radiusB,
                     rC = radiusC,

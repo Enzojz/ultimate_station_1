@@ -88,6 +88,9 @@ Instruction:
 Changelog:
 1.12
 - Station built with planner has now a station name board on the platform
+- Fixed transit track position error on triangle station and half-triangle station
+- Fixed wrong train stop position on half triangle station when common part length ≠ 50%
+- Added "Length Ratio A/B" option to Double Curvature Station
 1.11
 - Added "Planner" function to have a ultra flexible build process (c.f description and video for use)
 - Fixed wrong calculation on reference when reference is a track
@@ -318,6 +321,9 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
 更新日志：
 1.12
 - 用规划工具建造的车站拥有站台牌（仅拉丁站名有效）
+- 修正了三角车站中正线位置的错误
+- 修正了半三角车站中共用部分长度不为50%时列车不停靠站台中间的问题
+- 增加了双曲线车站A/B部分长度之比
 1.11
 - 增加了规划工具得以灵活的方式建造车站
 - 修复了错误的正线位置计算
@@ -500,6 +506,7 @@ function data()
             ["Menu"] = "菜单",
             ["Instructions"] = "指令",
             ["Planner positions"] = "规划标志位置",
+            ["Length Ratio A/B"] = "A/B 长度之比",
 
             ["Ultimate Station Planner"] = "车站规划工具",
             ["Progressive/Counter Curvature Station"] = "渐进曲线/反向曲线车站",
@@ -586,6 +593,7 @@ function data()
             ["Menu"] = "Menu",
             ["Instructions"] = "Instructions",
             ["Planner positions"] = "Localisation de planificateur",
+            ["Length Ratio A/B"] = "Rapport Longueur A/B",
 
             ["Ultimate Station Planner"] = "Planificateur de gare",
             ["Progressive/Counter Curvature Station"] = "Gare sur courbes des rayons différents",

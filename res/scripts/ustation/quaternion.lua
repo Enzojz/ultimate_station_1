@@ -107,7 +107,7 @@ function quaternion.xyzw(pt, w)
 end
 
 function quaternion.byVec(vec1, vec2)
-    if ((vec1 + vec2):length() == 0) then 
+    if ((vec1:normalized() + vec2:normalized()):length() == 0) then 
         return quaternion.wxyz(0, 0, 0, 1)
     else
         local cr = vec1:cross(vec2)

@@ -304,19 +304,48 @@ local il = pipe.interlace({"s", "i"})
 ust.unitLane = function(f, t) return ((t - f):length2() > 1e-2 and (t - f):length2() < 562500) and station.newModel("ust/person_lane.mdl", ust.mRot(t - f), coor.trans(f)) or nil end
 
 ust.generateEdges = function(edges, isLeft, arcPacker)
-    local arcs = arcPacker()()()
-    local eInf, eSup = table.unpack(arcs * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
+    local arcInf, arcSup = table.unpack(arcPacker()()())
+    
+    local lInf = arcInf:length()
+    local lSup = arcSup:length()
+    local totalLength = lInf + lSup
+    local nArcInf = arcInf:extendLimits(totalLength * 0.5 - lInf, 0)
+    local nArcSup = arcSup:extendLimits(totalLength * 0.5 - lSup, 0)
+    local arcs = pipe.new / nArcInf / nArcSup
+    local eInf, eSup = 
+        table.unpack(
+            arcs 
+            * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) 
+            * pipe.map(ust.generateArc)
+        )
     if isLeft then
-        eInf[1] = eInf[1]:avg(eSup[2])
-        eSup[2] = eInf[1]
-        eInf[3] = eInf[3]:avg(eSup[4])
-        eSup[4] = eInf[3]
+        if (abs(lInf - lSup) < 5) then
+            eInf[1] = eInf[1]:avg(eSup[2])
+            eSup[2] = eInf[1]
+            eInf[3] = eInf[3]:avg(eSup[4])
+            eSup[4] = eInf[3]
+        elseif (lInf > lSup) then
+            eSup[4] = eInf[3]
+            eSup[2] = eInf[1]
+        elseif (lInf < lSup) then
+            eInf[3] = eSup[4]
+            eInf[1] = eSup[2]
+        end
     else
-        eInf[2] = eInf[2]:avg(eSup[1])
-        eSup[1] = eInf[2]
-        eInf[4] = eInf[4]:avg(eSup[3])
-        eSup[3] = eInf[4]
+        if (abs(lInf - lSup) < 1e-5) then
+            eInf[2] = eInf[2]:avg(eSup[1])
+            eSup[1] = eInf[2]
+            eInf[4] = eInf[4]:avg(eSup[3])
+            eSup[3] = eInf[4]
+        elseif (lInf > lSup) then
+            eSup[3] = eInf[4]
+            eSup[1] = eInf[2]
+        elseif (lInf < lSup) then
+            eInf[4] = eSup[3] 
+            eInf[2] = eSup[1] 
+        end
     end
+
     return edges /
         {
             edge = pipe.new / eInf / eSup + arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end,
