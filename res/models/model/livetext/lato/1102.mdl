@@ -1,0 +1,33 @@
+function data() return 
+  {
+collider = 
+    {
+params = 
+      {
+center = { 0, 0, 0 },
+halfExtents = { 0, 0, 0 }
+       },
+type = "BOX"
+     },
+lods = 
+    { 
+      {
+animations = {  },
+children = 
+        { 
+          {
+id = "livetext/lato/1102.msh",
+transf = 
+            { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 },
+type = "MESH"
+           }
+         },
+events = {  },
+matConfigs = { { 0 } },
+static = true,
+visibleFrom = 0,
+visibleTo = 2000
+       }
+     },
+metadata = {  }
+   } end

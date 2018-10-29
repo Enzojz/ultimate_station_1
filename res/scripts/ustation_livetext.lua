@@ -7,7 +7,7 @@ local band = bit32.band
 local lshift = bit32.lshift
 local bor = bit32.bor
 
-local abc, kern = table.unpack(require "livetext/lato")
+local abc, kern = table.unpack(require "ustation/lato")
 
 local function utf2unicode(str)
     if (str == nil) then return pipe.new / 0 end
