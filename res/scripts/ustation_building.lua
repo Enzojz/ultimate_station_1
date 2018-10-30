@@ -78,7 +78,7 @@ local buildingParamsList = {
 }
 
 return function(prefixB)
-    return 
+    return
         buildingList(function(n) return prefixB .. "building/" .. n end),
         buildingParamsList
 end

@@ -41,10 +41,10 @@ local qLength2 = function(self) return self.x * self.x + self.y * self.y + self.
 local qNormalized = function(self) return self:length2() == 0 and self or (self / self:length()) end
 local qMRot = function(q)
     return coor.I() * {
-        1 - 2 * q.y * q.y - 2 * q.z * q.z,     2 * q.x * q.y + 2 * q.w * q.z,     2 * q.x * q.z - 2 * q.w * q.y,     0,
-        2 * q.x * q.y - 2 * q.w * q.z,         1 - 2 * q.x * q.x - 2 * q.z * q.z, 2 * q.y * q.z + 2 * q.w * q.x,     0,
-        2 * q.x * q.z + 2 * q.w * q.y,         2 * q.y * q.z - 2 * q.w * q.x,     1 - 2 * q.x * q.x - 2* q.y * q.y,  0,
-        0,                                     0,                                 0,                                 1
+        1 - 2 * q.y * q.y - 2 * q.z * q.z, 2 * q.x * q.y + 2 * q.w * q.z, 2 * q.x * q.z - 2 * q.w * q.y, 0,
+        2 * q.x * q.y - 2 * q.w * q.z, 1 - 2 * q.x * q.x - 2 * q.z * q.z, 2 * q.y * q.z + 2 * q.w * q.x, 0,
+        2 * q.x * q.z + 2 * q.w * q.y, 2 * q.y * q.z - 2 * q.w * q.x, 1 - 2 * q.x * q.x - 2 * q.y * q.y, 0,
+        0, 0, 0, 1
     }
 end
 
@@ -62,7 +62,7 @@ local qCross = function(p, q)
         p.w * q.x + p.x * q.w + p.y * q.z - p.z * q.y,
         p.w * q.y + p.y * q.w + p.z * q.x - p.x * q.z,
         p.w * q.z + p.z * q.w + p.x * q.y - p.y * q.x
-    )
+)
 end
 
 local qMeta = {
@@ -107,7 +107,7 @@ function quaternion.xyzw(pt, w)
 end
 
 function quaternion.byVec(vec1, vec2)
-    if ((vec1:normalized() + vec2:normalized()):length() == 0) then 
+    if ((vec1:normalized() + vec2:normalized()):length() == 0) then
         return quaternion.wxyz(0, 0, 0, 1)
     else
         local cr = vec1:cross(vec2)

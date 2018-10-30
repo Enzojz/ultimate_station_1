@@ -312,12 +312,12 @@ ust.generateEdges = function(edges, isLeft, arcPacker)
     local nArcInf = arcInf:extendLimits(totalLength * 0.5 - lInf, 0)
     local nArcSup = arcSup:extendLimits(totalLength * 0.5 - lSup, 0)
     local arcs = pipe.new / nArcInf / nArcSup
-    local eInf, eSup = 
+    local eInf, eSup =
         table.unpack(
-            arcs 
-            * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end) 
+            arcs
+            * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end)
             * pipe.map(ust.generateArc)
-        )
+    )
     if isLeft then
         if (abs(lInf - lSup) < 5) then
             eInf[1] = eInf[1]:avg(eSup[2])
@@ -341,11 +341,11 @@ ust.generateEdges = function(edges, isLeft, arcPacker)
             eSup[3] = eInf[4]
             eSup[1] = eInf[2]
         elseif (lInf < lSup) then
-            eInf[4] = eSup[3] 
-            eInf[2] = eSup[1] 
+            eInf[4] = eSup[3]
+            eInf[2] = eSup[1]
         end
     end
-
+    
     return edges /
         {
             edge = pipe.new / eInf / eSup + arcs * pipe.mapFlatten(ust.generateArcExt) * function(ls) return {ls[2], ls[4]} end,
@@ -375,9 +375,9 @@ ust.generateEdgesTerminal = function(edges, isLeft, arcPacker)
 end
 
 local retriveLanes = function(config)
-    return 
+    return
     (config.isCargo and "ust/terminal_cargo_lane.mdl" or "ust/terminal_lane.mdl"),
-    (config.isCargo and "ust/standard_cargo_lane.mdl" or "ust/standard_lane.mdl")
+        (config.isCargo and "ust/standard_cargo_lane.mdl" or "ust/standard_lane.mdl")
 end
 
 ust.generateTerminals = function(config)
@@ -656,7 +656,7 @@ local function buildPoles(config, platformZ, tZ)
             * pipe.rep(c - 2)(config.models.roofPole)
             / config.models.roofPoleExtreme
             * function(ls) return ls * pipe.rev() + ls end
-            
+        
         
         local nameModelsF, width = table.unpack(config.name and {livetext(0.35)(config.name)} or {})
         
@@ -664,7 +664,7 @@ local function buildPoles(config, platformZ, tZ)
             * pipe.rep(c - 1)(false)
             * pipe.mapi(function(_, i) return (i % 3 == 2) and nameModelsF and width or false end)
             * function(ls) return ls * pipe.rev() + ls end
-            
+        
         return func.flatten(pipe.mapn(
             pipe.range(f, t)(pipe.mapi(function(mc, i) return i >= c and coor.I() or coor.flipY() end)(seq)),
             pipe.range(f, t)(il(mc)),
@@ -674,59 +674,59 @@ local function buildPoles(config, platformZ, tZ)
         (function(t, mc, m, b)
             local vecPo = mc.s - mc.i
             return pipe.new
-            / station.newModel(m .. ".mdl", tZ, t,
-                coor.scaleY(vecPo:length() / 10),
-                quat.byVec(coor.xyz(0, 10, 0), vecPo):mRot(),
-                coor.trans(mc.i:avg(mc.s)),
-                coor.transZ(-platformZ))
-            + (b and
+                / station.newModel(m .. ".mdl", tZ, t,
+                    coor.scaleY(vecPo:length() / 10),
+                    quat.byVec(coor.xyz(0, 10, 0), vecPo):mRot(),
+                    coor.trans(mc.i:avg(mc.s)),
+                    coor.transZ(-platformZ))
+                + (b and
                 pipe.new
-                / station.newModel("ust/platform_board.mdl", 
-                coor.scale(coor.xyz(width + 0.5, 1, 1)),
-                coor.trans(coor.xyz(0, -0.14, 2.5)),
-                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
-                coor.trans(mc.i:avg(mc.s))
-                ) 
-                / station.newModel("ust/platform_board_left.mdl", 
-                coor.trans(coor.xyz(-width * 0.5, -0.14, 2.5)),
-                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
-                coor.trans(mc.i:avg(mc.s))
-                ) 
-                / station.newModel("ust/platform_board_right.mdl", 
-                coor.trans(coor.xyz(width * 0.5, -0.14, 2.5)),
-                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
-                coor.trans(mc.i:avg(mc.s))
-                ) 
-                / station.newModel("ust/platform_board.mdl", 
-                coor.scale(coor.xyz(width + 0.5, 1, 1)),
-                coor.trans(coor.xyz(0, -0.14, 2.5)),
-                coor.rotZ(pi),
-                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
-                coor.trans(mc.i:avg(mc.s))
-                ) 
-                / station.newModel("ust/platform_board_left.mdl", 
-                coor.trans(coor.xyz(-width * 0.5, -0.14, 2.5)),
-                coor.rotZ(pi),
-                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
-                coor.trans(mc.i:avg(mc.s))
-                ) 
-                / station.newModel("ust/platform_board_right.mdl", 
-                coor.trans(coor.xyz(width * 0.5, -0.14, 2.5)),
-                coor.rotZ(pi),
-                quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
-                coor.trans(mc.i:avg(mc.s))
+                / station.newModel("ust/platform_board.mdl",
+                    coor.scale(coor.xyz(width + 0.5, 1, 1)),
+                    coor.trans(coor.xyz(0, -0.14, 2.5)),
+                    quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                    coor.trans(mc.i:avg(mc.s))
                 )
-                + nameModelsF(function(w) return 
+                / station.newModel("ust/platform_board_left.mdl",
+                    coor.trans(coor.xyz(-width * 0.5, -0.14, 2.5)),
+                    quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                    coor.trans(mc.i:avg(mc.s))
+                )
+                / station.newModel("ust/platform_board_right.mdl",
+                    coor.trans(coor.xyz(width * 0.5, -0.14, 2.5)),
+                    quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                    coor.trans(mc.i:avg(mc.s))
+                )
+                / station.newModel("ust/platform_board.mdl",
+                    coor.scale(coor.xyz(width + 0.5, 1, 1)),
+                    coor.trans(coor.xyz(0, -0.14, 2.5)),
+                    coor.rotZ(pi),
+                    quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                    coor.trans(mc.i:avg(mc.s))
+                )
+                / station.newModel("ust/platform_board_left.mdl",
+                    coor.trans(coor.xyz(-width * 0.5, -0.14, 2.5)),
+                    coor.rotZ(pi),
+                    quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                    coor.trans(mc.i:avg(mc.s))
+                )
+                / station.newModel("ust/platform_board_right.mdl",
+                    coor.trans(coor.xyz(width * 0.5, -0.14, 2.5)),
+                    coor.rotZ(pi),
+                    quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot(),
+                    coor.trans(mc.i:avg(mc.s))
+                )
+                + nameModelsF(function(w) return
                     coor.trans(coor.xyz(-0.5 * w, -0.195, 2.5 + 0.175 * 3 / 4))
-                    * quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot() 
+                    * quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot()
                     * coor.trans(mc.i:avg(mc.s)) end)
-                + nameModelsF(function(w) return 
+                + nameModelsF(function(w) return
                     coor.trans(coor.xyz(-0.5 * w, -0.195, 2.5 + 0.175 * 3 / 4))
                     * coor.rotZ(pi)
-                    * quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot() 
+                    * quat.byVec(coor.xyz(10, 0, 0), vecPo):mRot()
                     * coor.trans(mc.i:avg(mc.s)) end)
                 or {}
-            )
+        )
         end))
     end
 end
@@ -761,7 +761,7 @@ local function buildChairs(config, platformZ, tZ)
 end
 
 ust.generateModels = function(fitModel, config)
-    local tZ = coor.transZ(config.hPlatform - 1.4) -- 1.4 = model height
+    local tZ = coor.transZ(config.hPlatform - 1.4)-- 1.4 = model height
     local platformZ = config.hPlatform + 0.53
     
     local buildSurface = buildSurface(fitModel, platformZ, tZ)
@@ -1544,7 +1544,7 @@ ust.buildPreview = function(config, fitModel, entries, generateEdges)
     local generateTerrain = ust.generateTerrain(config)
     local generateTerrainDual = ust.generateTerrainDual(config)
     local generateTrackTerrain = ust.generateTrackTerrain(config)
-
+    
     local buildTerminal = ust.buildTerminal(fitModel, config)
     local function build(trackTerrain, platformTerrain, gr, ...)
         if (gr == nil) then
@@ -1884,7 +1884,7 @@ ust.entryConfig = function(config, allArcs, arcCoords, ignoreMain)
     end
     local withoutMainRight = function(i) return
         (not config.isTerminal and isRightTrack)
-            or ignoreMain 
+            or ignoreMain
             or config.entries.main.isLeft
             or (not config.entries.main.model)
             or config.entries.main.pos + 2 ~= i
@@ -1947,7 +1947,7 @@ ust.findIntersections = function(config)
         for i = 1, #allArcs - 1 do
             if allArcs[i].isPlatform and allArcs[i + 1].isPlatform then
                 local arcsL, arcsR = allArcs[i], allArcs[i + 1]
-
+                
                 do
                     local arcsLL, arcsRR = arcsL[1], arcsR[2]
                     local lengthL = arcsLL(refZ)()()[1]:length()
@@ -1973,10 +1973,10 @@ ust.findIntersections = function(config)
                     local lppc, rppc, ppc = ust.bitLatCoords(10)(roof.edge.l, roof.edge.r)
                     
                     mArcs.roof = {
-                                edge = func.with(roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
-                                surface = func.with(roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
-                                pole = func.with(roof.edge, {lc = lppc, rc = rppc, mc = mc(lppc, rppc), c = ppc})
-                            }
+                        edge = func.with(roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
+                        surface = func.with(roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
+                        pole = func.with(roof.edge, {lc = lppc, rc = rppc, mc = mc(lppc, rppc), c = ppc})
+                    }
                 end
                 
                 
@@ -2118,7 +2118,7 @@ ust.defaultParams = function(params)
         
         func.forEach(
             func.filter(defParams, function(p) return p.key ~= "tramTrack" end),
-            function(i) param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
+            function(i)param[i.key] = limiter(i.defaultIndex or 0, #i.values)(param[i.key]) end)
         return param
     end
 end
@@ -2129,23 +2129,23 @@ ust.safeBuild = function(params, updateFn)
         pipe.mapPair(function(i) return i.key, i.defaultIndex or 0 end)
     
     return function(param)
-            local r, result = xpcall(
-                updateFn,
-                function(e)
-                    print("========================")
-                    print("Ultimate Station failure")
-                    print("Algorithm failure:", debug.traceback())
-                    print("Params:")
-                    func.forEach(
-                        params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
-                        function(i)print(i.key .. ": " .. param[i.key]) end)
-                    print("End of Ultimate Station failure")
-                    print("========================")
-                end,
-                defaultParams(param)
-            )
-            return r and result or updateFn(defaultParams(paramsOnFail))
-            -- return updateFn(defaultParams(param))
+        local r, result = xpcall(
+            updateFn,
+            function(e)
+                print("========================")
+                print("Ultimate Station failure")
+                print("Algorithm failure:", debug.traceback())
+                print("Params:")
+                func.forEach(
+                    params() * pipe.filter(function(i) return param[i.key] ~= (i.defaultIndex or 0) end),
+                    function(i)print(i.key .. ": " .. param[i.key]) end)
+                print("End of Ultimate Station failure")
+                print("========================")
+            end,
+            defaultParams(param)
+        )
+        return r and result or updateFn(defaultParams(paramsOnFail))
+    -- return updateFn(defaultParams(param))
     end
 end
 

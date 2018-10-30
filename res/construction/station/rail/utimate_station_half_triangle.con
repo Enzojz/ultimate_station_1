@@ -125,7 +125,7 @@ local function params()
         + {
             {
                 key = "lengthMiddlePlatform",
-                name = _("Central Platforms Common Block Length") .. " " ..  "(%)",
+                name = _("Central Platforms Common Block Length") .. " " .. "(%)",
                 values = func.map(ustm.middlePlatformLength, tostring),
                 defaultIndex = 3
             }

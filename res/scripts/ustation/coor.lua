@@ -208,7 +208,7 @@ function coor.inv(m)
             end)
         end)
     
-        return coor.I() * mXI
+    return coor.I() * mXI
 end
 
 
@@ -216,12 +216,12 @@ function coor.decomposite(m)
     local vecTrans = coor.xyz(m[13], m[14], m[15])
     local sx = coor.xyz(m[1], m[2], m[3]):length()
     local sy = coor.xyz(m[5], m[6], m[7]):length()
-    local sz = coor.xyz(m[9], m[10],m[11]):length()
+    local sz = coor.xyz(m[9], m[10], m[11]):length()
     local mRot = {
         m[1] / sx, m[2] / sx, m[3] / sx, 0,
         m[5] / sy, m[6] / sy, m[7] / sy, 0,
-        m[9] / sz, m[10]/ sz, m[11]/ sz, 0,
-        0,         0,         0,         1
+        m[9] / sz, m[10] / sz, m[11] / sz, 0,
+        0, 0, 0, 1
     }
     return vecTrans, coor.I() * mRot, coor.xyz(sx, sy, sz)
 end

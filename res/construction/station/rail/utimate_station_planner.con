@@ -1,42 +1,25 @@
-local instruction = 
-[[Instruction:
-1. Place two markers of the same group on the extremity of the planned station
-2. Activate "Generic Station" menu
-3. Choose the same group, click on "Preview" button to enter into preview mode, configurate other paramters
-4. Click on "Build" to construct the station, click on "Clear" to erease the preview
-4. The length, slope and radius are locked by the planners, you can't modify them via menu
-5. You can rename one of the planner to use override instructions, use the format as follows (00 means number):
- - Start with #
- - L00: length override e.g L120 -> Ref. length = 120m
- - R00: radius override e.g R1500 -> Ref. length = 1500m
- - Lr00: length round-off e.g Lr10 -> Roundoff the length by 10m
- - Rr00: length round-off e.g Rr100 -> Roundoff the radius by 100m
- - T/P: Track and platform configuration, T = Track, P = Platform, t = Designated Track.
-   E.g PTTPtTT -> A 3-track-2-platform station with two transit tracks, and the third track is the reference track
-]]
-
 local updateFn = function(params)
     return {
         models = {
-            {          
+            {
                 id = "ust/indicator.mdl",
                 transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
             }
         },
         edgeLists = {
-			{
-				type = "TRACK",
-				params = {
-					type = "standard.lua",
-					catenary = false
-				},
-				edges = {
-					{ { 0.0, 0.0, 0.0 }, 	{ 5.0, 0.0, 0.0 } },
-					{ { 5.0, 0.0, 0.0 }, 	{ 5.0, 0.0, 0.0 } }
-				},
-				snapNodes = { 0 }
-			}
-		},
+            {
+                type = "TRACK",
+                params = {
+                    type = "standard.lua",
+                    catenary = false
+                },
+                edges = {
+                    {{0.0, 0.0, 0.0}, {5.0, 0.0, 0.0}},
+                    {{5.0, 0.0, 0.0}, {5.0, 0.0, 0.0}}
+                },
+                snapNodes = {0}
+            }
+        },
         cost = 0,
         bulldozeCost = 0,
         maintenanceCost = 0,

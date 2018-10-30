@@ -41,9 +41,9 @@ ust.generateEdgesTerminal = function(edges, isLeft, arcPacker)
 end
 
 local retriveLanes = function(config)
-    return 
+    return
     (config.isCargo and "ust/terminal_cargo_lane.mdl" or "ust/terminal_lane.mdl"),
-    (config.isCargo and "ust/standard_cargo_lane.mdl" or "ust/standard_lane.mdl")
+        (config.isCargo and "ust/standard_cargo_lane.mdl" or "ust/standard_lane.mdl")
 end
 
 ust.generateTerminals = function(config)
@@ -370,7 +370,7 @@ ust.entryConfig = function(config, allArcs, arcCoords, ignoreMain)
     end
     local withoutMainRight = function(i) return
         (not config.isTerminal and isRightTrack)
-            or ignoreMain 
+            or ignoreMain
             or config.entries.main.isLeft
             or (not config.entries.main.model)
             or config.entries.main.pos + 2 ~= i

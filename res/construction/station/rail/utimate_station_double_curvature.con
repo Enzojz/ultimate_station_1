@@ -33,7 +33,7 @@ local function params()
     local sp = "·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·:·\n"
     return
         pipe.new
-        + 
+        +
         {
             {
                 key = "override",
@@ -185,7 +185,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         or config.varRefPos < 0 and refList[1]
         or config.varRefPos > 0 and refList[#refList]
         or #refList % 2 == 1 and refList[(#refList + 1) * 0.5] or refList[#refList * 0.5]
-        
+    
     local leftGroup = ptListI * pipe.filter(function(p) return p.i < middlePos end) * pipe.rev()
     local middleGroup = ptListI * pipe.filter(function(p) return p.i == middlePos end)
     local rightGroup = ptListI * pipe.filter(function(p) return p.i > middlePos end)
@@ -316,7 +316,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     
     local arcCoords = allArcs * pipe.filter(function(a) return a.isPlatform end)
     local trackCoords = allArcs * pipe.map(function(a)
-        if (a.isTrack) then 
+        if (a.isTrack) then
             local ar = a[1]()()()()[1]
             return ar:pt(ar.inf)
         else
@@ -334,20 +334,20 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
-    return 
+    return
         table.unpack(
             pipe.new * {build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))} / trackCoords
-        )
+)
 end
 
 local updateFn = function()
     return ust.safeBuild(params, function(params)
         if (params.override == 2 and not params.isBuild) then
             local instance = pipe.new
-            * game.interface.getEntities({pos = {0, 0}, radius = 900000})
-            * pipe.map(game.interface.getEntity)
-            * pipe.filter(function(data) return data.params and data.params.seed == params.seed end)
-
+                * game.interface.getEntities({pos = {0, 0}, radius = 900000})
+                * pipe.map(game.interface.getEntity)
+                * pipe.filter(function(data) return data.params and data.params.seed == params.seed end)
+            
             if (#instance == 1) then
                 params.overrideParams = instance[1].params.overrideParams
                 params.isBuild = true
@@ -435,7 +435,7 @@ local updateFn = function()
         
         
         local arcPacker = arcPacker(length, slope, lengthRatio)
-
+        
         if (params.showPreview) then
             return ustp.updatePreview(params, config, arcPacker, buildStation)
         elseif (params.override == 1 or params.override == 3 or (params.override == 2 and not params.isBuild)) then
@@ -452,7 +452,6 @@ local updateFn = function()
                 params.hasLeftPlatform == 0,
                 params.hasRightPlatform == 0
         )
-        
         return
             pipe.new
             * {
@@ -474,10 +473,10 @@ local updateFn = function()
             }
             * station.setHeight(alt)
             * (
-                params.isBuild 
-                and ustp.displace(config, trackCoords)
-                or pipe.noop()
-            )
+            params.isBuild
+            and ustp.displace(config, trackCoords)
+            or pipe.noop()
+    )
     end)
 end
 

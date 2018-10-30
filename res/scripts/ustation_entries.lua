@@ -25,8 +25,8 @@ local il = pipe.interlace({"s", "i"})
 
 local buildUndergroundEntry = function(config, entryConfig)
     local allArcs = entryConfig.allArcs
-
-    local arcCoords = pipe.new 
+    
+    local arcCoords = pipe.new
         * {ust.trackGrouping(pipe.new, table.unpack(allArcs))}
         * pipe.map(pipe.filter(function(a) return a.isPlatform end))
         * pipe.filter(function(g) return #g > 0 end)
@@ -60,7 +60,7 @@ local buildUndergroundEntry = function(config, entryConfig)
             end
         end)
         * pipe.flatten()
-
+    
     local transZ = coor.transZ(-config.hPlatform - 0.53 - 7.5)
     
     local idxPt = allArcs
@@ -216,7 +216,6 @@ local buildUndergroundEntry = function(config, entryConfig)
                         ls[2].vec,
                     }
                 )
-
                 local surface = underground
                     * pipe.range(1, 2)
                     * pipe.filter(pipe.noop())
@@ -243,7 +242,7 @@ local buildUndergroundEntry = function(config, entryConfig)
                     edge = ls.surface2,
                     snap = pipe.new * pipe.rep(#ls.surface2)({false, true})
                 } end)
-
+                
                 
                 return
                     {
@@ -349,12 +348,12 @@ local buildSecondEntrySlope = function(config, entryConfig)
             / (cfg[2] and {co[pl.c], co[pl.c + 1]})
             / (cfg[3] and {co[pl.c + floor(pl.c * 0.5) + 3], co[pl.c + floor(pl.c * 0.5) + 4]})
             * pipe.filter(pipe.noop())
-
-        local checkCross = function(l, r, p) 
+        
+        local checkCross = function(l, r, p)
             local x = line.byPtPt(l, r) - line.byVecPt((l - r) .. coor.rotZ(0.5 * pi), p)
             return (x - l):dot(x - r) < 0
-         end
-
+        end
+        
         local checker = function(p)
             return #func.filter(void, function(v) return checkCross(v[1], v[2]:avg(v[1]), p) end) == 0
         end
@@ -638,15 +637,15 @@ local buildEntry = function(config, entryConfig, retriveRef)
             end
         end
         local refPt = config.entries.main.isLeft and la.lc[f(la)] or la.rc[f(la)]
-
-        return 
-        refPt,
-        config.entries.main.isLeft 
+        
+        return
+            refPt,
+            config.entries.main.isLeft
             and ust.mRot((su.lc[f(su)] - pl.lc[f(pl)]):normalized())
             or ust.mRot((su.rc[f(su)] - pl.rc[f(pl)]):normalized()),
-        config.entries.main.isLeft 
+            config.entries.main.isLeft
             and la.lc[f(la)] or la.rc[f(la)],
-        pl.lc[f(pl)]:avg(pl.rc[f(pl)]) 
+            pl.lc[f(pl)]:avg(pl.rc[f(pl)])
     end
     
     local refPt, refMRot, cpt, cupt = retriveRef()
@@ -666,19 +665,19 @@ local buildEntry = function(config, entryConfig, retriveRef)
             local pl, la = p.platform, p.lane
             local flac, fplc, ref = retrive(pl, la)
             
-            return pipe.new 
-            / ust.unitLane(la.mc[ref.n.l - 2]:avg(la.mc[ref.n.l - 3]), pl.mc[ref.n.p]) 
-            / ust.unitLane(la.mc[ref.p.l + 2]:avg(la.mc[ref.p.l + 3]), pl.mc[ref.p.p]) 
-            + (p.hasLower
+            return pipe.new
+                / ust.unitLane(la.mc[ref.n.l - 2]:avg(la.mc[ref.n.l - 3]), pl.mc[ref.n.p])
+                / ust.unitLane(la.mc[ref.p.l + 2]:avg(la.mc[ref.p.l + 3]), pl.mc[ref.p.p])
+                + (p.hasLower
                 and {ust.unitLane(la.mc[la.c - 5 - flac]:avg(la.mc[la.c - 4 - flac]), pl.mc[pl.c - 4 - fplc])}
                 or
                 {})
-            + (p.hasUpper
+                + (p.hasUpper
                 and {ust.unitLane(la.mc[la.c + 5 + flac]:avg(la.mc[la.c + 4 + flac]), pl.mc[pl.c + 4 + fplc])} or
                 {})
-            + func.map(
-                il(func.range(pl.mc, pl.c - 3, pl.c + 3)),
-                function(c) return ust.unitLane(c.i .. coor.transZ(-3.5), c.s .. coor.transZ(-3.5)) end
+                + func.map(
+                    il(func.range(pl.mc, pl.c - 3, pl.c + 3)),
+                    function(c) return ust.unitLane(c.i .. coor.transZ(-3.5), c.s .. coor.transZ(-3.5)) end
         )
         end
         
