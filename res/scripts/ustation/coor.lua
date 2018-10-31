@@ -31,6 +31,7 @@ local func = require "ustation/func"
 local coor = {}
 coor.make = laneutil.makeLanes
 
+local unpack = table.unpack
 local math = math
 local sin = math.sin
 local cos = math.cos
@@ -144,7 +145,7 @@ end
 coor.o = coor.xyz(0, 0, 0)
 
 function coor.tuple2Vec(tuple)
-    return coor.xyz(table.unpack(tuple))
+    return coor.xyz(unpack(tuple))
 end
 
 function coor.vec2Tuple(vec)
@@ -152,7 +153,7 @@ function coor.vec2Tuple(vec)
 end
 
 function coor.edge2Vec(edge)
-    local pt, vec = table.unpack(edge)
+    local pt, vec = unpack(edge)
     return coor.tuple2Vec(pt), coor.tuple2Vec(vec)
 end
 

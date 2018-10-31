@@ -12,6 +12,7 @@ local uste = require "ustation_entries"
 local ustm = require "ustation_menu"
 
 local ma = math
+local unpack = table.unpack
 
 local abs = ma.abs
 local ceil = ma.ceil
@@ -100,7 +101,7 @@ end
 
 local function retriveRef(config, allArcs)
     local refZ = config.hPlatform + 0.53
-    local ptL, ptR = table.unpack(
+    local ptL, ptR = unpack(
         allArcs
         * pipe.map(function(a)
             if (a.platform) then
@@ -195,7 +196,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                 end
                 or function(t, ...)
                     if t == nil then
-                        return arcGen(result, initDr[#initDr], initX[#initX], true)(table.unpack(rightGroup))
+                        return arcGen(result, initDr[#initDr], initX[#initX], true)(unpack(rightGroup))
                     else
                         local posPct = abs(t.i - middlePos) / (#leftGroup)
                         local isVar = posPct > config.varNbUnaffected
@@ -222,14 +223,14 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
                     end
                 end
         end
-        local rs = arcGen(pipe.new / init, initDr[1], initX[1])(table.unpack(leftGroup))
+        local rs = arcGen(pipe.new / init, initDr[1], initX[1])(unpack(leftGroup))
         return rs
     end
     
     local allArcs = pipe.exec * function()
         local o = coor.xyz(config.r, 0, 0)
         
-        if table.unpack(middleGroup).t then
+        if unpack(middleGroup).t then
             return generateArcs(
                 {
                     i = middlePos,
@@ -281,7 +282,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))
 end
 
 local updateFn = function()
@@ -371,7 +372,7 @@ local updateFn = function()
                 + streetEdge,
                 models = terminals + models,
                 terminalGroups = terminalsGroup,
-                terrainAlignmentLists = station.mergePoly(table.unpack(terrain))(),
+                terrainAlignmentLists = station.mergePoly(unpack(terrain))(),
                 groundFaces = terrain
                 * pipe.map(pipe.select("equal"))
                 * pipe.filter(pipe.noop())

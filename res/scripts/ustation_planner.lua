@@ -11,6 +11,7 @@ local livetext = require "ustation_livetext"
 
 local ustp = {}
 
+local unpack = table.unpack
 local ma = math
 local abs = ma.abs
 local ceil = ma.ceil
@@ -139,7 +140,7 @@ end
 
 local retriveParams = function(markers)
     local function retrive()
-        local s, e = table.unpack(markers)
+        local s, e = unpack(markers)
         local posS, rotS, _ = coor.decomposite(s.transf)
         local posE, rotE, _ = coor.decomposite(e.transf)
         local vecS = coor.xyz(1, 0, 0) .. rotS

@@ -7,7 +7,8 @@ local band = bit32.band
 local lshift = bit32.lshift
 local bor = bit32.bor
 
-local abc, kern = table.unpack(require "ustation/lato")
+local unpack = table.unpack
+local abc, kern = unpack(require "ustation/lato")
 
 local function utf2unicode(str)
     if (str == nil) then return pipe.new / 0 end
@@ -28,7 +29,7 @@ local function utf2unicode(str)
                 or c < 0xF8 and 4
                 or error("invalid UTF-8 character sequence")
             local val, rest = continue(band(c, 2 ^ (8 - lGr) - 1), ...)
-            return convert(rs / val, table.unpack(rest))
+            return convert(rs / val, unpack(rest))
         end
     end
     return convert(pipe.new, str:byte(1, -1))

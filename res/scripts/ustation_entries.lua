@@ -6,7 +6,7 @@ local pipe = require "ustation/pipe"
 local ust = require "ustation"
 
 local ma = math
-
+local unpack = table.unpack
 local abs = ma.abs
 local ceil = ma.ceil
 local floor = ma.floor
@@ -27,12 +27,12 @@ local buildUndergroundEntry = function(config, entryConfig)
     local allArcs = entryConfig.allArcs
     
     local arcCoords = pipe.new
-        * {ust.trackGrouping(pipe.new, table.unpack(allArcs))}
+        * {ust.trackGrouping(pipe.new, unpack(allArcs))}
         * pipe.map(pipe.filter(function(a) return a.isPlatform end))
         * pipe.filter(function(g) return #g > 0 end)
         * pipe.map(function(g)
             if (#g == 1) then return g else
-                local arcL, arcR = table.unpack(g)
+                local arcL, arcR = unpack(g)
                 local coords = {
                     l = {
                         lc = arcL.platform.lc,
@@ -610,7 +610,7 @@ end
 
 local buildEntry = function(config, entryConfig, retriveRef)
     local allArcs = entryConfig.allArcs
-    local gArcs = pipe.new * {ust.trackGrouping(pipe.new, table.unpack(allArcs))}
+    local gArcs = pipe.new * {ust.trackGrouping(pipe.new, unpack(allArcs))}
     
     local arcCoords = gArcs
         * pipe.map(pipe.filter(function(a) return a.isPlatform end))
@@ -621,7 +621,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
         gArcs
         * pipe.map(pipe.filter(function(a) return a.isPlatform end))
         * pipe.filter(function(g) return #g > 1 end)
-        * (function(ls) return table.unpack(ls) end)
+        * (function(ls) return unpack(ls) end)
     
     local retriveRef = retriveRef or function()
         local refArc = #arcCoords > 0 and (config.entries.main.isLeft and arcCoords[1] or arcCoords[#arcCoords]) or mixedCoords[1]
@@ -682,7 +682,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
         end
         
         local fn2 = function()
-            local l, r = table.unpack(mixedCoords)
+            local l, r = unpack(mixedCoords)
             local function seperated(p)
                 local pl, la = p.platformO, p.lane
                 local flac, fplc, ref = retrive(pl, la)
@@ -790,7 +790,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
                             / (l.hasUpper and (pl.intersection > (pl.c + 4 + fplc)) and pl.mc[pl.c + 3 + fplc] - coor.xyz(0, 0, 3.5))
                             / (l.hasLower and (pl.intersection > (pl.c - 4 - fplc)) and pl.mc[pl.c - 3 - fplc] - coor.xyz(0, 0, 3.5))
                     end
-                    return {x(g[1]), x(g[2]), combined(table.unpack(g))}
+                    return {x(g[1]), x(g[2]), combined(unpack(g))}
                 end
             end)
             * pipe.flatten()

@@ -7,6 +7,7 @@ local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
 local ust = require "ustation/ustation"
 
+local unpack = table.unpack
 local math = math
 local pi = math.pi
 local abs = math.abs
@@ -21,7 +22,7 @@ ust.unitLane = function(f, t) return ((t - f):length2() > 1e-2 and (t - f):lengt
 
 ust.generateEdgesTerminal = function(edges, isLeft, arcPacker)
     local arcs = arcPacker()()()
-    local eInf, eSup = table.unpack(arcs * pipe.map2(isLeft and {pipe.noop(), pipe.noop()} or {arc.rev, arc.rev}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
+    local eInf, eSup = unpack(arcs * pipe.map2(isLeft and {pipe.noop(), pipe.noop()} or {arc.rev, arc.rev}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
     if isLeft then
         eInf[1] = eInf[1]:avg(eSup[2])
         eSup[2] = eInf[1]
@@ -250,7 +251,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
         local isLeftmost = #models == 0
         local isRightmost = #{...} == 0
         
-        local models, terrain = table.unpack((isLeftmost and config.isTerminal) and {buildTerminal({gr, ...})} or {models, terrain})
+        local models, terrain = unpack((isLeftmost and config.isTerminal) and {buildTerminal({gr, ...})} or {models, terrain})
         
         if (gr == nil) then
             local buildEntryPath = entries * pipe.map(pipe.select("access")) * pipe.flatten()

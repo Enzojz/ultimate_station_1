@@ -10,6 +10,7 @@ local ust = require "ustation"
 local uste = require "ustation_entries"
 local ustm = require "ustation_menu"
 
+local unpack = table.unpack
 local ma = math
 local abs = ma.abs
 local ceil = ma.ceil
@@ -252,7 +253,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                 end
                 or function(t, ...)
                     if t == nil then
-                        return arcGen(result, initDr[#initDr], initX[#initX], true)(table.unpack(rightGroup))
+                        return arcGen(result, initDr[#initDr], initX[#initX], true)(unpack(rightGroup))
                     else
                         local posPct = abs(t.i - middlePos) / (#leftGroup)
                         local isVar = posPct >= config.varNbUnaffected
@@ -280,7 +281,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     end
                 end
         end
-        local rs = arcGen(init, initDr[1], initX[1])(table.unpack(leftGroup))
+        local rs = arcGen(init, initDr[1], initX[1])(unpack(leftGroup))
         return rs
     end
     local allArcs =
@@ -338,7 +339,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))
 end
 
 local updateFn = function()
@@ -440,7 +441,7 @@ local updateFn = function()
                 edgeLists = pipe.new / (pipe.new * {edge * station.mergeEdges} * station.prepareEdges * trackBuilder.normal()) + streetEdge,
                 models = terminals + models,
                 terminalGroups = terminalsGroup,
-                terrainAlignmentLists = station.mergePoly(table.unpack(terrain))(),
+                terrainAlignmentLists = station.mergePoly(unpack(terrain))(),
                 groundFaces = terrain * pipe.map(pipe.select("equal")) * pipe.filter(pipe.noop()) * pipe.flatten() *
                 pipe.map(
                     function(f)

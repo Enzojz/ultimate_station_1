@@ -11,6 +11,7 @@ local uste = require "ustation_entries"
 local ustm = require "ustation_menu"
 
 local ma = math
+local unpack = table.unpack
 
 local abs = ma.abs
 local ceil = ma.ceil
@@ -235,7 +236,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                 end
                 or function(t, ...)
                     if t == nil then
-                        return arcGen(result, initDrA[#initDrA], initXA[#initXA], initDrB[#initDrB], initXB[#initXB], true)(table.unpack(rightGroup))
+                        return arcGen(result, initDrA[#initDrA], initXA[#initXA], initDrB[#initDrB], initXB[#initXB], true)(unpack(rightGroup))
                     else
                         local posPct = abs(t.i - middlePos) / (#leftGroup)
                         local isVar = posPct >= config.varNbUnaffected
@@ -263,7 +264,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
                     end
                 end
         end
-        local rs = arcGen(init, initDrA[1], initXA[1], initDrB[1], initXB[1])(table.unpack(leftGroup))
+        local rs = arcGen(init, initDrA[1], initXA[1], initDrB[1], initXB[1])(unpack(leftGroup))
         return rs
     end
     
@@ -326,7 +327,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, table.unpack(allArcs)))
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))
 end
 
 local updateFn = function()
@@ -431,7 +432,7 @@ local updateFn = function()
                 ,
                 models = terminals + models,
                 terminalGroups = terminalsGroup,
-                terrainAlignmentLists = station.mergePoly(table.unpack(terrain))(),
+                terrainAlignmentLists = station.mergePoly(unpack(terrain))(),
                 groundFaces = terrain
                 * pipe.map(pipe.select("equal"))
                 * pipe.filter(pipe.noop())

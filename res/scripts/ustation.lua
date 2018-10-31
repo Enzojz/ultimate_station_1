@@ -8,6 +8,7 @@ local pipe = require "ustation/pipe"
 local livetext = require "ustation_livetext"
 local ust = {}
 
+local unpack = table.unpack
 local math = math
 local pi = math.pi
 local abs = math.abs
@@ -108,7 +109,7 @@ end
 local retriveBiLatCoords = function(nSeg, l, ...)
     local rst = pipe.new * {l, ...}
     local lscale = l:length() / (nSeg * length)
-    return table.unpack(
+    return unpack(
         func.map(rst,
             function(s) return abs(lscale) < 1e-5 and pipe.new * {} or pipe.new * func.seqMap({0, nSeg},
                 function(n) return s:pt(s.inf + n * ((s.sup - s.inf) / nSeg)) end)
@@ -140,7 +141,7 @@ local function ungroup(fst, ...)
         local l = {...}
         return function(result, c)
             if (fst and lst) then
-                return ungroup(table.unpack(f))(table.unpack(l))(
+                return ungroup(unpack(f))(unpack(l))(
                     result /
                     (
                     (fst[1] - lst[1]):length2() < (fst[1] - lst[#lst]):length2()
@@ -159,10 +160,10 @@ end
 local bitLatCoords = function(length)
     return function(...)
         local arcs = pipe.new * {...}
-        local arcsInf = equalizeArcs(table.unpack(func.map({...}, pipe.select(1))))
-        local arcsSup = equalizeArcs(table.unpack(func.map({...}, pipe.select(2))))
-        local nSegInf = retriveNSeg(length, table.unpack(arcsInf))
-        local nSegSup = retriveNSeg(length, table.unpack(arcsSup))
+        local arcsInf = equalizeArcs(unpack(func.map({...}, pipe.select(1))))
+        local arcsSup = equalizeArcs(unpack(func.map({...}, pipe.select(2))))
+        local nSegInf = retriveNSeg(length, unpack(arcsInf))
+        local nSegSup = retriveNSeg(length, unpack(arcsSup))
         if (nSegInf % 2 ~= nSegSup % 2) then
             if (nSegInf > nSegSup) then
                 nSegSup = nSegSup + 1
@@ -170,9 +171,9 @@ local bitLatCoords = function(length)
                 nSegInf = nSegInf + 1
             end
         end
-        return table.unpack(ungroup
-            (retriveBiLatCoords(nSegInf, table.unpack(arcsInf)))
-            (retriveBiLatCoords(nSegSup, table.unpack(arcsSup)))
+        return unpack(ungroup
+            (retriveBiLatCoords(nSegInf, unpack(arcsInf)))
+            (retriveBiLatCoords(nSegSup, unpack(arcsSup)))
             (pipe.new)
     )
     end
@@ -304,7 +305,7 @@ local il = pipe.interlace({"s", "i"})
 ust.unitLane = function(f, t) return ((t - f):length2() > 1e-2 and (t - f):length2() < 562500) and station.newModel("ust/person_lane.mdl", ust.mRot(t - f), coor.trans(f)) or nil end
 
 ust.generateEdges = function(edges, isLeft, arcPacker)
-    local arcInf, arcSup = table.unpack(arcPacker()()())
+    local arcInf, arcSup = unpack(arcPacker()()())
     
     local lInf = arcInf:length()
     local lSup = arcSup:length()
@@ -313,7 +314,7 @@ ust.generateEdges = function(edges, isLeft, arcPacker)
     local nArcSup = arcSup:extendLimits(totalLength * 0.5 - lSup, 0)
     local arcs = pipe.new / nArcInf / nArcSup
     local eInf, eSup =
-        table.unpack(
+        unpack(
             arcs
             * pipe.map2(isLeft and {pipe.noop(), arc.rev} or {arc.rev, pipe.noop()}, function(a, op) return op(a) end)
             * pipe.map(ust.generateArc)
@@ -355,7 +356,7 @@ end
 
 ust.generateEdgesTerminal = function(edges, isLeft, arcPacker)
     local arcs = arcPacker()()()
-    local eInf, eSup = table.unpack(arcs * pipe.map2(isLeft and {pipe.noop(), pipe.noop()} or {arc.rev, arc.rev}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
+    local eInf, eSup = unpack(arcs * pipe.map2(isLeft and {pipe.noop(), pipe.noop()} or {arc.rev, arc.rev}, function(a, op) return op(a) end) * pipe.map(ust.generateArc))
     if isLeft then
         eInf[1] = eInf[1]:avg(eSup[2])
         eSup[2] = eInf[1]
@@ -525,7 +526,7 @@ ust.generateFences = function(fitModel, config)
         
         local newModels = pipe.new
             + pipe.mapn(func.seq(1, #li), li, ri)(function(i, li, ri)
-                local lc, rc = retriveBiLatCoords(retriveNSeg(config.fencesLength, table.unpack(equalizeArcs(li, ri))))
+                local lc, rc = retriveBiLatCoords(retriveNSeg(config.fencesLength, unpack(equalizeArcs(li, ri))))
                 local c = isLeft and lc or rc
                 return {
                     pipe.new * il(c)
@@ -658,7 +659,7 @@ local function buildPoles(config, platformZ, tZ)
             * function(ls) return ls * pipe.rev() + ls end
         
         
-        local nameModelsF, width = table.unpack(config.name and {livetext(0.35)(config.name)} or {})
+        local nameModelsF, width = unpack(config.name and {livetext(0.35)(config.name)} or {})
         
         local seqBoard = pipe.new
             * pipe.rep(c - 1)(false)
@@ -1224,7 +1225,7 @@ ust.coordIntersection = function(coordL, coordR)
     end
     or {#seqL, #seqR}
     
-    return table.unpack(r)
+    return unpack(r)
 end
 
 local arcGen = function(p, o) return {
@@ -1239,7 +1240,7 @@ ust.allArcs = function(config)
     
     return pipe.map(function(p)
         if (#p == 2) then
-            local arcL, arcR = table.unpack(p)
+            local arcL, arcR = unpack(p)
             
             local lane = {
                 l = arcL(refZ)(function(l) return l - 3 end),
@@ -1444,7 +1445,7 @@ ust.buildTerminalModels = function(fitModel, config)
                         return build(models + trackModels(isLeftmost, isRightmost)(g), ...)
                     end
                 end
-                return build(pipe.new, table.unpack(arcs))
+                return build(pipe.new, unpack(arcs))
             end,
             arcs
             * pipe.map(
@@ -1494,7 +1495,7 @@ ust.buildTerminal = function(fitModel, config)
             * pipe.map(function(pt) return {pt + coor.xyz(0, -1, 1 * config.slope), pt + coor.xyz(0, -6, 6 * config.slope)} end)
             * function(pts) return {{pts[1][1], pts[2][1]}, {pts[1][2], pts[2][2]}} end
             * pipe.map(function(pts)
-                local ptL, ptR = table.unpack(pts)
+                local ptL, ptR = unpack(pts)
                 local dist = (ptR - ptL):length()
                 local n = (function(n) return n < 2 and 2 or n end)(floor((dist + 5) / 10))
                 local length = dist / n
@@ -1616,7 +1617,7 @@ ust.build = function(config, fitModel, entries, generateEdges)
         local isLeftmost = #models == 0
         local isRightmost = #{...} == 0
         
-        local models, terrain = table.unpack((isLeftmost and config.isTerminal) and {buildTerminal({gr, ...})} or {models, terrain})
+        local models, terrain = unpack((isLeftmost and config.isTerminal) and {buildTerminal({gr, ...})} or {models, terrain})
         
         if (gr == nil) then
             local buildEntryPath = entries * pipe.map(pipe.select("access")) * pipe.flatten()
@@ -1758,8 +1759,8 @@ ust.platformArcGen = function(tW, pW)
             local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
             local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
             local inner = arcPacker(rInner, o, lPct, oPct)
-            local li, ls = table.unpack(inner()()())
-            local ri, rs = table.unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, oPct)()()())
+            local li, ls = unpack(inner()()())
+            local ri, rs = unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, oPct)()()())
             
             local r, o = platformArcGenParam(li, ri, rInner, pWe)
             
@@ -1779,8 +1780,8 @@ ust.platformDualArcGen = function(tW, pW)
             local rInnerB = rB - (isRight and 1 or -1) * (0.5 * tW)
             local rOuterB = rB - (isRight and 1 or -1) * (0.5 * tW + pW)
             local inner = arcPacker(rInnerA, oA, rInnerB, oB, lPct, oPct)
-            local li, ls = table.unpack(inner()()())
-            local ri, rs = table.unpack(arcPacker(rOuterA, oA, rOuterB, oB, lPct, oPct)()()())
+            local li, ls = unpack(inner()()())
+            local ri, rs = unpack(arcPacker(rOuterA, oA, rOuterB, oB, lPct, oPct)()()())
             
             local rA, oA = platformArcGenParam(li, ri, rInnerA, pWe)
             local rB, oB = platformArcGenParam(ls, rs, rInnerB, pWe)
@@ -1828,8 +1829,8 @@ ust.platformArcGenTerminal = function(tW, pW)
             local rInner = r - (isRight and 1 or -1) * (0.5 * tW)
             local rOuter = r - (isRight and 1 or -1) * (0.5 * tW + pW)
             local inner = arcPacker(rInner, o, lPct, 0)
-            local li, ls = table.unpack(inner()()())
-            local ri, rs = table.unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, 0)()()())
+            local li, ls = unpack(inner()()())
+            local ri, rs = unpack(arcPacker(rOuter, o, lPct * abs(rOuter - rInner) / rOuter, 0)()()())
             
             local r, o = platformArcGenParamTerminal(ls, rs, li, ri, rInner, pWe)
             return r + 0.5 * tW * (isRight and 1 or -1), o, {
@@ -1841,7 +1842,7 @@ ust.platformArcGenTerminal = function(tW, pW)
 end
 
 local function trackGrouping(result, ar1, ar2, ar3, ar4, ...)
-    if (ar1 == nil) then return table.unpack(result) end
+    if (ar1 == nil) then return unpack(result) end
     
     if (ar1 and ar2 and ar3) then
         if #ar1 == 1 and #ar2 == 2 and #ar3 == 1 then
