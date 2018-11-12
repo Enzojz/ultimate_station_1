@@ -1,7 +1,8 @@
 function data() return 
   {
 animations = {  },
-matConfigs = { { 0 } },
+matConfigs = 
+    { { 0 }, { 1 }, { 2 }, { 3 }, { 4 } },
 subMeshes = 
     { 
       {
@@ -29,7 +30,7 @@ offset = 4752
            }
          },
 materials = 
-        { "livetext/lato/CFFFFFFFF.mtl" }
+        { "livetext/CFFF2F2F2.mtl", "livetext/CFF000000.mtl", "livetext/CFF101727.mtl", "livetext/CFF00257E.mtl", "livetext/CFF0179C7.mtl" }
        }
      },
 vertexAttr = 
