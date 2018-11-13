@@ -1,63 +1,29 @@
-function data() return 
-  {
-animations = {  },
-matConfigs = 
-    { { 0 }, { 1 }, { 2 }, { 3 }, { 4 } },
-subMeshes = 
-    { 
-      {
-indices = 
-        {
-normal = 
-          {
-count = 1332,
-offset = 15984
-           },
-position = 
-          {
-count = 1332,
-offset = 15984
-           },
-tangent = 
-          {
-count = 1332,
-offset = 15984
-           },
-uv0 = 
-          {
-count = 1332,
-offset = 15984
-           }
-         },
-materials = 
-        { "livetext/CFFF2F2F2.mtl", "livetext/CFF000000.mtl", "livetext/CFF101727.mtl", "livetext/CFF00257E.mtl", "livetext/CFF0179C7.mtl" }
-       }
-     },
-vertexAttr = 
+function data() return {
+  animations = {  },
+  matConfigs = {
+    { 0 },
+    { 1 },
+    { 2 }
+  },
+  subMeshes = {
     {
-normal = 
-      {
-count = 3996,
-numComp = 3,
-offset = 6660
-       },
-position = 
-      {
-count = 3996,
-numComp = 3,
-offset = 0
-       },
-tangent = 
-      {
-count = 5328,
-numComp = 4,
-offset = 10656
-       },
-uv0 = 
-      {
-count = 2664,
-numComp = 2,
-offset = 3996
-       }
-     }
-   } end
+      indices = {
+        normal   = { count = 1332, offset = 15984 },
+        position = { count = 1332, offset = 15984 },
+        tangent  = { count = 1332, offset = 15984 },
+        uv0      = { count = 1332, offset = 15984 }
+      },
+      materials = {
+        "livetext/CFFF2F2F2.mtl",
+        "livetext/CFF000000.mtl",
+        "livetext/CFFFFFFFF.mtl"
+      }
+    }
+  },
+  vertexAttr = {
+    normal   = { count = 3996, numComp = 3, offset = 6660 },
+    position = { count = 3996, numComp = 3, offset = 0 },
+    tangent  = { count = 5328, numComp = 4, offset = 10656 },
+    uv0      = { count = 2664, numComp = 2, offset = 3996 }
+  }
+} end

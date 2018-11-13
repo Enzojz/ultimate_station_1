@@ -1,27 +1,27 @@
-function data() return 
-  {
-params = 
+function data() return
     {
-map_color_alpha = 
-      {
-compressionAllowed = true,
-fileName = 
-        "models/livetext/CFF000000.dds",
-magFilter = "LINEAR",
-minFilter = "LINEAR_MIPMAP_LINEAR",
-mipmapAlphaScale = 0,
-type = "TWOD",
-wrapS = "CLAMP_TO_EDGE",
-wrapT = "CLAMP_TO_EDGE"
-       },
-polygon_offset = 
-      {
-factor = 0,
-units = 0
-       },
-two_sided = {
-twoSided = true
-       }
-     },
-type = "TRANSPARENT"
-   } end
+        params =
+        {
+            map_color_alpha =
+            {
+                compressionAllowed = true,
+                fileName =
+                "models/livetext/CFF000000.dds",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "CLAMP_TO_EDGE",
+                wrapT = "CLAMP_TO_EDGE"
+            },
+            polygon_offset =
+            {
+                factor = 0,
+                units = 0
+            },
+            two_sided = {
+                twoSided = true
+            }
+        },
+        type = "TRANSPARENT"
+    } end
