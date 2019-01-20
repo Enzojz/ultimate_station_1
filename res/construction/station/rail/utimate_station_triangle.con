@@ -339,7 +339,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))
 end
 
 local updateFn = function()
@@ -397,7 +397,7 @@ local updateFn = function()
             }
         }
         
-        local edge, streetEdge, terminals, terminalsGroup, models, terrain =
+        local edge, streetEdge, terminals, terminalsGroup, models, terrain, hole =
             buildStation(
                 nbTracksA,
                 nbTracksB,
@@ -450,8 +450,9 @@ local updateFn = function()
                             {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
                         }
                     end
-                ) *
-                pipe.flatten()
+                ) 
+                * pipe.flatten()
+                + hole * pipe.map(function(f) return {face = f, modes = {{type = "FILL", key = "hole"}}} end)
             }
     end
 )

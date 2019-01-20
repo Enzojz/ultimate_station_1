@@ -41,6 +41,7 @@ local function params()
                 key = "nbTracks",
                 name = _("Number of tracks"),
                 values = func.map(ustm.trackNumberList, tostring),
+                defaultIndex = 1
             },
             {
                 key = "sign",
@@ -282,7 +283,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
         / uste.buildUndergroundEntry(config, entryConfig)
         / uste.buildSecondEntrySlope(config, entryConfig)
     )
-    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))
+    return build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))
 end
 
 local updateFn = function()
@@ -333,7 +334,7 @@ local updateFn = function()
             }
         }
         
-        local edge, streetEdge, terminals, terminalsGroup, models, terrain =
+        local edge, streetEdge, terminals, terminalsGroup, models, terrain, hole =
             buildStation(nbTracks,
                 arcPacker(length, slope),
                 {
@@ -382,6 +383,7 @@ local updateFn = function()
                     {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
                 } end)
                 * pipe.flatten()
+                + hole * pipe.map(function(f) return {face = f, modes = {{type = "FILL", key = "hole"}}} end)
             }
     end)
 end

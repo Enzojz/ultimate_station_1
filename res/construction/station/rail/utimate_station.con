@@ -66,6 +66,7 @@ local function params()
                 key = "nbTracks",
                 name = _("Number of tracks"),
                 values = func.map(ustm.trackNumberList, tostring),
+                defaultIndex = 1
             },
             {
                 key = "nbTransitTracks",
@@ -267,7 +268,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     )
     return
         unpack(
-            pipe.new * {build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))} / trackCoords
+            pipe.new * {build(pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, pipe.new, ust.trackGrouping(pipe.new, unpack(allArcs)))} / trackCoords
 )
 end
 
@@ -376,13 +377,14 @@ local updateFn = function()
         end
         
         
-        local edge, streetEdge, terminals, terminalsGroup, models, terrain, trackCoords =
+        local edge, streetEdge, terminals, terminalsGroup, models, terrain, hole, trackCoords =
             buildStation(nbTracks,
                 arcPacker,
                 config,
                 params.hasLeftPlatform == 0,
                 params.hasRightPlatform == 0
         )
+        
         return
             pipe.new
             * {
@@ -401,6 +403,7 @@ local updateFn = function()
                     {face = f, modes = {{type = "STROKE_OUTER", key = "building_paving"}}}
                 } end)
                 * pipe.flatten()
+                + hole * pipe.map(function(f) return {face = f, modes = {{type = "FILL", key = "hole"}}} end)
             }
             * (
             params.isBuild
