@@ -86,6 +86,8 @@ Instruction:
    E.g PTTPtTT -> A 3-track-2-platform station with two transit tracks, and the third track is the reference track where the main curve goes through
 
 Changelog:
+1.13
+- Bugfix for wrong lane in terminal station
 1.12
 - Station built with planner has now a station name board on the platform
 - Fixed transit track position error on triangle station and half-triangle station
@@ -319,6 +321,8 @@ local descCN = [[终极车站用于创建各种变化的站台，它包括四种
    比如 PTTPtTT -> 一个三轨道两站台车站，有两条正线在外侧，其中第三条轨道是参照轨道。
 
 更新日志：
+1.13
+- 修正了终点式车站中错误的行人通道
 1.12
 - 用规划工具建造的车站拥有站台牌（仅拉丁站名有效）
 - 修正了三角车站中正线位置的错误
