@@ -13,7 +13,7 @@ function data()
                 },
                 children = {
                     {
-                        id = "ust/fences/white/platform_fences_2.msh",
+                        id = "ust/fences/platform_fences_2.msh",
                         transf = {
                             1, 0, 0, 0, 
                             0, 1, 0, 0, 
@@ -27,12 +27,8 @@ function data()
                 events = {
                 
                 },
-                matConfigs = {
-                    {
-                        0, 0, 0,
-                    },
-                },
-                static = false,
+                matConfigs = {{1}},
+                static = true,
                 visibleFrom = 0,
                 visibleTo = 200,
             
