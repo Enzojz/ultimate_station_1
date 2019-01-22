@@ -361,6 +361,26 @@ local updateFn = function()
                     entries = entryConfig,
                     models = models,
                     isTerminal = true,
+                    size = {
+                        lane = 1,
+                        laneEdge = -0.5,
+                        edge = -0.5,
+                        surface = 0.3,
+                        access = -4.25,
+                        roof = {
+                            edge = -0.5,
+                            surface = 0.5
+                        },
+                        terrain = -0.5
+                    },
+                    width = {
+                        edge = 0.8,
+                        surface = 3.4,
+                        roof = {
+                            edge = 1,
+                            surface = 3
+                        }
+                    }
                 },
                 params.hasLeftPlatform == 0,
                 params.hasRightPlatform == 0

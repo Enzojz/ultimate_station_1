@@ -1,0 +1,46 @@
+function data()
+    return {
+        collider = {
+            params = {
+            
+            },
+            type = "MESH",
+        },
+        lods = {
+            {
+                animations = {
+                
+                },
+                children = {
+                    {
+                        id = "station/train/passenger/1990/lod_0_double_chair.msh",
+                        transf = {
+                            1, 0, 0, 0, 
+                            0, 1, 0, 0, 
+                            0, 0, 1, 0, 
+                            0, 0, 0, 1,
+                        },
+                        type = "MESH",
+                    },
+                
+                },
+                events = {
+                
+                },
+                matConfigs = {
+                    {
+                        0, 0, 0,
+                    },
+                },
+                static = false,
+                visibleFrom = 0,
+                visibleTo = 200,
+            
+            },
+        },
+        metadata = {
+        }
+    
+    
+    }
+end

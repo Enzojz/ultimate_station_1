@@ -1,0 +1,48 @@
+local laneutil = require "laneutil"
+function data()
+    return {
+        collider = {
+            params = {
+                
+            },
+            type = "MESH",
+        },
+        lods = {
+            {
+                children = {
+                    {
+                        id = "ust/1990/platform/platform_access_t_upper_br.msh",
+                        transf = {
+                            -1, 0, 0, 0,
+                            0, 1, 0, 0,
+                            0, 0, 1, 0,
+                            0, 0, 0, 1 
+                        },
+                        type = "MESH",
+                    }, 
+                },
+                matConfigs = {
+                    { 0, }, 
+                },
+                static = false,
+                visibleFrom = 0,
+                visibleTo = 5000,
+            }, 
+        },
+        metadata = {
+            transportNetworkProvider = {
+                laneLists = {
+                    {
+                        transportModes = {"PERSON"},
+                        nodes = laneutil.makeLanes({
+                            {{1.25, 0, 0.99}, {1.25, 2.5, 1.93}, {0.0, 2.5, 0.94}, {0.0, 2.5, 0.94}, 2.4},
+                            {{1.25, 2.5, 1.93}, {0, 3.75, 1.93}, {0.0, 1, 0}, {-1.0, 0, 0}, 2.4},
+                        })
+                    }
+                },
+                terminals = {}
+            }
+        },
+    }
+    end
+    

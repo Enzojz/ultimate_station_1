@@ -35,24 +35,24 @@ local buildUndergroundEntry = function(config, entryConfig)
                 local arcL, arcR = unpack(g)
                 local coords = {
                     l = {
-                        lc = arcL.platform.lc,
-                        rc = arcR.platform.rc * pipe.range(1, arcL.platform.common) + arcL.platform.rc * pipe.range(arcL.platform.common + 1, #arcL.platform.rc),
+                        lc = arcL.platform.edge.lc,
+                        rc = arcR.platform.edge.rc * pipe.range(1, arcL.platform.edge.common) + arcL.platform.edge.rc * pipe.range(arcL.platform.edge.common + 1, #arcL.platform.edge.rc),
                     },
                     r = {
-                        lc = arcL.platform.lc * pipe.range(1, arcR.platform.common) + arcR.platform.lc * pipe.range(arcR.platform.common + 1, #arcR.platform.lc),
-                        rc = arcR.platform.rc
+                        lc = arcL.platform.edge.lc * pipe.range(1, arcR.platform.edge.common) + arcR.platform.edge.lc * pipe.range(arcR.platform.edge.common + 1, #arcR.platform.edge.lc),
+                        rc = arcR.platform.edge.rc
                     }
                 }
                 local mc = function(lc, rc) return func.map2(lc, rc, function(l, r) return l:avg(r) end) end
                 
                 return {
                     {
-                        platform = func.with(coords.l, {mc = mc(coords.l.lc, coords.l.rc), c = arcL.platform.c}),
+                        platform = func.with(coords.l, {mc = mc(coords.l.lc, coords.l.rc), c = arcL.platform.edge.c}),
                         hasLower = arcL.hasLower,
                         hasUpper = arcL.hasUpper,
                     },
                     {
-                        platform = func.with(coords.r, {mc = mc(coords.r.lc, coords.r.rc), c = arcR.platform.c}),
+                        platform = func.with(coords.r, {mc = mc(coords.r.lc, coords.r.rc), c = arcR.platform.edge.c}),
                         hasLower = arcR.hasLower,
                         hasUpper = arcR.hasUpper,
                     }
@@ -77,7 +77,7 @@ local buildUndergroundEntry = function(config, entryConfig)
             * {arcCoords[1], arcCoords[#arcCoords]}
             * pipe.mapi(function(p, i)
                 local enabler = entryConfig.underground[i]
-                local pl = p.platform
+                local pl = p.platform.edge
                 local lpt = pipe.new
                     / (p.hasLower and pl.lc[pl.c - 2 - floor(pl.c * 0.5)])
                     / pl.lc[pl.c]
@@ -118,7 +118,7 @@ local buildUndergroundEntry = function(config, entryConfig)
             * {arcCoords[1], arcCoords[#arcCoords]}
             * pipe.mapi(function(p, i)
                 local enabler = entryConfig.underground[i]
-                local pl = p.platform
+                local pl = p.platform.edge
                 local lpt = pipe.new
                     / (p.hasLower and pl.lc[pl.c - 2 - floor(pl.c * 0.5)])
                     / pl.lc[pl.c]
@@ -172,7 +172,7 @@ local buildUndergroundEntry = function(config, entryConfig)
             * pipe.mapi(function(p, i)
                 local enabler = entryConfig.underground[i]
                 
-                local pl = p.platform
+                local pl = p.platform.edge
                 local lpt = pipe.new
                     / (p.hasLower and pl.lc[pl.c - 2 - floor(pl.c * 0.5)])
                     / pl.lc[pl.c]
@@ -297,7 +297,7 @@ local buildUndergroundEntry = function(config, entryConfig)
         return pipe.new
             * {arcCoords[1], arcCoords[#arcCoords]}
             * pipe.map(function(p)
-                local pl, la = p.platform, p.lane
+                local pl, la = p.platform.edge, p.platform.lane
                 local fplc = floor(pl.c * 0.5)
                 return pipe.new
                     / (p.hasUpper and (entryConfig.underground[1][3] or entryConfig.underground[2][3]) and strCoor(
@@ -340,7 +340,7 @@ local buildSecondEntrySlope = function(config, entryConfig)
     local tZ = coor.transZ(-config.hPlatform - 0.53)
     
     local fenceFilter = function(isLeft, isTrack)
-        local pl = isLeft and arcCoords[1].platform or arcCoords[#arcCoords].platform
+        local pl = isLeft and arcCoords[1].platform.edge or arcCoords[#arcCoords].platform.edge
         local co = isLeft and pl.lc or pl.rc
         local cfg = entryConfig.street[isLeft and 1 or 2]
         local void = pipe.new
@@ -383,8 +383,8 @@ local buildSecondEntrySlope = function(config, entryConfig)
     end
     
     local sizeBuilder = function(p, i)
-        local pl = p.platform
-        local ac = p.access
+        local pl = p.platform.edge
+        local ac = p.platform.access
         local l, r = i == 1 and pl.lc or pl.rc, i == 1 and ac.lc or ac.rc
         local fplc, facc = floor(pl.c * 0.5), floor(ac.c * 0.5)
         local enabler = entryConfig.street[i]
@@ -477,8 +477,8 @@ local buildSecondEntrySlope = function(config, entryConfig)
         return pipe.new
             * {arcCoords[1], arcCoords[#arcCoords]}
             * pipe.mapi(function(p, i)
-                local ac = p.access
-                local pl = p.platform
+                local ac = p.platform.access
+                local pl = p.platform.edge
                 
                 local outer, inner = i == 1 and ac.lc or ac.rc, i == 1 and pl.lc or pl.rc
                 
@@ -523,10 +523,10 @@ local buildSecondEntrySlope = function(config, entryConfig)
         return pipe.new
             * {arcCoords[1], arcCoords[#arcCoords]}
             * pipe.mapi(function(p, i)
-                local su = p.surface
-                local la = p.lane
-                local ac = p.access
-                local pl = p.platform
+                local su = p.platform.surface
+                local la = p.platform.lane
+                local ac = p.platform.access
+                local pl = p.platform.edge
                 local l = i == 1 and su.lc or su.rc
                 local r = i == 1 and la.lc or la.rc
                 local s = i == 1 and ac.lc or ac.rc
@@ -626,7 +626,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
     local retriveRef = retriveRef or function()
         local refArc = #arcCoords > 0 and (config.entries.main.isLeft and arcCoords[1] or arcCoords[#arcCoords]) or mixedCoords[1]
         
-        local pl, la, su = refArc.platform, refArc.lane, refArc.surface
+        local pl, la, su = refArc.platform.edge, refArc.platform.lane, refArc.platform.surface
         local f = pipe.exec * function()
             if (entryConfig.main.pos == 0 or not entryConfig.main.model) then
                 return function(set) return set.c end
@@ -662,7 +662,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
         end
         
         local fn = function(p)
-            local pl, la = p.platform, p.lane
+            local pl, la = p.platform.edge, p.platform.lane
             local flac, fplc, ref = retrive(pl, la)
             
             return pipe.new
@@ -684,7 +684,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
         local fn2 = function()
             local l, r = unpack(mixedCoords)
             local function seperated(p)
-                local pl, la = p.platformO, p.lane
+                local pl, la = p.platform.origin, p.platform.lane
                 local flac, fplc, ref = retrive(pl, la)
                 
                 return pipe.new + ((pl.intersection < (ref.n.l - 2)) and {ust.unitLane(la.mc[ref.n.l - 2]:avg(la.mc[ref.n.l - 3]), pl.mc[ref.n.p])} or {}) +
@@ -710,8 +710,8 @@ local buildEntry = function(config, entryConfig, retriveRef)
             end
             
             local combined = function()
-                local pl = {mc = func.map2(l.platformO.lc, r.platformO.rc, function(l, r) return l:avg(r) end), c = l.platformO.c, intersection = l.platformO.intersection}
-                local la = {mc = func.map2(l.lane.lc, r.lane.rc, function(l, r) return l:avg(r) end), c = l.lane.c, intersection = l.lane.intersection}
+                local pl = {mc = func.map2(l.platform.origin.lc, r.platform.origin.rc, function(l, r) return l:avg(r) end), c = l.platform.origin.c, intersection = l.platform.origin.intersection}
+                local la = {mc = func.map2(l.platform.lane.lc, r.platform.lane.rc, function(l, r) return l:avg(r) end), c = l.platform.lane.c, intersection = l.platform.lane.intersection}
                 local flac, fplc, ref = retrive(pl, la)
                 
                 return pipe.new + ((pl.intersection > (ref.n.l - 2)) and {ust.unitLane(la.mc[ref.n.l - 2]:avg(la.mc[ref.n.l - 3]), pl.mc[ref.n.p])} or {}) +
@@ -736,8 +736,8 @@ local buildEntry = function(config, entryConfig, retriveRef)
                     {})
                     +
                     ((pl.intersection > pl.c - 3) and (pl.intersection < pl.c + 3) and {
-                        ust.unitLane(pl.mc[pl.intersection] .. coor.transZ(-3.5), l.platformO.mc[pl.intersection] .. coor.transZ(-3.5)),
-                        ust.unitLane(pl.mc[pl.intersection] .. coor.transZ(-3.5), r.platformO.mc[pl.intersection] .. coor.transZ(-3.5))
+                        ust.unitLane(pl.mc[pl.intersection] .. coor.transZ(-3.5), l.platform.origin.mc[pl.intersection] .. coor.transZ(-3.5)),
+                        ust.unitLane(pl.mc[pl.intersection] .. coor.transZ(-3.5), r.platform.origin.mc[pl.intersection] .. coor.transZ(-3.5))
                     } or {})
             end
             
@@ -755,7 +755,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
             * pipe.map(function(g)
                 if (#g == 1) then
                     local f = function(p)
-                        local pl = p.platform
+                        local pl = p.platform.edge
                         local fplc = floor(pl.c * 0.5)
                         return pipe.new / (pl.mc[pl.c] + coor.xyz(0, 0, -3.5)) /
                             (p.hasUpper and pl.mc[pl.c + 3 + fplc] - coor.xyz(0, 0, 3.5)) /
@@ -773,7 +773,7 @@ local buildEntry = function(config, entryConfig, retriveRef)
                         return flac, fplc, ref
                     end
                     local function x(p)
-                        local pl, la = p.platformO, p.lane
+                        local pl, la = p.platform.origin, p.platform.lane
                         local flac, fplc, ref = retrive(pl, la)
                         return pipe.new
                             / (pl.intersection < (ref.n.l - 2) and (pl.mc[pl.c] + coor.xyz(0, 0, -3.5)))
@@ -781,8 +781,8 @@ local buildEntry = function(config, entryConfig, retriveRef)
                             / (p.hasLower and (pl.intersection < (pl.c - 4 - fplc)) and pl.mc[pl.c - 3 - fplc] - coor.xyz(0, 0, 3.5))
                     end
                     local combined = function(l, r)
-                        local pl = {mc = func.map2(l.platformO.lc, r.platformO.rc, function(l, r) return l:avg(r) end), c = l.platformO.c, intersection = l.platformO.intersection}
-                        local la = {mc = func.map2(l.lane.lc, r.lane.rc, function(l, r) return l:avg(r) end), c = l.lane.c, intersection = l.lane.intersection}
+                        local pl = {mc = func.map2(l.platform.origin.lc, r.platform.origin.rc, function(l, r) return l:avg(r) end), c = l.platform.origin.c, intersection = l.platform.origin.intersection}
+                        local la = {mc = func.map2(l.platform.lane.lc, r.platform.lane.rc, function(l, r) return l:avg(r) end), c = l.platform.lane.c, intersection = l.platform.lane.intersection}
                         local flac, fplc, ref = retrive(pl, la)
                         
                         return pipe.new

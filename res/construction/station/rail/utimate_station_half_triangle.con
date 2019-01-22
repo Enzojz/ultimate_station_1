@@ -417,7 +417,27 @@ local updateFn = function()
                     rightFences = params.fencesPos == 2 or params.fencesPos == 3,
                     entries = entryConfig,
                     models = models,
-                    lengthMiddlePlatform = ustm.middlePlatformLength[params.lengthMiddlePlatform + 1] * 0.01
+                    lengthMiddlePlatform = ustm.middlePlatformLength[params.lengthMiddlePlatform + 1] * 0.01,
+                    size = {
+                        lane = 1,
+                        laneEdge = -0.5,
+                        edge = -0.5,
+                        surface = 0.3,
+                        access = -4.25,
+                        roof = {
+                            edge = -0.5,
+                            surface = 0.5
+                        },
+                        terrain = -0.5
+                    },
+                    width = {
+                        edge = 0.8,
+                        surface = 3.4,
+                        roof = {
+                            edge = 1,
+                            surface = 3
+                        }
+                    }
                 },
                 params.hasLeftPlatform == 1,
                 params.hasMiddlePlatform == 1,

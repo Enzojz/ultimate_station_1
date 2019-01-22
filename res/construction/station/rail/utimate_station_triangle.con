@@ -169,18 +169,18 @@ local function retriveRef(config, allArcs)
     end
     
     if (arcsL and arcsR) then
-        local ptL = arcsL.surface.rc[arcsL.platform.common + 1]
-        local ptR = arcsR.surface.lc[arcsL.platform.common + 1]
+        local ptL = arcsL.platform.surface.rc[arcsL.platform.edge.common + 1]
+        local ptR = arcsR.platform.surface.lc[arcsL.platform.edge.common + 1]
         
         if config.canMainEntryOnCenter and (ptL - ptR):length() > (config.buildingParams.halfWidth) * 2 then
             return function()
                 local refVec = (ptL - ptR):normalized() .. coor.rotZ(-0.5 * pi)
                 local refPt = ptL:avg(ptR) + refVec
-                return refPt, ust.mRot(refVec), arcsL.lane.rc[arcsL.lane.common - 1]:avg(
-                    arcsR.lane.lc[arcsL.lane.common - 1],
-                    arcsR.lane.lc[arcsL.lane.common],
-                    arcsL.lane.rc[arcsL.lane.common]
-                ), arcsL.surface.rc[arcsL.platform.common - 1]:avg(arcsR.surface.lc[arcsL.platform.common - 1])
+                return refPt, ust.mRot(refVec), arcsL.platform.lane.rc[arcsL.platform.lane.common - 1]:avg(
+                    arcsR.platform.lane.lc[arcsL.platform.lane.common - 1],
+                    arcsR.platform.lane.lc[arcsL.platform.lane.common],
+                    arcsL.platform.lane.rc[arcsL.platform.lane.common]
+                ), arcsL.platform.surface.rc[arcsL.platform.edge.common - 1]:avg(arcsR.platform.surface.lc[arcsL.platform.edge.common - 1])
             end
         end
     end
@@ -430,7 +430,27 @@ local updateFn = function()
                     entries = entryConfig,
                     models = models,
                     lengthMiddlePlatform = ustm.middlePlatformLength[params.lengthMiddlePlatform + 1] * 0.01,
-                    canMainEntryOnCenter = params.canMainEntryOnCenter == 1
+                    canMainEntryOnCenter = params.canMainEntryOnCenter == 1,
+                    size = {
+                        lane = 1,
+                        laneEdge = -0.5,
+                        edge = -0.5,
+                        surface = 0.3,
+                        access = -4.25,
+                        roof = {
+                            edge = -0.5,
+                            surface = 0.5
+                        },
+                        terrain = -0.5
+                    },
+                    width = {
+                        edge = 0.8,
+                        surface = 3.4,
+                        roof = {
+                            edge = 1,
+                            surface = 3
+                        }
+                    }
                 },
                 params.hasLeftPlatform == 1,
                 params.hasMiddlePlatform == 1,

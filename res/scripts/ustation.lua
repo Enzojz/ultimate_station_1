@@ -386,7 +386,7 @@ ust.generateTerminals = function(config)
     local platformZ = config.hPlatform + 0.53
     local terminalLane, standardLane = retriveLanes(config)
     return function(edges, terminals, terminalsGroup, arcs, enablers)
-        local lc, rc, c = arcs.lane.lc, arcs.lane.rc, arcs.lane.c
+        local lc, rc, c = arcs.platform.lane.lc, arcs.platform.lane.rc, arcs.platform.lane.c
         local newTerminals = pipe.new
             * pipe.mapn(il(lc), il(rc))(function(lc, rc)
                 return {
@@ -438,26 +438,26 @@ end
 ust.generateTerminalsDual = function(config)
     local platformZ = config.hPlatform + 0.53
     return function(edges, terminals, terminalsGroup, arcsL, arcsR, enablers)
-        local lc, rc = arcsL.lane.lc
-            * pipe.range(1, arcsL.lane.intersection), arcsR.lane.rc
-            * pipe.range(1, arcsR.lane.intersection)
+        local lc, rc = arcsL.platform.lane.lc
+            * pipe.range(1, arcsL.platform.lane.intersection), arcsR.platform.lane.rc
+            * pipe.range(1, arcsR.platform.lane.intersection)
         
-        local llc, lrc = arcsL.lane.lc
-            * pipe.range(arcsL.lane.intersection, #arcsL.lane.lc), arcsL.lane.rc
-            * pipe.range(arcsL.lane.intersection, #arcsL.lane.rc)
+        local llc, lrc = arcsL.platform.lane.lc
+            * pipe.range(arcsL.platform.lane.intersection, #arcsL.platform.lane.lc), arcsL.platform.lane.rc
+            * pipe.range(arcsL.platform.lane.intersection, #arcsL.platform.lane.rc)
         
-        local rlc, rrc = arcsR.lane.lc
-            * pipe.range(arcsR.lane.intersection, #arcsR.lane.lc), arcsR.lane.rc
-            * pipe.range(arcsR.lane.intersection, #arcsR.lane.rc)
+        local rlc, rrc = arcsR.platform.lane.lc
+            * pipe.range(arcsR.platform.lane.intersection, #arcsR.platform.lane.lc), arcsR.platform.lane.rc
+            * pipe.range(arcsR.platform.lane.intersection, #arcsR.platform.lane.rc)
         
         local clc, crc =
-            arcsL.lane.rc * pipe.range(arcsL.lane.intersection, arcsL.lane.common),
-            arcsR.lane.lc * pipe.range(arcsR.lane.intersection, arcsR.lane.common)
+            arcsL.platform.lane.rc * pipe.range(arcsL.platform.lane.intersection, arcsL.platform.lane.common),
+            arcsR.platform.lane.lc * pipe.range(arcsR.platform.lane.intersection, arcsR.platform.lane.common)
         
-        local terminalsL = arcsL.lane.lc * il
+        local terminalsL = arcsL.platform.lane.lc * il
             * pipe.map(function(lc) return station.newModel(enablers[1] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i)) end)
         
-        local terminalsR = arcsR.lane.rc * il
+        local terminalsR = arcsR.platform.lane.rc * il
             * pipe.map(function(lc) return station.newModel(enablers[2] and "ust/terminal_lane.mdl" or "ust/standard_lane.mdl", ust.mRot(lc.s - lc.i), coor.trans(lc.i)) end)
         
         local links =
@@ -773,10 +773,10 @@ ust.generateModels = function(fitModel, config)
     return function(arcs, edgeBuilder)
         local edgeBuilder = edgeBuilder or function(platformEdgeO, _) return platformEdgeO, platformEdgeO end
         
-        local lc, rc, lic, ric, c = arcs.platform.lc, arcs.platform.rc, arcs.surface.lc, arcs.surface.rc, arcs.surface.c
+        local lc, rc, lic, ric, c = arcs.platform.edge.lc, arcs.platform.edge.rc, arcs.platform.surface.lc, arcs.platform.surface.rc, arcs.platform.surface.c
         local lpc, rpc, lpic, rpic, pc = arcs.roof.edge.lc, arcs.roof.edge.rc, arcs.roof.surface.lc, arcs.roof.surface.rc, arcs.roof.edge.c
         local lpp, rpp, mpp, ppc = arcs.roof.pole.lc, arcs.roof.pole.rc, arcs.roof.pole.mc, arcs.roof.pole.c
-        local lcc, rcc, mcc, cc = arcs.chair.lc, arcs.chair.rc, arcs.chair.mc, arcs.chair.c
+        local lcc, rcc, mcc, cc = arcs.platform.chair.lc, arcs.platform.chair.rc, arcs.platform.chair.mc, arcs.platform.chair.c
         
         local platformSurface = pipe.new
             * pipe.rep(c - 2)(config.models.surface)
@@ -813,7 +813,7 @@ ust.generateModels = function(fitModel, config)
             platformSurface,
             platformSurfaceEx,
             il(lc), il(rc), il(lic), il(ric)
-        )(retriveModels(c, c, c, 0.8))
+        )(retriveModels(c, c, c, config.width.edge))
         
         local chairs = buildChairs(lcc, rcc, mcc, cc, 1, 2 * cc - 1)
         
@@ -826,7 +826,7 @@ ust.generateModels = function(fitModel, config)
                 roofSurface,
                 roofSurface,
                 il(lpc), il(rpc), il(lpic), il(rpic)
-            )(retriveModels(pc, pc, pc, 1))
+            )(retriveModels(pc, pc, pc, config.width.roof.edge))
             / buildPoles(mpp, ppc, 1, ppc * 2 - 1)
         
         
@@ -849,11 +849,11 @@ ust.generateModelsDual = function(fitModel, config)
         local edgeBuilder = edgeBuilder or function(platformEdgeO, _) return platformEdgeO, platformEdgeO end
         
         local platformModels = function()
-            local intersection = arcsL.platform.intersection
-            local commonLength = arcsL.platform.common
+            local intersection = arcsL.platform.edge.intersection
+            local commonLength = arcsL.platform.edge.common
             
             local function modelSeq(arcs, isLeft)
-                local c = arcs.surface.c
+                local c = arcs.platform.surface.c
                 
                 local platformSurface =
                     pipe.new * pipe.rep(c - 2)(config.models.surface) *
@@ -907,7 +907,7 @@ ust.generateModelsDual = function(fitModel, config)
             }
             
             local function commonParts()
-                local lc, rc, lic, ric, c = arcsL.platform.lc, arcsR.platform.rc, arcsL.surface.lc, arcsR.surface.rc, arcsL.surface.c
+                local lc, rc, lic, ric, c = arcsL.platform.edge.lc, arcsR.platform.edge.rc, arcsL.platform.surface.lc, arcsR.platform.surface.rc, arcsL.platform.surface.c
                 return pipe.mapn(
                     func.seq(1, intersection - 1),
                     models.l.platformEdgeL,
@@ -915,11 +915,11 @@ ust.generateModelsDual = function(fitModel, config)
                     models.l.platformSurface,
                     models.l.platformSurfaceEx,
                     il(lc), il(rc), il(lic), il(ric)
-                )(retriveModels(c, c, c, 0.8))
+                )(retriveModels(c, c, c, config.width.edge))
             end
             
             local function middlePart()
-                local lc, rc, c = arcsL.platform.rc, arcsR.platform.lc, arcsL.surface.c
+                local lc, rc, c = arcsL.platform.edge.rc, arcsR.platform.edge.lc, arcsL.platform.surface.c
                 local fn = function(f, t)
                     local range = pipe.range(f, t)
                     return pipe.mapn(
@@ -934,7 +934,7 @@ ust.generateModelsDual = function(fitModel, config)
             end
             
             local function leftPart()
-                local lc, rc, lic, ric, c = arcsL.platform.lc, arcsL.platform.rc, arcsL.surface.lc, arcsL.surface.rc, arcsL.surface.c
+                local lc, rc, lic, ric, c = arcsL.platform.edge.lc, arcsL.platform.edge.rc, arcsL.platform.surface.lc, arcsL.platform.surface.rc, arcsL.platform.surface.c
                 local fn = function(f, t)
                     local range = pipe.range(f, t)
                     return pipe.mapn(
@@ -949,11 +949,11 @@ ust.generateModelsDual = function(fitModel, config)
                         ric * il * range
                 )
                 end
-                return pipe.new + fn(intersection, #models.l.platformEdgeL)(retriveModels(c, c, commonLength, 0.8))
+                return pipe.new + fn(intersection, #models.l.platformEdgeL)(retriveModels(c, c, commonLength, config.width.edge))
             end
             
             local function rightPart()
-                local lc, rc, lic, ric, c = arcsR.platform.lc, arcsR.platform.rc, arcsR.surface.lc, arcsR.surface.rc, arcsR.surface.c
+                local lc, rc, lic, ric, c = arcsR.platform.edge.lc, arcsR.platform.edge.rc, arcsR.platform.surface.lc, arcsR.platform.surface.rc, arcsR.platform.surface.c
                 local fn = function(f, t)
                     local range = pipe.range(f, t)
                     return pipe.mapn(
@@ -968,7 +968,7 @@ ust.generateModelsDual = function(fitModel, config)
                         ric * il * range
                 )
                 end
-                return pipe.new + fn(intersection, #models.r.platformEdgeL)(retriveModels(c, commonLength, c, 0.8))
+                return pipe.new + fn(intersection, #models.r.platformEdgeL)(retriveModels(c, commonLength, c, config.width.edge))
             end
             return
                 pipe.new
@@ -1032,7 +1032,7 @@ ust.generateModelsDual = function(fitModel, config)
                     models.l.roofSurface,
                     models.l.roofSurface,
                     il(lc), il(rc), il(lic), il(ric)
-                )(retriveModels(c, c, c, 1))
+                )(retriveModels(c, c, c, config.width.roof.edge))
             end
             
             local function middlePart()
@@ -1047,7 +1047,7 @@ ust.generateModelsDual = function(fitModel, config)
                         rc * il * range
                 )
                 end
-                return pipe.new + fn(intersection, commonLength)(buildSurface(commonLength, 3))
+                return pipe.new + fn(intersection, commonLength)(buildSurface(commonLength, config.width.roof.surface))
             end
             
             local function leftPart()
@@ -1066,7 +1066,7 @@ ust.generateModelsDual = function(fitModel, config)
                         ric * il * range
                 )
                 end
-                return pipe.new + fn(intersection, #models.l.roofEdge)(retriveModels(c, c, commonLength, 1))
+                return pipe.new + fn(intersection, #models.l.roofEdge)(retriveModels(c, c, commonLength, config.width.roof.edge))
             end
             
             local function rightPart()
@@ -1085,7 +1085,7 @@ ust.generateModelsDual = function(fitModel, config)
                         ric * il * range
                 )
                 end
-                return pipe.new + fn(intersection, #models.r.roofEdge)(retriveModels(c, commonLength, c, 1))
+                return pipe.new + fn(intersection, #models.r.roofEdge)(retriveModels(c, commonLength, c, config.width.roof.edge))
             end
             
             
@@ -1109,17 +1109,17 @@ ust.generateModelsDual = function(fitModel, config)
         
         local chairs =
             pipe.new
-            + buildChairs(arcsL.chair.lc, arcsL.chair.rc, arcsL.chair.mc, arcsL.chair.c, arcsL.chair.intersection, arcsL.chair.c * 2 - 1)
-            + buildChairs(arcsR.chair.lc, arcsR.chair.rc, arcsR.chair.mc, arcsR.chair.c, arcsR.chair.intersection, arcsR.chair.c * 2 - 1)
+            + buildChairs(arcsL.platform.chair.lc, arcsL.platform.chair.rc, arcsL.platform.chair.mc, arcsL.platform.chair.c, arcsL.platform.chair.intersection, arcsL.platform.chair.c * 2 - 1)
+            + buildChairs(arcsR.platform.chair.lc, arcsR.platform.chair.rc, arcsR.platform.chair.mc, arcsR.platform.chair.c, arcsR.platform.chair.intersection, arcsR.platform.chair.c * 2 - 1)
             + buildChairs(
-                pipe.range(1, pipe.min()({#arcsL.chair.lc, #arcsR.chair.lc}))(arcsL.chair.lc),
-                pipe.range(1, pipe.min()({#arcsL.chair.rc, #arcsR.chair.rc}))(arcsR.chair.rc),
+                pipe.range(1, pipe.min()({#arcsL.platform.chair.lc, #arcsR.platform.chair.lc}))(arcsL.platform.chair.lc),
+                pipe.range(1, pipe.min()({#arcsL.platform.chair.rc, #arcsR.platform.chair.rc}))(arcsR.platform.chair.rc),
                 pipe.mapn(
-                    pipe.range(1, pipe.min()({#arcsL.chair.mc, #arcsR.chair.mc}))(arcsL.chair.mc),
-                    pipe.range(1, pipe.min()({#arcsL.chair.mc, #arcsR.chair.mc}))(arcsR.chair.mc)
+                    pipe.range(1, pipe.min()({#arcsL.platform.chair.mc, #arcsR.platform.chair.mc}))(arcsL.platform.chair.mc),
+                    pipe.range(1, pipe.min()({#arcsL.platform.chair.mc, #arcsR.platform.chair.mc}))(arcsR.platform.chair.mc)
                 )
                 (function(l, r) return l:avg(r) end),
-                pipe.min()({arcsL.chair.c, arcsR.chair.c}), 1, arcsL.chair.intersection)
+                pipe.min()({arcsL.platform.chair.c, arcsR.platform.chair.c}), 1, arcsL.platform.chair.intersection)
         
         return (platformModels() + (config.roofLength == 0 and {} or roofModels()) + chairs) * pipe.flatten()
     end
@@ -1128,7 +1128,7 @@ end
 ust.generateHole = function(config)
     return function(arcs)
         return pipe.new
-            * pipe.mapn(il(arcs.surface.lc), il(arcs.surface.rc))
+            * pipe.mapn(il(arcs.platform.surface.lc), il(arcs.platform.surface.rc))
             (function(lc, rc)
                 local size = assembleSize(lc, rc)
                 return pipe.new / size.lt / size.lb / size.rb / size.rt * station.finalizePoly
@@ -1271,32 +1271,36 @@ ust.allArcs = function(config)
             }
             
             local arcs = {
-                lane = arcGen(lane, 1),
-                laneEdge = arcGen(lane, -0.5),
-                edge = arcGen(general, -0.5),
-                surface = arcGen(general, 0.3),
-                access = arcGen(general, -4.25),
-                roof = {
-                    edge = arcGen(roof, -0.5),
-                    surface = arcGen(roof, 0.5)
+                platform = {
+                    lane = arcGen(lane, config.size.lane),
+                    laneEdge = arcGen(lane, config.size.laneEdge),
+                    edge = arcGen(general, config.size.edge),
+                    surface = arcGen(general, config.size.surface),
+                    access = arcGen(general, config.size.access),
                 },
-                terrain = arcGen(terrain, -0.5)
+                roof = {
+                    edge = arcGen(roof, config.size.roof.edge),
+                    surface = arcGen(roof, config.size.roof.surface)
+                },
+                terrain = arcGen(terrain, config.size.terrain)
             }
             
-            local lc, rc, lec, rec, c = ust.bitLatCoords(5)(arcs.lane.l, arcs.lane.r, arcs.laneEdge.l, arcs.laneEdge.r)
-            local lsc, rsc, lac, rac, lsuc, rsuc, ltc, rtc, sc = ust.bitLatCoords(5)(arcs.edge.l, arcs.edge.r, arcs.access.l, arcs.access.r, arcs.surface.l, arcs.surface.r, arcs.terrain.l, arcs.terrain.r)
-            local lcc, rcc, cc = ust.bitLatCoords(10)(arcs.edge.l, arcs.edge.r)
+            local lc, rc, lec, rec, c = ust.bitLatCoords(5)(arcs.platform.lane.l, arcs.platform.lane.r, arcs.platform.laneEdge.l, arcs.platform.laneEdge.r)
+            local lsc, rsc, lac, rac, lsuc, rsuc, ltc, rtc, sc = ust.bitLatCoords(5)(arcs.platform.edge.l, arcs.platform.edge.r, arcs.platform.access.l, arcs.platform.access.r, arcs.platform.surface.l, arcs.platform.surface.r, arcs.terrain.l, arcs.terrain.r)
+            local lcc, rcc, cc = ust.bitLatCoords(10)(arcs.platform.edge.l, arcs.platform.edge.r)
             local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
             local lppc, rppc, ppc = ust.bitLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
             return {
                 [1] = arcL,
                 [2] = arcR,
-                lane = func.with(arcs.lane, {lc = lc, rc = rc, mc = mc(lc, rc), c = c}),
-                laneEdge = func.with(arcs.laneEdge, {lc = lec, rc = rec, mc = mc(lec, rec), c = c}),
-                platform = func.with(arcs.edge, {lc = lsc, rc = rsc, mc = mc(lsc, rsc), c = sc}),
-                access = func.with(arcs.access, {lc = lac, rc = rac, mc = mc(lac, rac), c = sc}),
-                surface = func.with(arcs.surface, {lc = lsuc, rc = rsuc, mc = mc(lsuc, rsuc), c = sc}),
-                chair = func.with(arcs.edge, {lc = lcc, rc = rcc, mc = mc(lcc, rcc), c = cc}),
+                platform = {
+                    lane = func.with(arcs.platform.lane, {lc = lc, rc = rc, mc = mc(lc, rc), c = c}),
+                    laneEdge = func.with(arcs.platform.laneEdge, {lc = lec, rc = rec, mc = mc(lec, rec), c = c}),
+                    surface = func.with(arcs.platform.surface, {lc = lsuc, rc = rsuc, mc = mc(lsuc, rsuc), c = sc}),
+                    edge = func.with(arcs.platform.edge, {lc = lsc, rc = rsc, mc = mc(lsc, rsc), c = sc}),
+                    access = func.with(arcs.platform.access, {lc = lac, rc = rac, mc = mc(lac, rac), c = sc}),
+                    chair = func.with(arcs.platform.edge, {lc = lcc, rc = rcc, mc = mc(lcc, rcc), c = cc}),
+                },
                 roof = {
                     edge = func.with(arcs.roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
                     surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
@@ -1320,21 +1324,26 @@ ust.allArcs = function(config)
             }
             
             local arcs = {
-                edge = arcGen(general, -config.wTrack * 0.5 + 0.5),
-                surface = arcGen(general, -config.wTrack * 0.5 + 1.3),
+                platform = {
+                    edge = arcGen(general, -config.wTrack * 0.5 + config.size.edge + 1),
+                    surface = arcGen(general, -config.wTrack * 0.5 + config.size.surface + 1)
+                },
                 roof = {
-                    edge = arcGen(roof, -config.wTrack * 0.5 + 0.5),
-                    surface = arcGen(roof, -config.wTrack * 0.5 + 1.5)
+                    edge = arcGen(roof, -config.wTrack * 0.5 + config.size.roof.edge + 1),
+                    surface = arcGen(roof, -config.wTrack * 0.5 + config.size.roof.surface + 1)
                 }
             }
             
-            local lsc, rsc, lsuc, rsuc, sc = ust.bitLatCoords(5)(arcs.edge.l, arcs.edge.r, arcs.surface.l, arcs.surface.r)
+            local lsc, rsc, lsuc, rsuc, sc = ust.bitLatCoords(5)(arcs.platform.edge.l, arcs.platform.edge.r, arcs.platform.surface.l, arcs.platform.surface.r)
             local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
             
             return {
                 [1] = arc,
-                platform = func.with(arcs.edge, {lc = lsc, rc = rsc, mc = mc(lsc, rsc), c = sc}),
-                surface = func.with(arcs.surface, {lc = lsuc, rc = rsuc, mc = mc(lsuc, rsuc), c = sc}),
+                platform = {
+                    edge = func.with(arcs.platform.edge, {lc = lsc, rc = rsc, mc = mc(lsc, rsc), c = sc}),
+                    surface = func.with(arcs.platform.surface, {lc = lsuc, rc = rsuc, mc = mc(lsuc, rsuc), c = sc}),
+                
+                },
                 roof = {
                     edge = func.with(arcs.roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
                     surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
@@ -1370,11 +1379,11 @@ ust.buildTerminalModels = function(fitModel, config)
                     platformEdgeR,
                     platformSurface,
                     platformSurface,
-                    il(fExt(arcs.platform.lc[#arcs.platform.lc])),
-                    il(fExt(arcs.platform.rc[#arcs.platform.rc])),
-                    il(fExt(arcs.surface.lc[#arcs.surface.lc])),
-                    il(fExt(arcs.surface.rc[#arcs.surface.rc]))
-                )(retriveModels(2, 2, 2, 0.8))
+                    il(fExt(arcs.platform.edge.lc[#arcs.platform.edge.lc])),
+                    il(fExt(arcs.platform.edge.rc[#arcs.platform.edge.rc])),
+                    il(fExt(arcs.platform.surface.lc[#arcs.platform.surface.lc])),
+                    il(fExt(arcs.platform.surface.rc[#arcs.platform.surface.rc]))
+                )(retriveModels(2, 2, 2, config.width.edge))
                 / (
                 config.roofLength == 0 and {} or pipe.mapn(
                     {1, 2},
@@ -1386,7 +1395,7 @@ ust.buildTerminalModels = function(fitModel, config)
                     il(fExt(arcs.roof.edge.rc[#arcs.roof.edge.rc])),
                     il(fExt(arcs.roof.surface.lc[#arcs.roof.surface.lc])),
                     il(fExt(arcs.roof.surface.rc[#arcs.roof.surface.rc]))
-                )(retriveModels(2, 2, 2, 1))
+                )(retriveModels(2, 2, 2, config.width.roof.edge))
                 )
                 * pipe.flatten()
                 * pipe.flatten()
@@ -1412,11 +1421,11 @@ ust.buildTerminalModels = function(fitModel, config)
                     platformEdgeR,
                     platformSurface,
                     platformSurface,
-                    il(fExt(arcs[1].platform.lc[#arcs[1].platform.lc])),
-                    il(fExt(arcs[#arcs].platform.rc[#arcs[#arcs].platform.rc])),
-                    il(fExt(arcs[1].surface.lc[#arcs[1].surface.lc])),
-                    il(fExt(arcs[#arcs].surface.rc[#arcs[#arcs].surface.rc]))
-                )(retriveModels(2, 2, 2, 0.8))
+                    il(fExt(arcs[1].platform.edge.lc[#arcs[1].platform.edge.lc])),
+                    il(fExt(arcs[#arcs].platform.edge.rc[#arcs[#arcs].platform.edge.rc])),
+                    il(fExt(arcs[1].platform.surface.lc[#arcs[1].platform.surface.lc])),
+                    il(fExt(arcs[#arcs].platform.surface.rc[#arcs[#arcs].platform.surface.rc]))
+                )(retriveModels(2, 2, 2, config.width.edge))
                 / (
                 config.roofLength == 0 and {} or pipe.mapn(
                     {1, 2},
@@ -1428,7 +1437,7 @@ ust.buildTerminalModels = function(fitModel, config)
                     il(fExt(arcs[#arcs].roof.edge.rc[#arcs[#arcs].roof.edge.rc])),
                     il(fExt(arcs[1].roof.surface.lc[#arcs[1].roof.surface.lc])),
                     il(fExt(arcs[#arcs].roof.surface.rc[#arcs[#arcs].roof.surface.rc]))
-                )(retriveModels(2, 2, 2, 1))
+                )(retriveModels(2, 2, 2, config.width.roof.edge))
                 )
                 * pipe.flatten()
                 * pipe.flatten()
@@ -1462,7 +1471,7 @@ ust.buildTerminalModels = function(fitModel, config)
             * pipe.map(
                 function(a)
                     if (a.platform) then
-                        return {lc = a.platform.lc, rc = a.platform.rc}
+                        return {lc = a.platform.edge.lc, rc = a.platform.edge.rc}
                     else
                         local ar = a[1](platformZ)()
                         local lc, rc, _ = ust.bitLatCoords(5)(
@@ -1531,8 +1540,8 @@ ust.buildTerminal = function(fitModel, config)
             pipe.new
             * func.mapFlatten(groups, pipe.filter(function(g) return g.isPlatform end))
             * pipe.map(function(g)
-                local ptl, ptr = g.lane.lc[#g.lane.lc], g.lane.rc[#g.lane.rc]
-                local ptc = func.with(g.lane.mc[#g.lane.mc], {y = -5})
+                local ptl, ptr = g.platform.lane.lc[#g.platform.lane.lc], g.platform.lane.rc[#g.platform.lane.rc]
+                local ptc = func.with(g.platform.lane.mc[#g.platform.lane.mc], {y = -5})
                 return {l = ptl, r = ptr, c = ptc}
             end)
             * function(gr)
@@ -2026,8 +2035,8 @@ ust.findIntersections = function(config)
                     return intersection, intersection + floor(config.lengthMiddlePlatform * (r - intersection))
                 end
                 
-                local intersection, commonLength = retriveBaseParams(arcsL.platform, arcsR.platform)
-                local ln = line.byPtPt(arcsL.surface.rc[commonLength + 1], arcsR.surface.lc[commonLength + 1])
+                local intersection, commonLength = retriveBaseParams(arcsL.platform.edge, arcsR.platform.edge)
+                local ln = line.byPtPt(arcsL.platform.surface.rc[commonLength + 1], arcsR.platform.surface.lc[commonLength + 1])
                 local retriveParams = function(arcsL, arcsR)
                     local max = arcsL.c > arcsR.c and 2 * (arcsR.c - 1) or 2 * (arcsL.c - 1)
                     local intersection = (function(x) return x > max and max or x end)(greater(ust.coordIntersection(arcsL.rc, arcsR.lc)))
@@ -2056,41 +2065,41 @@ ust.findIntersections = function(config)
                 
                 local roofIntersection, roofCommonLength = retriveParams(arcsL.roof.edge, arcsR.roof.edge)
                 local roofPoleIntersection = retriveBaseParams(arcsL.roof.pole, arcsR.roof.pole)
-                local chairIntersection = retriveBaseParams(arcsL.chair, arcsR.chair)
-                local laneIntersection, laneCommonLength = retriveParams(arcsL.laneEdge, arcsR.laneEdge)
+                local chairIntersection = retriveBaseParams(arcsL.platform.chair, arcsR.platform.chair)
+                local laneIntersection, laneCommonLength = retriveParams(arcsL.platform.laneEdge, arcsR.platform.laneEdge)
                 
-                local ptL = arcsL.surface.lc[intersection]
-                local ptR = arcsR.surface.rc[intersection]
+                local ptL = arcsL.platform.surface.lc[intersection]
+                local ptR = arcsR.platform.surface.rc[intersection]
                 local vec = ptR - ptL
                 
-                arcsL.platform.intersection = intersection
-                arcsR.platform.intersection = intersection
-                arcsL.lane.intersection = laneIntersection
-                arcsR.lane.intersection = laneIntersection
+                arcsL.platform.edge.intersection = intersection
+                arcsR.platform.edge.intersection = intersection
+                arcsL.platform.lane.intersection = laneIntersection
+                arcsR.platform.lane.intersection = laneIntersection
                 arcsL.terrain.intersection = intersection
                 arcsR.terrain.intersection = intersection
                 
-                arcsL.lane.common = laneCommonLength
-                arcsR.lane.common = laneCommonLength
-                arcsL.platform.common = commonLength
-                arcsR.platform.common = commonLength
+                arcsL.platform.lane.common = laneCommonLength
+                arcsR.platform.lane.common = laneCommonLength
+                arcsL.platform.edge.common = commonLength
+                arcsR.platform.edge.common = commonLength
                 arcsL.terrain.common = commonLength
                 arcsR.terrain.common = commonLength
                 
-                arcsL.platformO = func.with(arcsL.platform, {})
-                arcsR.platformO = func.with(arcsR.platform, {})
+                arcsL.platform.origin = func.with(arcsL.platform.edge, {})
+                arcsR.platform.origin = func.with(arcsR.platform.edge, {})
                 
-                if (intersection < #arcsL.surface.lc and intersection < #arcsR.surface.lc) then
+                if (intersection < #arcsL.platform.surface.lc and intersection < #arcsR.platform.surface.lc) then
                     
-                    local lL = (arcsL.surface.lc[intersection + 1] - arcsL.surface.rc[intersection + 1]):length()
-                    local rL = (arcsR.surface.lc[intersection + 1] - arcsR.surface.rc[intersection + 1]):length()
-                    local mL = (arcsR.surface.lc[intersection + 1] - arcsL.surface.rc[intersection + 1]):length()
+                    local lL = (arcsL.platform.surface.lc[intersection + 1] - arcsL.platform.surface.rc[intersection + 1]):length()
+                    local rL = (arcsR.platform.surface.lc[intersection + 1] - arcsR.platform.surface.rc[intersection + 1]):length()
+                    local mL = (arcsR.platform.surface.lc[intersection + 1] - arcsL.platform.surface.rc[intersection + 1]):length()
                     
                     
-                    arcsL.platform.rc = func.with(arcsL.platform.rc, {[intersection] = ptL + vec * (lL / (lL + rL + mL))})
-                    arcsR.platform.lc = func.with(arcsR.platform.lc, {[intersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
-                    arcsL.surface.rc = func.with(arcsL.surface.rc, {[intersection] = arcsL.platform.rc[intersection] - vec:normalized() * 0.8})
-                    arcsR.surface.lc = func.with(arcsR.surface.lc, {[intersection] = arcsR.platform.lc[intersection] + vec:normalized() * 0.8})
+                    arcsL.platform.edge.rc = func.with(arcsL.platform.edge.rc, {[intersection] = ptL + vec * (lL / (lL + rL + mL))})
+                    arcsR.platform.edge.lc = func.with(arcsR.platform.edge.lc, {[intersection] = ptL + vec * ((mL + lL) / (lL + rL + mL))})
+                    arcsL.platform.surface.rc = func.with(arcsL.platform.surface.rc, {[intersection] = arcsL.platform.edge.rc[intersection] - vec:normalized() * 0.8})
+                    arcsR.platform.surface.lc = func.with(arcsR.platform.surface.lc, {[intersection] = arcsR.platform.edge.lc[intersection] + vec:normalized() * 0.8})
                 
                 end
                 
@@ -2118,8 +2127,8 @@ ust.findIntersections = function(config)
                     
                     arcsL.roof.pole.intersection = roofPoleIntersection
                     arcsR.roof.pole.intersection = roofPoleIntersection
-                    arcsL.chair.intersection = chairIntersection
-                    arcsR.chair.intersection = chairIntersection
+                    arcsL.platform.chair.intersection = chairIntersection
+                    arcsR.platform.chair.intersection = chairIntersection
                 end
             end
         end
