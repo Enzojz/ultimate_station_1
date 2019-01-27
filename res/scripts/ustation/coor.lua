@@ -212,6 +212,19 @@ function coor.inv(m)
     return coor.I() * mXI
 end
 
+function coor.inv3(m)
+    local dX = coor.det(m)
+    
+    local miX = coor.minor(m)
+    local mXI = func.mapFlatten(func.seq(1, 3),
+        function(l)
+            return func.seqMap({1, 3}, function(c)
+                return ((l + c) % 2 == 0 and 1 or -1) * coor.det(miX(c, l)) / dX
+            end)
+        end)
+    
+    return mXI
+end
 
 function coor.decomposite(m)
     local vecTrans = coor.xyz(m[13], m[14], m[15])

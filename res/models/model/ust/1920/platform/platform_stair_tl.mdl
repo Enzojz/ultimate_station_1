@@ -12,7 +12,7 @@ function data()
             {
                 children = {
                     {
-                        id = "ust/1990/platform/platform_stair_tl.msh",
+                        id = "ust/1920/platform/platform_stairs_tl.msh",
                         transf = {
                             1, 0, 0, 0,
                             0, 1, 0, 0,

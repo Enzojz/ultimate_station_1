@@ -180,7 +180,7 @@ local buildStation = function(nbTracksA, nbTracksB, arcPackerA, arcPackerB, conf
     local tW = config.wTrack
     local bandWidth = 0.8
     local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
-    local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
+    local fitModel = config.slope == 0 and ust.fitModel2D or ust.fitModel
     
     local ptListA = ust.preBuild(nbTracksA, config.nbTransitTracksA, config.posTransitTracksA, not hasCentral, not hasFirst)(nbTracksA, pipe.new) * pipe.rev()
     local ptListB = ust.preBuild(nbTracksB, config.nbTransitTracksB, config.posTransitTracksB, not hasCentral, not hasLast)(nbTracksB, pipe.new)

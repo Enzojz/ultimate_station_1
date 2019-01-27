@@ -12,7 +12,7 @@ function data() return {
         uv0      = { count = 12, offset = 144 }
       },
       materials = {
-        "ust/asphalt.mtl"
+        "ust/slate.mtl"
       }
     }
   },

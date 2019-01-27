@@ -1,0 +1,102 @@
+function data()
+    return {
+        params = {
+            fade_out_range = {
+                fadeOutEndDist = 20000,
+                fadeOutStartDist = 10000,
+                
+            },
+            map_albedo = {
+                compressionAllowed = true,
+                fileName = "models/station/train/passenger/trainstation_1920_floor_001_albedo.dds",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+                
+            },
+            map_metal_gloss_ao = {
+                compressionAllowed = true,
+                fileName = "models/station/train/passenger/trainstation_1920_floor_001_metal_gloss_ao.dds",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+                
+            },
+            map_normal = {
+                compressionAllowed = true,
+                fileName = "models/station/train/passenger/trainstation_1920_floor_001_normal.dds",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+                
+            },
+            polygon_offset = {
+                factor = 0,
+                units = 0,
+                
+            },
+            two_sided = {
+                twoSided = false,
+                
+            },
+            map_op_1 = {
+                compressionAllowed = true,
+                fileName = "models/ust/op/xy.dds",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+            },
+            operation_1 = {
+                op = "OVERLAY",
+                mode = "WORLD_XY",
+                scale = { 0.25, 0.25 },
+                opacity = -257
+            },
+            -- map_op_1 = {
+            --     compressionAllowed = true,
+            --     fileName = "models/industry/overlay_textures/small_05.tga",
+            --     magFilter = "LINEAR",
+            --     minFilter = "LINEAR_MIPMAP_LINEAR",
+            --     mipmapAlphaScale = 0,
+            --     type = "TWOD",
+            --     wrapS = "REPEAT",
+            --     wrapT = "REPEAT",
+            -- },
+            -- operation_1 = {
+            --     op = "OVERLAY",
+            --     mode = "WORLD_XY",
+            --     scale = { 1.0/40, 1.0/40 },
+            --     opacity = 0.2
+            -- },
+            map_op_2 = {
+                compressionAllowed = true,
+                fileName = "models/industry/overlay_textures/big_04.tga",
+                magFilter = "LINEAR",
+                minFilter = "LINEAR_MIPMAP_LINEAR",
+                mipmapAlphaScale = 0,
+                type = "TWOD",
+                wrapS = "REPEAT",
+                wrapT = "REPEAT",
+            },
+            operation_2 = {
+                op = "OVERLAY",
+                mode = "WORLD_XY",
+                scale = { 1.0/300, 1.0/300 },
+                opacity = 0.3
+            },
+        },
+        type = "PHYSICAL_NRML_MAP_OP",	
+    }
+    end

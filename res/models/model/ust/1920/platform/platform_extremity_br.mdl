@@ -12,7 +12,7 @@ function data()
                     {
                         id = "ust/1920/platform/platform_extremity_br.msh",
                         transf = {
-                            1, 0, 0, 0,
+                            2/4.5, 0, 0, 0,
                             0, 1, 0, 0,
                             0, 0, 1, 0,
                             0, 0, 0, 1 

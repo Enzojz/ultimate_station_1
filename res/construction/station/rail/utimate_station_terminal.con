@@ -105,8 +105,8 @@ local function retriveRef(config, allArcs)
     local ptL, ptR = unpack(
         allArcs
         * pipe.map(function(a)
-            if (a.platform) then
-                return {a.platform.lc, a.platform.rc}
+            if (a.platform.edge) then
+                return {a.platform.edge.lc, a.platform.edge.rc}
             else
                 local arc = a[1](platformZ)()
                 local lc, rc, c = ust.bitLatCoords(5)(
@@ -125,8 +125,8 @@ local function retriveRef(config, allArcs)
     local cpt =
     (function(a) return (#a % 2 == 0) and a[#a / 2]:avg(a[#a / 2 + 1]) or a[(#a + 1) / 2] end)
         (allArcs
-            * pipe.filter(function(a) return a.lane end)
-            * pipe.map(function(a) return func.with(a.lane.mc[#a.lane.mc], {y = -5}) end)
+            * pipe.filter(function(a) return a.platform.lane end)
+            * pipe.map(function(a) return func.with(a.platform.lane.mc[#a.platform.lane.mc], {y = -5}) end)
     )
     return function()
         return
@@ -142,7 +142,7 @@ local buildStation = function(totalTracks, arcPacker, config, ignoreFst, ignoreL
     local tW = config.wTrack
     local bandWidth = 0.8
     local pWe = config.wExtPlatform * (pW - bandWidth * 2) + bandWidth * 2
-    local fitModel = slope == 0 and ust.fitModel2D or ust.fitModel
+    local fitModel = config.slope == 0 and ust.fitModel2D or ust.fitModel
     
     local ptList = ust.preBuild(totalTracks, config.nbTransitTracks, config.posTransitTracks, ignoreFst, ignoreLst)(totalTracks, pipe.new)
     local ptListI = ptList * pipe.zip(func.seq(1, #ptList), {"t", "i"})

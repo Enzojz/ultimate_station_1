@@ -193,11 +193,84 @@ end
 
 ust.assembleSize = assembleSize
 
+local function transitionM(s)
+    local m = {
+        {s[1].x, s[1].y, 1},
+        {s[2].x, s[2].y, 1},
+        {s[3].x, s[3].y, 1},
+    }
+    
+    local mi = coor.inv3(m)
+    local l = s[4].x * mi[1] + s[4].y * mi[4] + mi[7]
+    local m = s[4].x * mi[2] + s[4].y * mi[5] + mi[8]
+    local t = s[4].x * mi[3] + s[4].y * mi[6] + mi[9]
+    
+    -- local l = s[5].x * mi[1] + s[5].y * mi[5] + s[5].z * mi[9] + mi[13]
+    -- local m = s[5].x * mi[2] + s[5].y * mi[6] + s[5].z * mi[10] + mi[14]
+    -- local t = s[5].x * mi[3] + s[5].y * mi[7] + s[5].z * mi[11] + mi[15]
+    -- local c = s[5].x * mi[4] + s[5].y * mi[8] + s[5].z * mi[12] + mi[16]
+    return {
+        {l * s[1].x, l * s[1].y, l},
+        {m * s[2].x, m * s[2].y, m},
+        {t * s[3].x, t * s[3].y, t},
+    }
+end
+
+ust.fitModel2D2 = function(w, h, d, size, fitTop, fitLeft)
+    local s = {
+        coor.xyz(0, 0, d),
+        coor.xyz(fitLeft and w or -w, 0, d),
+        coor.xyz(fitLeft and w or -w, fitTop and -h or h, d),
+        coor.xyz(0, fitTop and -h or h, d),
+        coor.xyz(0, 0, 0)
+    }
+    
+    local t = fitTop and
+        {
+            fitLeft and size.lt or size.rt,
+            fitLeft and size.rt or size.lt,
+            fitLeft and size.rb or size.lb,
+            fitLeft and size.lb or size.rb,
+        } or {
+            fitLeft and size.lb or size.rb,
+            fitLeft and size.rb or size.lb,
+            fitLeft and size.rt or size.lt,
+            fitLeft and size.lt or size.rt,
+        }
+    
+    t[5] = t[1]:withZ(t[1].z - d)
+    
+    local a = transitionM(s)
+    local b = transitionM(t)
+    
+    local function mul(m1, m2)
+        local m = function(line, col)
+            local l = (line - 1) * 3
+            return m1[l + 1] * m2[col + 0] + m1[l + 2] * m2[col + 3] + m1[l + 3] * m2[col + 6]
+        end
+        return {
+            m(1, 1), m(1, 2), m(1, 3),
+            m(2, 1), m(2, 2), m(2, 3),
+            m(3, 1), m(3, 2), m(3, 3),
+        }
+    end
+    
+    local mXi = mul(coor.inv3(a), func.flatten(b))
+    
+    return coor.I() * {
+        mXi[1], mXi[2], 0, mXi[3],
+        mXi[4], mXi[5], 0, mXi[6],
+        0, 0, 1, 0,
+        mXi[7], mXi[8], 0, mXi[9]
+    }
+end
+
+
 ust.fitModel2D = function(w, h, _, size, fitTop, fitLeft)
     local s = {
-        coor.xyz(0, 0),
-        coor.xyz(fitLeft and w or -w, 0),
-        coor.xyz(0, fitTop and -h or h),
+        coor.xy(0, 0),
+        coor.xy(fitLeft and w or -w, 0),
+        coor.xy(0, fitTop and -h or h),
     }
     
     local t = fitTop and
@@ -553,7 +626,7 @@ ust.generateFences = function(fitModel, config)
     end
 end
 
-local buildSurface = function(fitModel, platformZ, tZ)
+ust.buildSurface = function(fitModel, platformZ, tZ)
     return function(c, w)
         return function(i, s, sx, lic, ric)
             local lic = i >= c and lic or {s = lic.i, i = lic.s}
@@ -630,7 +703,7 @@ end
 
 local retriveModels = function(fitModel, platformZ, tZ)
     return function(c, ccl, ccr, w)
-        local buildSurface = buildSurface(fitModel, platformZ, tZ)(c, 5 - w * 2)
+        local buildSurface = ust.buildSurface(fitModel, platformZ, tZ)(c, 5 - w * 2)
         return function(i, el, er, s, sx, lc, rc, lic, ric)
             local surface = buildSurface(i, s, sx, lic, ric)
             
@@ -651,7 +724,7 @@ local retriveModels = function(fitModel, platformZ, tZ)
     end
 end
 
-local function buildPoles(config, platformZ, tZ)
+ust.buildPoles = function(config, platformZ, tZ)
     return function(mc, c, f, t)
         local seq = pipe.new
             * pipe.rep(c - 2)(config.models.roofPole)
@@ -732,7 +805,7 @@ local function buildPoles(config, platformZ, tZ)
     end
 end
 
-local function buildChairs(config, platformZ, tZ)
+ust.buildChairs = function(config, platformZ, tZ)
     return function(lc, rc, mc, c, f, t)
         local platformChairs = pipe.new
             * func.seq(1, c - 1)
@@ -765,71 +838,89 @@ ust.generateModels = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)-- 1.4 = model height
     local platformZ = config.hPlatform + 0.53
     
-    local buildSurface = buildSurface(fitModel, platformZ, tZ)
+    local buildSurface = ust.buildSurface(fitModel, platformZ, tZ)
     local retriveModels = retriveModels(fitModel, platformZ, tZ)
-    local buildPoles = buildPoles(config, platformZ, tZ)
-    local buildChairs = buildChairs(config, platformZ, tZ)
+    local buildPoles = ust.buildPoles(config, platformZ, tZ)
+    local buildChairs = ust.buildChairs(config, platformZ, tZ)
     
     return function(arcs, edgeBuilder)
         local edgeBuilder = edgeBuilder or function(platformEdgeO, _) return platformEdgeO, platformEdgeO end
         
-        local lc, rc, lic, ric, c = arcs.platform.edge.lc, arcs.platform.edge.rc, arcs.platform.surface.lc, arcs.platform.surface.rc, arcs.platform.surface.c
-        local lpc, rpc, lpic, rpic, pc = arcs.roof.edge.lc, arcs.roof.edge.rc, arcs.roof.surface.lc, arcs.roof.surface.rc, arcs.roof.edge.c
-        local lpp, rpp, mpp, ppc = arcs.roof.pole.lc, arcs.roof.pole.rc, arcs.roof.pole.mc, arcs.roof.pole.c
-        local lcc, rcc, mcc, cc = arcs.platform.chair.lc, arcs.platform.chair.rc, arcs.platform.chair.mc, arcs.platform.chair.c
-        
         local platformSurface = pipe.new
-            * pipe.rep(c - 2)(config.models.surface)
-            * pipe.mapi(function(p, i) return (i == (c > 5 and 4 or 2) or (i == floor(c * 0.5) + 4) and (arcs.hasLower or arcs.hasUpper)) and config.models.stair or config.models.surface end)
+            * pipe.rep(arcs.platform.surface.c - 2)(config.models.surface)
+            * pipe.mapi(function(p, i) return (i == (arcs.platform.surface.c > 5 and 4 or 2) or (i == floor(arcs.platform.surface.c * 0.5) + 4) and (arcs.hasLower or arcs.hasUpper)) and config.models.stair or config.models.surface end)
             / config.models.extremity
-            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.surface)) or (ls * pipe.rev() + ls) end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(arcs.platform.surface.c - 1)(config.models.surface)) or (ls * pipe.rev() + ls) end)
         
         local platformSurfaceEx = pipe.new
-            * pipe.rep(c - 2)(config.models.surface)
+            * pipe.rep(arcs.platform.surface.c - 2)(config.models.surface)
             / config.models.extremity
-            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.surface)) or (ls * pipe.rev() + ls) end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(arcs.platform.surface.c - 1)(config.models.surface)) or (ls * pipe.rev() + ls) end)
         
         local platformEdgeO = pipe.new
-            * pipe.rep(c - 2)(config.models.edge)
+            * pipe.rep(arcs.platform.edge.c - 2)(config.models.edge)
             / config.models.corner
-            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.edge)) or (ls * pipe.rev() + ls) end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(arcs.platform.edge.c - 1)(config.models.edge)) or (ls * pipe.rev() + ls) end)
         
-        local platformEdgeL, platformEdgeR = edgeBuilder(platformEdgeO, c)
+        local platformEdgeL, platformEdgeR = edgeBuilder(platformEdgeO, arcs.platform.edge.c)
         
         local roofSurface = pipe.new
-            * pipe.rep(pc - 2)(config.models.roofTop)
+            * pipe.rep(arcs.roof.surface.c - 2)(config.models.roofTop)
             / config.models.roofExtremity
-            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.roofTop)) or (ls * pipe.rev() + ls) end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(arcs.roof.surface.c - 1)(config.models.roofTop)) or (ls * pipe.rev() + ls) end)
         
         local roofEdge = pipe.new
-            * pipe.rep(pc - 2)(config.models.roofEdge)
+            * pipe.rep(arcs.roof.edge.c - 2)(config.models.roofEdge)
             / config.models.roofCorner
-            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(c - 1)(config.models.roofEdge)) or (ls * pipe.rev() + ls) end)
+            * (function(ls) return config.isTerminal and (ls * pipe.rev() + pipe.rep(arcs.roof.edge.c - 1)(config.models.roofEdge)) or (ls * pipe.rev() + ls) end)
         
         local newModels = pipe.mapn(
-            func.seq(1, 2 * c - 2),
+            func.seq(1, 2 * arcs.platform.surface.c - 2),
             platformEdgeL,
             platformEdgeR,
             platformSurface,
             platformSurfaceEx,
-            il(lc), il(rc), il(lic), il(ric)
-        )(retriveModels(c, c, c, config.width.edge))
+            il(arcs.platform.edge.lc),
+            il(arcs.platform.edge.rc),
+            il(arcs.platform.surface.lc),
+            il(arcs.platform.surface.rc)
+        )(retriveModels(
+            arcs.platform.surface.c,
+            arcs.platform.surface.c,
+            arcs.platform.surface.c,
+            config.width.edge))
         
-        local chairs = buildChairs(lcc, rcc, mcc, cc, 1, 2 * cc - 1)
+        local chairs = buildChairs(
+            arcs.platform.chair.lc,
+            arcs.platform.chair.rc,
+            arcs.platform.chair.mc,
+            arcs.platform.chair.c,
+            1, 2 * arcs.platform.chair.c - 1)
         
         local newRoof = config.roofLength == 0
             and {}
             or pipe.new * pipe.mapn(
-                func.seq(1, 2 * pc - 2),
+                func.seq(1, 2 * arcs.roof.surface.c - 2),
                 roofEdge,
                 roofEdge,
                 roofSurface,
                 roofSurface,
-                il(lpc), il(rpc), il(lpic), il(rpic)
-            )(retriveModels(pc, pc, pc, config.width.roof.edge))
-            / buildPoles(mpp, ppc, 1, ppc * 2 - 1)
-        
-        
+                il(arcs.roof.edge.lc),
+                il(arcs.roof.edge.rc),
+                il(arcs.roof.surface.lc),
+                il(arcs.roof.surface.rc)
+            )(retriveModels(
+                arcs.roof.edge.c,
+                arcs.roof.edge.c,
+                arcs.roof.edge.c,
+                config.width.roof.edge))
+            /
+            buildPoles(
+                arcs.roof.pole.mc,
+                arcs.roof.pole.c,
+                1,
+                arcs.roof.pole.c * 2 - 1
+        )
         return (pipe.new / newModels / newRoof / chairs) * pipe.flatten() * pipe.flatten()
     end
 end
@@ -839,11 +930,11 @@ ust.generateModelsDual = function(fitModel, config)
     local tZ = coor.transZ(config.hPlatform - 1.4)
     local platformZ = config.hPlatform + 0.53
     
-    local buildSurface = buildSurface(fitModel, platformZ, tZ)
+    local buildSurface = ust.buildSurface(fitModel, platformZ, tZ)
     local retriveModels = retriveModels(fitModel, platformZ, tZ)
     
-    local buildPoles = buildPoles(config, platformZ, tZ)
-    local buildChairs = buildChairs(config, platformZ, tZ)
+    local buildPoles = ust.buildPoles(config, platformZ, tZ)
+    local buildChairs = ust.buildChairs(config, platformZ, tZ)
     
     return function(arcsL, arcsR, edgeBuilder)
         local edgeBuilder = edgeBuilder or function(platformEdgeO, _) return platformEdgeO, platformEdgeO end
@@ -1290,13 +1381,27 @@ ust.allArcs = function(config)
             local lcc, rcc, cc = ust.bitLatCoords(10)(arcs.platform.edge.l, arcs.platform.edge.r)
             local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
             local lppc, rppc, ppc = ust.bitLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
+            
+            local lpcc, rpcc, mpcc = table.unpack(
+                pipe.new
+                * pipe.mapn(lsuc, rsuc)(function(lc, rc)
+                    local vec = (rc - lc)
+                    local width = vec:length()
+                    vec = vec:normalized() * 0.5 * (width >= 3 and 2 or width >= 2 and (width - 1) or width >= 0.5 and 0.5 or false)
+                    local mc = lc:avg(rc)
+                    return vec and {mc - vec, mc + vec, mc} or {false, false, mc}
+                end
+                )
+                * pipe.fold({pipe.new, pipe.new, pipe.new}, function(r, c) return {r[1] / c[1], r[2] / c[2], r[3] / c[3]} end)
+            )
             return {
                 [1] = arcL,
                 [2] = arcR,
                 platform = {
                     lane = func.with(arcs.platform.lane, {lc = lc, rc = rc, mc = mc(lc, rc), c = c}),
                     laneEdge = func.with(arcs.platform.laneEdge, {lc = lec, rc = rec, mc = mc(lec, rec), c = c}),
-                    surface = func.with(arcs.platform.surface, {lc = lsuc, rc = rsuc, mc = mc(lsuc, rsuc), c = sc}),
+                    surface = func.with(arcs.platform.surface, {lc = lsuc, rc = rsuc, mc = mpcc, c = sc}),
+                    stair = func.with(arcs.platform.surface, {lc = lpcc, rc = rpcc, mc = mpcc, c = sc}),
                     edge = func.with(arcs.platform.edge, {lc = lsc, rc = rsc, mc = mc(lsc, rsc), c = sc}),
                     access = func.with(arcs.platform.access, {lc = lac, rc = rac, mc = mc(lac, rac), c = sc}),
                     chair = func.with(arcs.platform.edge, {lc = lcc, rc = rcc, mc = mc(lcc, rcc), c = cc}),

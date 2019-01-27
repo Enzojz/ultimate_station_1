@@ -10,9 +10,9 @@ function data()
             {
                 children = {
                     {
-                        id = "ust/1920/platform/platform_corner_tr.msh",
+                        id = "ust/1920/platform/platform_corner_tl.msh",
                         transf = {
-                            1, 0, 0, 0,
+                            -1, 0, 0, 0,
                             0, 1, 0, 0,
                             0, 0, 1, 0,
                             0, 0, 0, 1 
