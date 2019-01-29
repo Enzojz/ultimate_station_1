@@ -1,0 +1,529 @@
+local func = require "ustation/func"
+local coor = require "ustation/coor"
+local arc = require "ustation/coorarc"
+local line = require "ustation/coorline"
+local quat = require "ustation/quaternion"
+local station = require "ustation/stationlib"
+local pipe = require "ustation/pipe"
+local ust = require "ustation"
+
+local dump = require "luadump"
+
+local unpack = table.unpack
+local ma = math
+local abs = ma.abs
+local ceil = ma.ceil
+local floor = ma.floor
+local pi = ma.pi
+local atan = ma.atan
+local pow = ma.pow
+local cos = ma.cos
+local sin = ma.sin
+local asin = ma.asin
+local min = ma.min
+
+
+local il = pipe.interlace({"s", "i"})
+local assembleSize = function(lc, rc)
+    return {
+        lb = lc.i,
+        lt = lc.s,
+        rb = rc.i,
+        rt = rc.s
+    }
+end
+
+local arcGen = function(p, o) return {
+    l = p.l(o),
+    r = p.r(-o)
+} end
+
+local mc = function(lc, rc) return func.map2(lc, rc, function(l, r) return l:avg(r) end) end
+
+
+local arcPacker1 = function(length, slope)
+    return function(radius, o, lengthVar, dislodge)
+        local dislodge = dislodge and (dislodge * length / radius) or 0
+        local length = lengthVar and (length * lengthVar) or length
+        local initRad = (radius > 0 and pi or 0)
+        return function(z)
+            local z = z or 0
+            return function(lengthOverride)
+                local l = lengthOverride and lengthOverride(length) or length
+                return function(xDr)
+                    local dr = xDr or 0
+                    local ar = arc.byOR(o + coor.xyz(0, 0, z), abs(radius - dr))
+                    local rad = (radius > 0 and 1 or -1) * l / ar.r * 0.5
+                    return pipe.new
+                        / ar:withLimits({
+                            sup = initRad - rad,
+                            inf = initRad,
+                            slope = -slope
+                        })
+                        / ar:withLimits({
+                            inf = initRad,
+                            sup = initRad + rad,
+                            slope = slope
+                        })
+                end
+            end
+        end
+    end
+end
+
+
+local arcPacker2 = function(length, slope, ratio)
+    return function(radiusA, oA, radiusB, oB, lengthVar, dislodge)
+        local length = lengthVar and (length * lengthVar) or length
+        local dislodgeA = dislodge and (dislodge * length / radiusA) or 0
+        local dislodgeB = dislodge and (dislodge * length / radiusB) or 0
+        local initRadA = (radiusA > 0 and pi or 0)
+        local initRadB = (radiusB > 0 and pi or 0)
+        return function(xDr0)
+            local xDr0 = xDr0 or 0
+            return function(z)
+                local z = z or 0
+                return function(lengthOverride)
+                    local l = lengthOverride and lengthOverride(length) or length
+                    return function(xDr)
+                        local dr = xDr0 + (xDr or 0)
+                        local arA = arc.byOR(oA + coor.xyz(0, 0, z), abs(radiusA - dr))
+                        local arB = arc.byOR(oB + coor.xyz(0, 0, z), abs(radiusB - dr))
+                        local radA = (radiusA > 0 and 1 or -1) * (l * ratio) / arA.r
+                        local radB = (radiusB > 0 and 1 or -1) * (l * (1 - ratio)) / arB.r
+                        return pipe.new
+                            / arA:withLimits({
+                                sup = initRadA - radA + dislodgeA,
+                                inf = initRadA,
+                                slope = -slope
+                            })
+                            / arB:withLimits({
+                                inf = initRadB,
+                                sup = initRadB + radB + dislodgeB,
+                                slope = slope
+                            })
+                    end
+                end
+            end
+        end
+    end
+end
+
+
+local findMarkers = function(group)
+    return pipe.new
+        * game.interface.getEntities({pos = game.gui.getTerrainPos(), radius = 1000})
+        * pipe.map(game.interface.getEntity)
+        * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station_planner.con") and data.params and data.params.group == group end)
+end
+
+
+local findCircle = function(posS, posE, vecS, vecE)
+    local lnPS = line.byVecPt(vecS .. coor.rotZ(0.5 * pi), posS)
+    local lnPE = line.byVecPt(vecE .. coor.rotZ(0.5 * pi), posE)
+    local o = lnPS - lnPE
+    local vecOS = o - posS
+    local vecOE = o - posE
+    local radius = vecOS:length()
+    local rad = asin(vecOS:normalized():cross(vecOE:normalized()))
+    local length = abs(rad * radius)
+    local ar = arc.byOR(o, radius)
+    local f = rad > 0 and 1 or -1
+    return ar, f, length
+end
+
+local solve = function(s, e)
+    local posS, rotS, _ = coor.decomposite(s.transf)
+    local posE, rotE, _ = coor.decomposite(e.transf)
+    local vecS = coor.xyz(1, 0, 0) .. rotS
+    local vecE = coor.xyz(1, 0, 0) .. rotE
+    local lnS = line.byVecPt(vecS, posS)
+    local lnE = line.byVecPt(vecE, posE)
+    local m = (posE + posS) * 0.5
+    local vecES = posE - posS
+    local x = lnS - lnE
+    
+    if (x) then
+        local vecXS = x - posS
+        local vecXE = x - posE
+        
+        local u = vecXS:length()
+        local v = vecXE:length()
+        
+        local co = vecXS:normalized():dot(vecXE:normalized())
+        
+        local function retrive(y, cond, coorX, coorY)
+            local lnX = line.byVecPt(vecXS:withZ(0) .. coor.rotZ(pi * 0.5), posS)
+            local lnY = line.byVecPt(vecXE:withZ(0) .. coor.rotZ(pi * 0.5), posE)
+            local function work(f, t, level)
+                local solution = pipe.new
+                    * func.seq(0, 100)
+                    * pipe.map(function(p) return {x = f + (t - f) * 0.01 * p, p = p} end)
+                    * pipe.map(function(v) return {x = v.x, y = y(v.x), p = v.p} end)
+                    * pipe.filter(cond)
+                    * pipe.map(function(va)
+                        local x = coorX(va)
+                        local y = coorY(va)
+                        local vecXY = (y - x):normalized()
+                        local m = x + vecXY * va.x
+                        local lnM = line.byVecPt(vecXY:withZ(0) .. coor.rotZ(pi * 0.5), m)
+                        local oX = lnM - lnX
+                        local oY = lnM - lnY
+                        if (oX and oY) then
+                            local vecOX = (posS - oX):normalized()
+                            local vecOY = (posE - oY):normalized()
+                            local vecOM = (m - oX):normalized()
+                            local rX = (oX - posS):length()
+                            local rY = (oY - posE):length()
+                            local sinX = vecOX:cross(vecOM)
+                            local sinY = vecOM:cross(vecOY)
+                            local radX = asin(sinX)
+                            local radY = asin(sinY)
+                            local lX = abs(rX * radX)
+                            local lY = abs(rY * radY)
+                            local length = lX + lY
+                            return {
+                                m = m:withZ((posE.z - posS.z) * lX / length + posS.z),
+                                vecX = (x - m):normalized(),
+                                vecY = (y - m):normalized(),
+                                length = length,
+                                r = abs(lX - lY),
+                                p = va.p
+                            }
+                        else
+                            return nil
+                        end
+                    end)
+                    * pipe.filter(pipe.noop())
+                    * pipe.min(function(l, r) return l.r < r.r end)
+                
+                if (level > 0) then
+                    return work(f + (t - f) * 0.01 * (solution.p - 1), f + (t - f) * 0.01 * (solution.p + 1), level - 1)
+                else
+                    local ar1, f1, length1 = findCircle(posS, solution.m, vecS, solution.vecX:withZ(0))
+                    local ar2, f2, length2 = findCircle(solution.m, posE, solution.vecY:withZ(0), vecE)
+                    return
+                        f1, ar1.r,
+                        f2, ar2.r,
+                        func.min({length1, length2}) * 2 - 10, (posE.z - posS.z) / solution.length,
+                        quat.byVec(coor.xyz(0, 1, 0), (solution.vecX):withZ(0)):mRot() * coor.trans(solution.m)
+                end
+            end
+            return work(0, u, 4)
+        end
+        
+        if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
+            if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
+                local ar, f, length = findCircle(posS, posE, vecS, vecE)
+                return
+                    f, ar.r,
+                    nil, nil,
+                    length - 10, (posE.z - posS.z) / length,
+                    quat.byVec(coor.xyz(f, 0, 0), (m - x):withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
+            else
+                return retrive(
+                    function(x) return 0.5 * (u * u + v * v - 2 * u * x - 2 * u * v * co + 2 * v * x * co) / (v + x - u * co + x * co) end,
+                    function(va) return va.y >= 0 and va.y <= v and va.x >= 0 and va.x <= u end,
+                    function(va) return (posS + vecXS * (va.x / u)) end,
+                    function(va) return (posE + vecXE * (va.y / v)) end
+            )
+            end
+        elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then
+            return retrive(
+                function(x) return 0.5 * (-u * u - v * v + 2 * u * x + 2 * u * v * co - 2 * v * x * co) / (v - x - u * co + x * co) end,
+                function(va) return va.y >= 0 and va.x >= 0 and va.x < u end,
+                function(va) return (posS + vecXS * (va.x / u)) end,
+                function(va) return (posE - vecXE * (va.y / v)) end
+        )
+        elseif ((vecXS:dot(vecS) < 0 and vecXE:dot(vecE) > 0)) then
+            return retrive(
+                function(x) return 0.5 * (u * u + v * v + 2 * u * x - 2 * u * v * co - 2 * v * x * co) / (v + x - u * co - x * co) end,
+                function(va) return va.y >= 0 and va.y <= v and va.x >= 0 end,
+                function(va) return (posS - vecXS * (va.x / u)) end,
+                function(va) return (posE + vecXE * (va.y / v)) end
+        )
+        end
+    else
+        local lnPenE = line.byVecPt(lnS:vector():withZ(0) .. coor.rotZ(0.5 * pi), posE)
+        local posP = lnPenE - lnS
+        local vecEP = posE - posP
+        if (vecEP:length() < 1e-5) then
+            local radius = ust.infi
+            local o = posS + (lnPenE:vector():normalized() * radius)
+            local ar = arc.byOR(o, radius)
+            local length = vecES:length()
+            local f = 1
+            return
+                f, radius,
+                nil, nil,
+                length - 10, (posE.z - posS.z) / length,
+                quat.byVec(coor.xyz(1, 0, 0), (o - m):normalized():withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
+        else
+            local mRot = quat.byVec(vecS, vecES:normalized()):mRot()
+            local vecT = vecES .. mRot
+            local lnT = line.byVecPt(vecT, m)
+            local ar1, f1, length1 = findCircle(posS, m, vecS, -vecT)
+            local ar2, f2, length2 = findCircle(m, posE, vecT, vecE)
+            return
+                f1, ar1.r,
+                f2, ar2.r,
+                (length1 + length2) - 10, (posS.z - posE.z) / (length1 + length2),
+                quat.byVec(coor.xyz(0, 1, 0), (vecT):withZ(0)):mRot() * coor.trans(m)
+        end
+    end
+end
+
+local coordGen = function(config)
+    local refZ = config.hPlatform + 0.53
+    return function(arcL, arcR)
+        local lane = {
+            l = arcL(refZ)(function(l) return l - 3 end),
+            r = arcR(refZ)(function(l) return l - 3 end)
+        }
+        local general = {
+            l = arcL(refZ)(),
+            r = arcR(refZ)()
+        }
+        local roof = {
+            l = arcL(refZ)(function(l) return l * config.roofLength end),
+            r = arcR(refZ)(function(l) return l * config.roofLength end)
+        }
+        local terrain = {
+            l = arcL()(function(l) return l + 5 end),
+            r = arcR()(function(l) return l + 5 end)
+        }
+        
+        local arcs = {
+            platform = {
+                lane = arcGen(lane, config.size.lane),
+                laneEdge = arcGen(lane, config.size.laneEdge),
+                edge = arcGen(general, config.size.edge),
+                surface = arcGen(general, config.size.surface),
+                access = arcGen(general, config.size.access),
+            },
+            roof = {
+                edge = arcGen(roof, config.size.roof.edge),
+                surface = arcGen(roof, config.size.roof.surface)
+            },
+            terrain = arcGen(terrain, config.size.terrain)
+        }
+        
+        local lc, rc, lec, rec, c = ust.bitLatCoords(5)(arcs.platform.lane.l, arcs.platform.lane.r, arcs.platform.laneEdge.l, arcs.platform.laneEdge.r)
+        local lsc, rsc, lac, rac, lsuc, rsuc, ltc, rtc, sc = ust.bitLatCoords(5)(arcs.platform.edge.l, arcs.platform.edge.r, arcs.platform.access.l, arcs.platform.access.r, arcs.platform.surface.l, arcs.platform.surface.r, arcs.terrain.l, arcs.terrain.r)
+        local lcc, rcc, cc = ust.bitLatCoords(10)(arcs.platform.edge.l, arcs.platform.edge.r)
+        local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
+        local lppc, rppc, ppc = ust.bitLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
+        
+        local lpcc, rpcc, mpcc = table.unpack(
+            pipe.new
+            * pipe.mapn(lsuc, rsuc)(function(lc, rc)
+                local vec = (rc - lc)
+                local width = vec:length()
+                vec = vec:normalized() * 0.5 * (width >= 3 and 2 or width >= 2 and (width - 1) or width >= 0.5 and 0.5 or false)
+                local mc = lc:avg(rc)
+                return vec and {mc - vec, mc + vec, mc} or {false, false, mc}
+            end
+            )
+            * pipe.fold({pipe.new, pipe.new, pipe.new}, function(r, c) return {r[1] / c[1], r[2] / c[2], r[3] / c[3]} end)
+        )
+        return {
+            [1] = arcL,
+            [2] = arcR,
+            platform = {
+                lane = func.with(arcs.platform.lane, {lc = lc, rc = rc, mc = mc(lc, rc), c = c}),
+                laneEdge = func.with(arcs.platform.laneEdge, {lc = lec, rc = rec, mc = mc(lec, rec), c = c}),
+                surface = func.with(arcs.platform.surface, {lc = lsuc, rc = rsuc, mc = mpcc, c = sc}),
+                stair = func.with(arcs.platform.surface, {lc = lpcc, rc = rpcc, mc = mpcc, c = sc}),
+                edge = func.with(arcs.platform.edge, {lc = lsc, rc = rsc, mc = mc(lsc, rsc), c = sc}),
+                access = func.with(arcs.platform.access, {lc = lac, rc = rac, mc = mc(lac, rac), c = sc}),
+                chair = func.with(arcs.platform.edge, {lc = lcc, rc = rcc, mc = mc(lcc, rcc), c = cc}),
+            },
+            roof = {
+                edge = func.with(arcs.roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
+                surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
+                pole = func.with(arcs.roof.edge, {lc = lppc, rc = rppc, mc = mc(lppc, rppc), c = ppc})
+            },
+            terrain = func.with(arcs.terrain, {lc = ltc, rc = rtc, mc = mc(ltc, rtc), c = sc}),
+            hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
+            hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc),
+            isPlatform = true
+        }
+    end
+end
+
+local prefixM = "ust/1990/"
+local models = ust.models(prefixM)
+
+local config = {
+    hPlatform = 1.2,
+    models = ust.models(prefixM),
+    roofLength = 0.8,
+    size = {
+        lane = 1,
+        laneEdge = -0.5,
+        edge = -0.5,
+        surface = 0.3,
+        access = -4.25,
+        roof = {
+            edge = -0.5,
+            surface = 0.5
+        },
+        terrain = -0.5
+    },
+    width = {
+        edge = 0.8,
+        surface = 3.4,
+        roof = {
+            edge = 1,
+            surface = 3
+        }
+    }
+}
+
+local updateFn = function(params)
+    if (params.coords) then
+        
+        local lc, rc = table.unpack(params.coords)
+        local terrain = pipe.new / {
+            equal = pipe.new
+            * pipe.mapn(il(lc), il(rc))
+            (function(lc, rc)
+                local size = assembleSize(lc, rc)
+                return pipe.new / size.lt / size.lb / size.rb / size.rt
+            end)
+        }
+        
+        return pipe.new * {
+            models = {
+                {
+                    id = "ust/indicator.mdl",
+                    transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+                }
+            },
+            terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
+            groundFaces = terrain
+            * pipe.map(pipe.select("equal"))
+            * pipe.map(pipe.map(pipe.map(coor.vec2Tuple)))
+            * pipe.filter(pipe.noop())
+            * pipe.flatten()
+            * pipe.map(function(f) return {
+                {face = f, modes = {{type = "FILL", key = "fill_red"}}},
+            } end)
+            * pipe.flatten()
+        }
+    end
+    local markers = findMarkers(0)
+    if (#markers > 0 and #markers % 2 == 0) then
+        local vecs = markers * pipe.map(function(m) return coor.xyz(1, 0, 0) .. ({coor.decomposite(m.transf)})[2] end)
+        local refVec = vecs[1]
+        
+        local partition =
+            vecs
+            * pipe.map(function(v) return v:dot(refVec) > 0 end)
+            * pipe.zip(markers, {"b", "m"})
+            * pipe.fold({pipe.new, pipe.new}, function(r, m) return m.b and {r[1] / m.m, r[2]} or {r[1], r[2] / m.m} end)
+        local fm, tm = table.unpack(partition)
+        if (#fm == #tm) then
+            local sfm = fm
+                * pipe.map(function(m)
+                    local pos, rot = coor.decomposite(m.transf)
+                    return {m, pos, (coor.xyz(1, 0, 0) .. rot)} end)
+                * pipe.sort(function(l, r) return l[3]:cross(r[2] - l[2]).z < 0 end)
+                * pipe.map(pipe.select(1))
+            local stm = tm
+                * pipe.map(function(m)
+                    local pos, rot = coor.decomposite(m.transf)
+                    return {m, pos, (coor.xyz(1, 0, 0) .. rot)} end)
+                * pipe.sort(function(l, r) return l[3]:cross(r[2] - l[2]).z > 0 end)
+                * pipe.map(pipe.select(1))
+            local params = pipe.new
+                * func.map2(sfm, stm,
+                    function(f, t)
+                        local f, radius, f2, radius2, length, slope, transf = solve(f, t)
+                        
+                        local r1 = f * radius
+                        local r2 = f2 and radius2 and f2 * radius2 or f * radius
+                        local arcs = arcPacker2(length, slope, 0.5)(r1, coor.xyz(r1, 0, 0), r2, coor.xyz(r2, 0, 0))
+                        
+                        local coords = coordGen(config)(arcs(-2.5), arcs(2.5))
+                        
+                        
+                        local _ = pipe.new
+                            * func.seq(1, 2 * (coords.platform.surface.c - 1))
+                            * pipe.map(function(i)
+                                local id = game.interface.buildConstruction(
+                                    "station/rail/modular/utimate_station_modular_block.con",
+                                    func.with(station.pureParams(params), {
+                                        coords = coords,
+                                        pos = i,
+                                        config = config
+                                    }),
+                                    transf
+                                )
+                                game.interface.setPlayer(id, game.interface.getPlayer())
+                            end)
+                        
+                        
+                        return {f, radius, f2, radius2, length, slope, transf}
+                    end)
+        end
+    end
+    
+    return {
+        models = {
+            {
+                id = "ust/indicator.mdl",
+                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+            }
+        },
+        edgeLists = {
+            {
+                type = "TRACK",
+                params = {
+                    type = "standard.lua",
+                    catenary = false
+                },
+                edges = {
+                    {{0.0, 0.0, 0.0}, {5.0, 0.0, 0.0}},
+                    {{5.0, 0.0, 0.0}, {5.0, 0.0, 0.0}}
+                },
+                snapNodes = {0}
+            }
+        },
+        cost = 0,
+        bulldozeCost = 0,
+        maintenanceCost = 0,
+        terrainAlignmentLists = {
+            {
+                type = "EQUAL",
+                faces = {}
+            }
+        }
+    }
+end
+
+function data()
+    return {
+        type = "RAIL_STATION",
+        description = {
+            name = _("Ultimate Station Modular Planner"),
+            description = _("")
+        },
+        availability = {
+            yearFrom = 1850,
+            yearTo = 0,
+        },
+        order = 5010,
+        skipCollision = true,
+        autoRemovable = false,
+        params = {
+            {
+                key = "group",
+                name = _("Group"),
+                values = {"1", "2", "3", "4", "5"},
+                defaultIndex = 0
+            }
+        },
+        updateFn = updateFn
+    }
+end

@@ -181,6 +181,7 @@ local bitLatCoords = function(length)
 end
 
 ust.bitLatCoords = bitLatCoords
+ust.biLatCoords = bitLatCoords
 
 local assembleSize = function(lc, rc)
     return {

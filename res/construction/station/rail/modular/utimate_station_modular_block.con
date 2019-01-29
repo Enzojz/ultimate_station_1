@@ -1,0 +1,85 @@
+local func = require "ustation/func"
+local coor = require "ustation/coor"
+local arc = require "ustation/coorarc"
+local line = require "ustation/coorline"
+local quat = require "ustation/quaternion"
+local station = require "ustation/stationlib"
+local pipe = require "ustation/pipe"
+local ust = require "ustation"
+
+local dump = require "luadump"
+
+local unpack = table.unpack
+local ma = math
+local abs = ma.abs
+local ceil = ma.ceil
+local floor = ma.floor
+local pi = ma.pi
+local atan = ma.atan
+local pow = ma.pow
+local cos = ma.cos
+local sin = ma.sin
+local asin = ma.asin
+local min = ma.min
+
+local dump = require "luadump"
+local assembleSize = function(pos) return function(lc, rc)
+    return {
+        lb = lc[pos],
+        lt = lc[pos + 1],
+        rb = rc[pos],
+        rt = rc[pos + 1]
+    }
+end
+end
+
+local updateFn = function(params)
+    local config = params.config
+    
+    local platformZ = config.hPlatform + 0.53
+    local tZ = coor.transZ(config.hPlatform - 1.4)
+    local coords = params.coords
+    local assembleSize = assembleSize(params.pos)
+    local edgeL = assembleSize(coords.platform.edge.lc, coords.platform.surface.lc)
+    local edgeR = assembleSize(coords.platform.surface.rc, coords.platform.edge.rc)
+    local surface = assembleSize(coords.platform.surface.lc, coords.platform.surface.rc)
+    
+    local models = pipe.new
+        / station.newModel(config.models.edge .. "_br.mdl", tZ, ust.fitModel(config.width.edge, 5, platformZ, edgeL, false, false))
+        / station.newModel(config.models.edge .. "_tl.mdl", tZ, ust.fitModel(config.width.edge, 5, platformZ, edgeL, true, true))
+        / station.newModel(config.models.edge .. "_br.mdl", tZ, ust.fitModel(config.width.edge, 5, platformZ, edgeR, false, false))
+        / station.newModel(config.models.edge .. "_tl.mdl", tZ, ust.fitModel(config.width.edge, 5, platformZ, edgeR, true, true))
+        / station.newModel(config.models.surface .. "_br.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, surface, false, false))
+        / station.newModel(config.models.surface .. "_tl.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, surface, true, true))
+    
+    return pipe.new * {
+        models = models,
+        terrainAlignmentLists = {{type = "EQUAL", faces = {}}}
+    }
+end
+
+function data()
+    return {
+        type = "RAIL_STATION",
+        description = {
+            name = _("Ultimate Station Modular Block"),
+            description = _("")
+        },
+        availability = {
+            yearFrom = 1850,
+            yearTo = 0,
+        },
+        order = 5010,
+        skipCollision = true,
+        autoRemovable = false,
+        params = {
+            {
+                key = "group",
+                name = _("Group"),
+                values = {"1", "2", "3", "4", "5"},
+                defaultIndex = 0
+            }
+        },
+        updateFn = updateFn
+    }
+end
