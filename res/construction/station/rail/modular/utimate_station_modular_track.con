@@ -1,0 +1,85 @@
+local func = require "ustation/func"
+local coor = require "ustation/coor"
+local arc = require "ustation/coorarc"
+local line = require "ustation/coorline"
+local quat = require "ustation/quaternion"
+local station = require "ustation/stationlib"
+local pipe = require "ustation/pipe"
+local ust = require "ustation"
+
+local dump = require "luadump"
+
+local unpack = table.unpack
+local ma = math
+local abs = ma.abs
+local ceil = ma.ceil
+local floor = ma.floor
+local pi = ma.pi
+local atan = ma.atan
+local pow = ma.pow
+local cos = ma.cos
+local sin = ma.sin
+local asin = ma.asin
+local min = ma.min
+
+local dump = require "luadump"
+local assembleSize = function(lc, rc)
+    return {
+        lb = lc.i,
+        lt = lc.s,
+        rb = rc.i,
+        rt = rc.s
+    }
+end
+
+local il = pipe.interlace({"s", "i"})
+local updateFn = function(params)
+    local lc, rc = table.unpack(params.coords)
+    local ground = pipe.new
+        * pipe.mapn(il(lc), il(rc))
+        (function(lc, rc)
+            local size = assembleSize(lc, rc)
+            return pipe.new / size.lt / size.lb / size.rb / size.rt
+        end)
+        * pipe.map(pipe.map(coor.vec2Tuple))
+    
+    
+    return pipe.new * {
+        models = {
+            {
+                id = "ust/indicator.mdl",
+                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
+            }
+        },
+        terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
+        groundFaces = ground * pipe.map(function(g) return 
+            {face = g, modes = {{type = "FILL", key = "fill_blue"}}}
+         end)
+    }
+end
+
+function data()
+    return {
+        type = "RAIL_STATION",
+        description = {
+            name = _("Ultimate Station Modular Block"),
+            description = _("")
+        },
+        availability = {
+            yearFrom = 1800,
+            yearTo = 1800,
+        },
+        order = 5010,
+        skipCollision = true,
+        autoRemovable = false,
+        params = {
+            {
+                key = "group",
+                name = _("Group"),
+                values = {"1", "2", "3", "4", "5"},
+                defaultIndex = 0
+            }
+        },
+        updateFn = updateFn
+    }
+end

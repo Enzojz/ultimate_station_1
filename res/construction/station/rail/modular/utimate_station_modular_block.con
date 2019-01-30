@@ -42,15 +42,21 @@ local updateFn = function(params)
     local assembleSize = assembleSize(params.pos)
     local edgeL = assembleSize(coords.platform.edge.lc, coords.platform.surface.lc)
     local edgeR = assembleSize(coords.platform.surface.rc, coords.platform.edge.rc)
-    local surface = assembleSize(coords.platform.surface.lc, coords.platform.surface.rc)
+    local surfaceL = assembleSize(coords.platform.surface.lc, coords.platform.stair.lc)
+    local surfaceR = assembleSize(coords.platform.stair.rc, coords.platform.surface.rc)
+    local stair = assembleSize(coords.platform.stair.lc, coords.platform.stair.rc)
     
     local models = pipe.new
         / station.newModel(config.models.edge .. "_br.mdl", tZ, ust.fitModel(config.width.edge, 5, platformZ, edgeL, false, false))
         / station.newModel(config.models.edge .. "_tl.mdl", tZ, ust.fitModel(config.width.edge, 5, platformZ, edgeL, true, true))
         / station.newModel(config.models.edge .. "_br.mdl", tZ, ust.fitModel(config.width.edge, 5, platformZ, edgeR, false, false))
         / station.newModel(config.models.edge .. "_tl.mdl", tZ, ust.fitModel(config.width.edge, 5, platformZ, edgeR, true, true))
-        / station.newModel(config.models.surface .. "_br.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, surface, false, false))
-        / station.newModel(config.models.surface .. "_tl.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, surface, true, true))
+        / station.newModel(config.models.surface .. "_br.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, surfaceL, false, false))
+        / station.newModel(config.models.surface .. "_tl.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, surfaceL, true, true))
+        / station.newModel(config.models.surface .. "_br.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, surfaceR, false, false))
+        / station.newModel(config.models.surface .. "_tl.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, surfaceR, true, true))
+        / station.newModel(config.models.stair .. "_br.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, stair, false, false))
+        / station.newModel(config.models.stair .. "_tl.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, stair, true, true))
     
     return pipe.new * {
         models = models,
@@ -66,8 +72,8 @@ function data()
             description = _("")
         },
         availability = {
-            yearFrom = 1850,
-            yearTo = 0,
+            yearFrom = 1800,
+            yearTo = 1800,
         },
         order = 5010,
         skipCollision = true,

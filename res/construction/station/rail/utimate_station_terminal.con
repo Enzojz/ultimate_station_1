@@ -109,7 +109,7 @@ local function retriveRef(config, allArcs)
                 return {a.platform.edge.lc, a.platform.edge.rc}
             else
                 local arc = a[1](platformZ)()
-                local lc, rc, c = ust.bitLatCoords(5)(
+                local lc, rc, c = ust.biLatCoords(5)(
                     arc(-config.wTrack * 0.5 + 0.5),
                     arc(config.wTrack * 0.5 - 0.5)
                 )

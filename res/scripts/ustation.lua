@@ -118,6 +118,9 @@ local retriveBiLatCoords = function(nSeg, l, ...)
 )
 end
 
+ust.retriveBiLatCoords = retriveBiLatCoords
+ust.retriveNSeg = retriveNSeg
+
 local equalizeArcs = function(f, s, ...)
     local arcs = pipe.new * {f, s, ...}
     local ptInf = f:pt(f.inf):avg(s:pt(s.inf))
@@ -158,7 +161,7 @@ local function ungroup(fst, ...)
     end
 end
 
-local bitLatCoords = function(length)
+local biLatCoords = function(length)
     return function(...)
         local arcs = pipe.new * {...}
         local arcsInf = equalizeArcs(unpack(func.map({...}, pipe.select(1))))
@@ -180,8 +183,7 @@ local bitLatCoords = function(length)
     end
 end
 
-ust.bitLatCoords = bitLatCoords
-ust.biLatCoords = bitLatCoords
+ust.biLatCoords = biLatCoords
 
 local assembleSize = function(lc, rc)
     return {
@@ -1281,7 +1283,7 @@ ust.generateTrackTerrain = function(config)
         local ar = arc()()
         local arl = ar(-0.5 * config.wTrack)
         local arr = ar(0.5 * config.wTrack)
-        local lc, rc, c = ust.bitLatCoords(5)(arl, arr)
+        local lc, rc, c = ust.biLatCoords(5)(arl, arr)
         return pipe.new
             / {
                 equal = pipe.new
@@ -1377,11 +1379,11 @@ ust.allArcs = function(config)
                 terrain = arcGen(terrain, config.size.terrain)
             }
             
-            local lc, rc, lec, rec, c = ust.bitLatCoords(5)(arcs.platform.lane.l, arcs.platform.lane.r, arcs.platform.laneEdge.l, arcs.platform.laneEdge.r)
-            local lsc, rsc, lac, rac, lsuc, rsuc, ltc, rtc, sc = ust.bitLatCoords(5)(arcs.platform.edge.l, arcs.platform.edge.r, arcs.platform.access.l, arcs.platform.access.r, arcs.platform.surface.l, arcs.platform.surface.r, arcs.terrain.l, arcs.terrain.r)
-            local lcc, rcc, cc = ust.bitLatCoords(10)(arcs.platform.edge.l, arcs.platform.edge.r)
-            local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
-            local lppc, rppc, ppc = ust.bitLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
+            local lc, rc, lec, rec, c = ust.biLatCoords(5)(arcs.platform.lane.l, arcs.platform.lane.r, arcs.platform.laneEdge.l, arcs.platform.laneEdge.r)
+            local lsc, rsc, lac, rac, lsuc, rsuc, ltc, rtc, sc = ust.biLatCoords(5)(arcs.platform.edge.l, arcs.platform.edge.r, arcs.platform.access.l, arcs.platform.access.r, arcs.platform.surface.l, arcs.platform.surface.r, arcs.terrain.l, arcs.terrain.r)
+            local lcc, rcc, cc = ust.biLatCoords(10)(arcs.platform.edge.l, arcs.platform.edge.r)
+            local lpc, rpc, lpic, rpic, pc = ust.biLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
+            local lppc, rppc, ppc = ust.biLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
             
             local lpcc, rpcc, mpcc = table.unpack(
                 pipe.new
@@ -1440,8 +1442,8 @@ ust.allArcs = function(config)
                 }
             }
             
-            local lsc, rsc, lsuc, rsuc, sc = ust.bitLatCoords(5)(arcs.platform.edge.l, arcs.platform.edge.r, arcs.platform.surface.l, arcs.platform.surface.r)
-            local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
+            local lsc, rsc, lsuc, rsuc, sc = ust.biLatCoords(5)(arcs.platform.edge.l, arcs.platform.edge.r, arcs.platform.surface.l, arcs.platform.surface.r)
+            local lpc, rpc, lpic, rpic, pc = ust.biLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
             
             return {
                 [1] = arc,
@@ -1580,7 +1582,7 @@ ust.buildTerminalModels = function(fitModel, config)
                         return {lc = a.platform.edge.lc, rc = a.platform.edge.rc}
                     else
                         local ar = a[1](platformZ)()
-                        local lc, rc, _ = ust.bitLatCoords(5)(
+                        local lc, rc, _ = ust.biLatCoords(5)(
                             ar(-config.wTrack * 0.5 + 0.5),
                             ar(config.wTrack * 0.5 - 0.5)
                         )
@@ -2105,8 +2107,8 @@ ust.findIntersections = function(config)
                         surface = arcGen(roofArcs, 0.5)
                     }
                     
-                    local lpc, rpc, lpic, rpic, pc = ust.bitLatCoords(5)(roof.edge.l, roof.edge.r, roof.surface.l, roof.surface.r)
-                    local lppc, rppc, ppc = ust.bitLatCoords(10)(roof.edge.l, roof.edge.r)
+                    local lpc, rpc, lpic, rpic, pc = ust.biLatCoords(5)(roof.edge.l, roof.edge.r, roof.surface.l, roof.surface.r)
+                    local lppc, rppc, ppc = ust.biLatCoords(10)(roof.edge.l, roof.edge.r)
                     
                     mArcs.roof = {
                         edge = func.with(roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
