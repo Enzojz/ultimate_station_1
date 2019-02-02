@@ -253,9 +253,34 @@ local solve = function(s, e)
     end
 end
 
+local coordGenTr = function(config)
+    local refZ = config.hPlatform + 0.53
+    return function(arc)
+        local left = arc(0.5 * config.tW)
+        local right = arc(-0.5 * config.tW)
+        local general = {
+            l = left(refZ)(),
+            r = right(refZ)()
+        }
+        
+        local arcs = {
+            edge = arcGen(general, 0, coor.I())
+        }
+        local lcc, rcc, cc = ust.biLatCoords(5)(arcs.edge.l, arcs.edge.r)
+        
+        return {
+            [1] = arc,
+            left = left,
+            right = right,
+            edge = func.with(arcs.edge, {lc = lcc, rc = rcc, mc = mc(lcc, rcc), c = cc}),
+            isTrack = true
+        }
+    end
+end
+
 local coordGen = function(config)
     local refZ = config.hPlatform + 0.53
-    return function(arcL, arcR, m)
+    return function(arcL, arcR, m, transf)
         local lane = {
             l = arcL(refZ)(function(l) return l - 3 end),
             r = arcR(refZ)(function(l) return l - 3 end)
@@ -285,11 +310,24 @@ local coordGen = function(config)
                 edge = arcGen(roof, config.size.roof.edge, m),
                 surface = arcGen(roof, config.size.roof.surface, m)
             },
-            terrain = arcGen(terrain, config.size.terrain, m)
+            terrain = arcGen(terrain, config.size.terrain, m),
+            track = arcGen(general, -0.5 * config.tW, m)
         }
         
         local lc, rc, lec, rec, c = ust.biLatCoords(5)(arcs.platform.lane.l, arcs.platform.lane.r, arcs.platform.laneEdge.l, arcs.platform.laneEdge.r)
-        local lsc, rsc, lac, rac, lsuc, rsuc, ltc, rtc, sc = ust.biLatCoords(5)(arcs.platform.edge.l, arcs.platform.edge.r, arcs.platform.access.l, arcs.platform.access.r, arcs.platform.surface.l, arcs.platform.surface.r, arcs.terrain.l, arcs.terrain.r)
+        local lsc, rsc, lac, rac, lsuc, rsuc, ltc, rtc, ltrc, rtrc, sc =
+            ust.biLatCoords(5)(
+                arcs.platform.edge.l,
+                arcs.platform.edge.r,
+                arcs.platform.access.l,
+                arcs.platform.access.r,
+                arcs.platform.surface.l,
+                arcs.platform.surface.r,
+                arcs.terrain.l,
+                arcs.terrain.r,
+                arcs.track.l,
+                arcs.track.r
+        )
         local lcc, rcc, cc = ust.biLatCoords(10)(arcs.platform.edge.l, arcs.platform.edge.r)
         local lpc, rpc, lpic, rpic, pc = ust.biLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
         local lppc, rppc, ppc = ust.biLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
@@ -309,6 +347,7 @@ local coordGen = function(config)
         return {
             [1] = arcL,
             [2] = arcR,
+            transf = transf,
             platform = {
                 lane = func.with(arcs.platform.lane, {lc = lc, rc = rc, mc = mc(lc, rc), c = c}),
                 laneEdge = func.with(arcs.platform.laneEdge, {lc = lec, rc = rec, mc = mc(lec, rec), c = c}),
@@ -323,6 +362,7 @@ local coordGen = function(config)
                 surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
                 pole = func.with(arcs.roof.edge, {lc = lppc, rc = rppc, mc = mc(lppc, rppc), c = ppc})
             },
+            track = func.with(arcs.track, {lc = ltrc, rc = rtrc, mc = mc(ltrc, rtrc), c = pc}),
             terrain = func.with(arcs.terrain, {lc = ltc, rc = rtc, mc = mc(ltc, rtc), c = sc}),
             hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
             hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc),
@@ -338,6 +378,7 @@ local config = {
     hPlatform = 1.2,
     models = ust.models(prefixM),
     roofLength = 0.8,
+    tW = 5,
     size = {
         lane = 1,
         laneEdge = -0.5,
@@ -416,58 +457,109 @@ local updateFn = function(params)
                     return {m, pos, (coor.xyz(1, 0, 0) .. rot)} end)
                 * pipe.sort(function(l, r) return l[3]:cross(r[2] - l[2]).z > 0 end)
                 * pipe.map(pipe.select(1))
+            
             local tracks = pipe.mapn(sfm, stm, func.seq(1, #sfm))(
                 function(f, t, i)
                     local f, radius, f2, radius2, length, slope, transf = solve(f, t)
                     
                     local r1 = f * radius
                     local r2 = f2 and radius2 and f2 * radius2 or f * radius
-                    return {track = arcPacker(length, slope, 0.5)(r1, coor.xyz(r1, 0, 0), r2, coor.xyz(r2, 0, 0)), i = i, transf = transf}
+                    return func.with(coordGenTr(config)
+                        (arcPacker(length, slope, 0.5)(r1, coor.xyz(r1, 0, 0), r2, coor.xyz(r2, 0, 0))),
+                        {
+                            number = i,
+                            transf = transf
+                        })
                 end
             )
-            local _ = pipe.new
-                * il(tracks)
-                * pipe.map(function(ts)
-                    local tl, tr = ts.i, ts.s
-                    local vecL, rotL, _ = coor.decomposite(tl.transf)
-                    local vecR, rotR, _ = coor.decomposite(tr.transf)
-                    local iRot = coor.inv(cov(rotL))
-                    local m = iRot * rotR * coor.trans((vecR - vecL) .. iRot)
-                    local coords = coordGen(config)(tl.track(2.5), tr.track(-2.5), m)
-                    
-                    
-                    local _ = pipe.new
-                        * func.seq(1, 2 * (coords.platform.surface.c - 1))
-                        * pipe.forEach(function(i)
+            local function platformGen(result, tl, tr, ...)
+                if (tr == nil) then return unpack(result / tl) end
+                local vecL, rotL, _ = coor.decomposite(tl.transf)
+                local vecR, rotR, _ = coor.decomposite(tr.transf)
+                local iRot = coor.inv(cov(rotL))
+                local m = iRot * rotR * coor.trans((vecR - vecL) .. iRot)
+                local coords = coordGen(config)(tl.right, tr.left, m, tl.transf)
+                
+                local hasPlatform =
+                    pipe.new
+                    * func.map2(coords.track.lc, coords.track.rc, function(lc, rc) return (lc - rc):length() >= config.tW + 1 end)
+                    * pipe.filter(pipe.noop())
+                    * function(ls) return #ls >= 5 end
+                
+                if (hasPlatform) then
+                    return platformGen(result / tl / coords, tr, ...)
+                else
+                    return platformGen(result / tl, tr, ...)
+                end
+            end
+            
+            local generatePlatform = function(coords, lTrack, rTrack)
+                local _ = pipe.new
+                    * func.seq(1, 2 * (coords.platform.surface.c - 1))
+                    * pipe.forEach(function(i)
+                        local w1 = (coords.platform.edge.lc[i] - coords.platform.edge.rc[i]):length()
+                        local w2 = (coords.platform.edge.lc[i + 1] - coords.platform.edge.rc[i + 1]):length()
+                        
+                        if (w1 >= config.tW + 1 and w2 >= config.tW + 1) then
                             local id = game.interface.buildConstruction(
                                 "station/rail/modular/utimate_station_modular_block.con",
                                 func.with(station.pureParams(params), {
                                     coords = coords,
                                     pos = i,
                                     config = config,
-                                    leftTrack = tl.i,
-                                    rightTrack = tr.i
+                                    leftTrack = lTrack and lTrack.i,
+                                    rightTrack = rTrack and rTrack.i
                                 }),
-                                tl.transf
+                                coords.transf
                             )
                             game.interface.setPlayer(id, game.interface.getPlayer())
-                        end)
-                end)
+                        end
+                    end)
+            end
             
-            local _ = func.forEach(tracks,
-                function(t)
-                    local coords = {ust.biLatCoords(5)(t.track(-2.5)()()(), t.track(2.5)()()())}
-                    
-                    local id = game.interface.buildConstruction(
-                        "station/rail/modular/utimate_station_modular_track.con",
-                        func.with(station.pureParams(params), {
-                            coords = coords,
-                            config = config
-                        }),
-                        t.transf
-                    )
-                    game.interface.setPlayer(id, game.interface.getPlayer())
-                end)
+            local generateTrack = function(track)
+                local id = game.interface.buildConstruction(
+                    "station/rail/modular/utimate_station_modular_track.con",
+                    func.with(station.pureParams(params), {
+                        -- coords = coords,
+                        coords = track,
+                        config = config,
+                        order = track.number
+                    }),
+                    track.transf
+                )
+                game.interface.setPlayer(id, game.interface.getPlayer())
+            end
+            
+            local function build(gr, ...)
+                if (gr == nil) then
+                    return
+                elseif (#gr == 3 and gr[1].isTrack and gr[2].isPlatform and gr[3].isTrack) then
+                    generatePlatform(gr[2], gr[1], gr[3])
+                    generateTrack(gr[1])
+                    generateTrack(gr[3])
+                    build(...)
+                elseif (#gr == 2 and gr[1].isTrack and gr[2].isPlatform) then
+                    generatePlatform(gr[2], gr[1])
+                    generateTrack(gr[1])
+                    build(...)
+                elseif (#gr == 2 and gr[1].isPlatform and gr[2].isTrack) then
+                    generatePlatform(gr[1], false, gr[2])
+                    generateTrack(gr[2])
+                    build(...)
+                elseif (#gr == 1 and gr[1].isPlatform) then
+                    generatePlatform(gr[1], false, false)
+                    build(...)
+                -- elseif (#gr == 2 and gr[1].isPlatform and gr[2].isPlatform) then
+                -- elseif (#gr == 3 and gr[1].isPlatform and gr[2].isPlatform and gr[3].isTrack) then
+                -- elseif (#gr == 4 and gr[1].isTrack and gr[2].isPlatform and gr[3].isPlatform and gr[4].isTrack) then
+                else
+                    generateTrack(gr[1])
+                    build(...)
+                end
+            end
+            
+            build(ust.trackGrouping(pipe.new, platformGen(pipe.new, unpack(tracks))))
         end
     end
     

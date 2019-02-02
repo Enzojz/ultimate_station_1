@@ -6,6 +6,7 @@ local quat = require "ustation/quaternion"
 local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
 local ust = require "ustation"
+local livetext = require "ustation_livetext"
 
 local dump = require "luadump"
 
@@ -34,23 +35,20 @@ end
 
 local il = pipe.interlace({"s", "i"})
 local updateFn = function(params)
-    local lc, rc = table.unpack(params.coords)
+    
     local ground = pipe.new
-        * pipe.mapn(il(lc), il(rc))
+        * pipe.mapn(il(params.coords.edge.lc), il(params.coords.edge.rc))
         (function(lc, rc)
             local size = assembleSize(lc, rc)
             return pipe.new / size.lt / size.lb / size.rb / size.rt
         end)
         * pipe.map(pipe.map(coor.vec2Tuple))
     
-    
+    local fPos = function(w) return coor.transX(-0.5 * w) * coor.rotX(-pi * 0.5) * coor.rotZ(pi) * coor.transZ(3) end
+    local ltext = livetext(7)(tostring(params.order))(fPos)
+
     return pipe.new * {
-        models = {
-            {
-                id = "ust/indicator.mdl",
-                transf = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}
-            }
-        },
+        models = ltext,
         terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
         groundFaces = ground * pipe.map(function(g) return 
             {face = g, modes = {{type = "FILL", key = "fill_blue"}}}
