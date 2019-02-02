@@ -45,9 +45,10 @@ local updateFn = function(params)
         * pipe.map(pipe.map(coor.vec2Tuple))
     
     local fPos = function(w) return coor.transX(-0.5 * w) * coor.rotX(-pi * 0.5) * coor.rotZ(pi) * coor.transZ(3) end
-    local ltext = livetext(7)(tostring(params.order))(fPos)
+    local ltext = livetext(7)(tostring(params.number))(fPos)
 
     return pipe.new * {
+        moduleTag = "track",
         models = ltext,
         terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
         groundFaces = ground * pipe.map(function(g) return 

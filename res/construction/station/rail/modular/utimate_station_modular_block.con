@@ -59,6 +59,7 @@ local updateFn = function(params)
         / station.newModel(config.models.stair .. "_tl.mdl", tZ, ust.fitModel(config.width.surface, 5, platformZ, stair, true, true))
     
     return pipe.new * {
+        moduleTag = "platform",
         models = models,
         terrainAlignmentLists = {{type = "EQUAL", faces = {}}}
     }

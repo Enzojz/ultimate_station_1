@@ -138,150 +138,154 @@ local findCircle = function(posS, posE, vecS, vecE)
     return ar, f, length
 end
 
-local retriveParams = function(markers)
-    local function retrive()
-        local s, e = unpack(markers)
-        local posS, rotS, _ = coor.decomposite(s.transf)
-        local posE, rotE, _ = coor.decomposite(e.transf)
-        local vecS = coor.xyz(1, 0, 0) .. rotS
-        local vecE = coor.xyz(1, 0, 0) .. rotE
-        local lnS = line.byVecPt(vecS, posS)
-        local lnE = line.byVecPt(vecE, posE)
-        local m = (posE + posS) * 0.5
-        local vecES = posE - posS
-        local x = lnS - lnE
-        local findPreviewsByMarker = findPreviewsByMarker(m, vecES:length())
+local solve = function(s, e)
+    local posS, rotS, _ = coor.decomposite(s.transf)
+    local posE, rotE, _ = coor.decomposite(e.transf)
+    local vecS = coor.xyz(1, 0, 0) .. rotS
+    local vecE = coor.xyz(1, 0, 0) .. rotE
+    local lnS = line.byVecPt(vecS, posS)
+    local lnE = line.byVecPt(vecE, posE)
+    local m = (posE + posS) * 0.5
+    local vecES = posE - posS
+    local x = lnS - lnE
+    
+    if (x) then
+        local vecXS = x - posS
+        local vecXE = x - posE
         
-        if (x) then
-            local vecXS = x - posS
-            local vecXE = x - posE
-            
-            local u = vecXS:length()
-            local v = vecXE:length()
-            
-            local co = vecXS:normalized():dot(vecXE:normalized())
-            
-            local function retrive(y, cond, coorX, coorY)
-                local lnX = line.byVecPt(vecXS:withZ(0) .. coor.rotZ(pi * 0.5), posS)
-                local lnY = line.byVecPt(vecXE:withZ(0) .. coor.rotZ(pi * 0.5), posE)
-                local function work(f, t, level)
-                    local solution = pipe.new
-                        * func.seq(0, 100)
-                        * pipe.map(function(p) return {x = f + (t - f) * 0.01 * p, p = p} end)
-                        * pipe.map(function(v) return {x = v.x, y = y(v.x), p = v.p} end)
-                        * pipe.filter(cond)
-                        * pipe.map(function(va)
-                            local x = coorX(va)
-                            local y = coorY(va)
-                            local vecXY = (y - x):normalized()
-                            local m = x + vecXY * va.x
-                            local lnM = line.byVecPt(vecXY:withZ(0) .. coor.rotZ(pi * 0.5), m)
-                            local oX = lnM - lnX
-                            local oY = lnM - lnY
-                            if (oX and oY) then
-                                local vecOX = (posS - oX):normalized()
-                                local vecOY = (posE - oY):normalized()
-                                local vecOM = (m - oX):normalized()
-                                local rX = (oX - posS):length()
-                                local rY = (oY - posE):length()
-                                local sinX = vecOX:cross(vecOM)
-                                local sinY = vecOM:cross(vecOY)
-                                local radX = asin(sinX)
-                                local radY = asin(sinY)
-                                local lX = abs(rX * radX)
-                                local lY = abs(rY * radY)
-                                local length = lX + lY
-                                return {
-                                    m = m:withZ((posE.z - posS.z) * lX / length + posS.z),
-                                    vecX = (x - m):normalized(),
-                                    vecY = (y - m):normalized(),
-                                    length = length,
-                                    r = abs(lX - lY),
-                                    p = va.p
-                                }
-                            else
-                                return nil
-                            end
-                        end)
-                        * pipe.filter(pipe.noop())
-                        * pipe.min(function(l, r) return l.r < r.r end)
-                    
-                    if (level > 0) then
-                        return work(f + (t - f) * 0.01 * (solution.p - 1), f + (t - f) * 0.01 * (solution.p + 1), level - 1)
-                    else
-                        local ar1, f1, length1 = findCircle(posS, solution.m, vecS, solution.vecX:withZ(0))
-                        local ar2, f2, length2 = findCircle(solution.m, posE, solution.vecY:withZ(0), vecE)
-                        return findPreviewsByMarker, "utimate_station_double_curvature.con",
-                            f1, ar1.r,
-                            f2, ar2.r,
-                            func.min({length1, length2}) * 2 - 10, (posE.z - posS.z) / solution.length,
-                            quat.byVec(coor.xyz(0, 1, 0), (solution.vecX):withZ(0)):mRot() * coor.trans(solution.m)
-                    end
-                end
-                return work(0, u, 4)
-            end
-            
-            if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
-                if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
-                    local ar, f, length = findCircle(posS, posE, vecS, vecE)
-                    return findPreviewsByMarker, "utimate_station.con",
-                        f, ar.r,
-                        nil, nil,
-                        length - 10, (posE.z - posS.z) / length,
-                        quat.byVec(coor.xyz(f, 0, 0), (m - x):withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
+        local u = vecXS:length()
+        local v = vecXE:length()
+        
+        local co = vecXS:normalized():dot(vecXE:normalized())
+        
+        local function retrive(y, cond, coorX, coorY)
+            local lnX = line.byVecPt(vecXS:withZ(0) .. coor.rotZ(pi * 0.5), posS)
+            local lnY = line.byVecPt(vecXE:withZ(0) .. coor.rotZ(pi * 0.5), posE)
+            local function work(f, t, level)
+                local solution = pipe.new
+                    * func.seq(0, 100)
+                    * pipe.map(function(p) return {x = f + (t - f) * 0.01 * p, p = p} end)
+                    * pipe.map(function(v) return {x = v.x, y = y(v.x), p = v.p} end)
+                    * pipe.filter(cond)
+                    * pipe.map(function(va)
+                        local x = coorX(va)
+                        local y = coorY(va)
+                        local vecXY = (y - x):normalized()
+                        local m = x + vecXY * va.x
+                        local lnM = line.byVecPt(vecXY:withZ(0) .. coor.rotZ(pi * 0.5), m)
+                        local oX = lnM - lnX
+                        local oY = lnM - lnY
+                        if (oX and oY) then
+                            local vecOX = (posS - oX):normalized()
+                            local vecOY = (posE - oY):normalized()
+                            local vecOM = (m - oX):normalized()
+                            local rX = (oX - posS):length()
+                            local rY = (oY - posE):length()
+                            local sinX = vecOX:cross(vecOM)
+                            local sinY = vecOM:cross(vecOY)
+                            local radX = asin(sinX)
+                            local radY = asin(sinY)
+                            local lX = abs(rX * radX)
+                            local lY = abs(rY * radY)
+                            local length = lX + lY
+                            return {
+                                m = m:withZ((posE.z - posS.z) * lX / length + posS.z),
+                                vecX = (x - m):normalized(),
+                                vecY = (y - m):normalized(),
+                                length = length,
+                                r = abs(lX - lY),
+                                p = va.p
+                            }
+                        else
+                            return nil
+                        end
+                    end)
+                    * pipe.filter(pipe.noop())
+                    * pipe.min(function(l, r) return l.r < r.r end)
+                
+                if (level > 0) then
+                    return work(f + (t - f) * 0.01 * (solution.p - 1), f + (t - f) * 0.01 * (solution.p + 1), level - 1)
                 else
-                    return retrive(
-                        function(x) return 0.5 * (u * u + v * v - 2 * u * x - 2 * u * v * co + 2 * v * x * co) / (v + x - u * co + x * co) end,
-                        function(va) return va.y >= 0 and va.y <= v and va.x >= 0 and va.x <= u end,
-                        function(va) return (posS + vecXS * (va.x / u)) end,
-                        function(va) return (posE + vecXE * (va.y / v)) end
-                )
+                    local ar1, f1, length1 = findCircle(posS, solution.m, vecS, solution.vecX:withZ(0))
+                    local ar2, f2, length2 = findCircle(solution.m, posE, solution.vecY:withZ(0), vecE)
+                    return
+                        f1, ar1.r,
+                        f2, ar2.r,
+                        func.min({length1, length2}) * 2 - 10, (posE.z - posS.z) / solution.length,
+                        quat.byVec(coor.xyz(0, 1, 0), (solution.vecX):withZ(0)):mRot() * coor.trans(solution.m), m, vecES
                 end
-            elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then
+            end
+            return work(0, u, 4)
+        end
+        
+        if (vecXE:dot(vecE) > 0 and vecXS:dot(vecS) > 0) then
+            if abs(vecXS:length() / vecXE:length() - 1) < 0.005 then
+                local ar, f, length = findCircle(posS, posE, vecS, vecE)
+                return
+                    f, ar.r,
+                    nil, nil,
+                    length - 10, (posE.z - posS.z) / length,
+                    quat.byVec(coor.xyz(f, 0, 0), (m - x):withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z)), m, vecES
+            else
                 return retrive(
-                    function(x) return 0.5 * (-u * u - v * v + 2 * u * x + 2 * u * v * co - 2 * v * x * co) / (v - x - u * co + x * co) end,
-                    function(va) return va.y >= 0 and va.x >= 0 and va.x < u end,
+                    function(x) return 0.5 * (u * u + v * v - 2 * u * x - 2 * u * v * co + 2 * v * x * co) / (v + x - u * co + x * co) end,
+                    function(va) return va.y >= 0 and va.y <= v and va.x >= 0 and va.x <= u end,
                     function(va) return (posS + vecXS * (va.x / u)) end,
-                    function(va) return (posE - vecXE * (va.y / v)) end
-            )
-            elseif ((vecXS:dot(vecS) < 0 and vecXE:dot(vecE) > 0)) then
-                return retrive(
-                    function(x) return 0.5 * (u * u + v * v + 2 * u * x - 2 * u * v * co - 2 * v * x * co) / (v + x - u * co - x * co) end,
-                    function(va) return va.y >= 0 and va.y <= v and va.x >= 0 end,
-                    function(va) return (posS - vecXS * (va.x / u)) end,
                     function(va) return (posE + vecXE * (va.y / v)) end
             )
             end
+        elseif ((vecXE:dot(vecE) < 0 and vecXS:dot(vecS) > 0)) then
+            return retrive(
+                function(x) return 0.5 * (-u * u - v * v + 2 * u * x + 2 * u * v * co - 2 * v * x * co) / (v - x - u * co + x * co) end,
+                function(va) return va.y >= 0 and va.x >= 0 and va.x < u end,
+                function(va) return (posS + vecXS * (va.x / u)) end,
+                function(va) return (posE - vecXE * (va.y / v)) end
+        )
+        elseif ((vecXS:dot(vecS) < 0 and vecXE:dot(vecE) > 0)) then
+            return retrive(
+                function(x) return 0.5 * (u * u + v * v + 2 * u * x - 2 * u * v * co - 2 * v * x * co) / (v + x - u * co - x * co) end,
+                function(va) return va.y >= 0 and va.y <= v and va.x >= 0 end,
+                function(va) return (posS - vecXS * (va.x / u)) end,
+                function(va) return (posE + vecXE * (va.y / v)) end
+        )
+        end
+    else
+        local lnPenE = line.byVecPt(lnS:vector():withZ(0) .. coor.rotZ(0.5 * pi), posE)
+        local posP = lnPenE - lnS
+        local vecEP = posE - posP
+        if (vecEP:length() < 1e-5) then
+            local radius = ust.infi
+            local o = posS + (lnPenE:vector():normalized() * radius)
+            local ar = arc.byOR(o, radius)
+            local length = vecES:length()
+            local f = 1
+            return
+                f, radius,
+                nil, nil,
+                length - 10, (posE.z - posS.z) / length,
+                quat.byVec(coor.xyz(1, 0, 0), (o - m):normalized():withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z)), m, vecES
         else
-            local lnPenE = line.byVecPt(lnS:vector():withZ(0) .. coor.rotZ(0.5 * pi), posE)
-            local posP = lnPenE - lnS
-            local vecEP = posE - posP
-            if (vecEP:length() < 1e-5) then
-                local radius = ust.infi
-                local o = posS + (lnPenE:vector():normalized() * radius)
-                local ar = arc.byOR(o, radius)
-                local length = vecES:length()
-                local f = 1
-                return findPreviewsByMarker, "utimate_station.con",
-                    f, radius,
-                    nil, nil,
-                    length - 10, (posE.z - posS.z) / length,
-                    quat.byVec(coor.xyz(1, 0, 0), (o - m):normalized():withZ(0)):mRot() * coor.trans(arc.ptByPt(ar, m):withZ(m.z))
-            else
-                local mRot = quat.byVec(vecS, vecES:normalized()):mRot()
-                local vecT = vecES .. mRot
-                local lnT = line.byVecPt(vecT, m)
-                local ar1, f1, length1 = findCircle(posS, m, vecS, -vecT)
-                local ar2, f2, length2 = findCircle(m, posE, vecT, vecE)
-                return findPreviewsByMarker, "utimate_station_double_curvature.con",
-                    f1, ar1.r,
-                    f2, ar2.r,
-                    (length1 + length2) - 10, (posS.z - posE.z) / (length1 + length2),
-                    quat.byVec(coor.xyz(0, 1, 0), (vecT):withZ(0)):mRot() * coor.trans(m)
-            end
+            local mRot = quat.byVec(vecS, vecES:normalized()):mRot()
+            local vecT = vecES .. mRot
+            local lnT = line.byVecPt(vecT, m)
+            local ar1, f1, length1 = findCircle(posS, m, vecS, -vecT)
+            local ar2, f2, length2 = findCircle(m, posE, vecT, vecE)
+            return
+                f1, ar1.r,
+                f2, ar2.r,
+                (length1 + length2) - 10, (posS.z - posE.z) / (length1 + length2),
+                quat.byVec(coor.xyz(0, 1, 0), (vecT):withZ(0)):mRot() * coor.trans(m), m, vecES
         end
     end
-    local findPreviewsByMarker, con, f, radius, f2, radius2, length, slope, transf = retrive()
+end
+
+ustp.solve = solve
+
+local retriveParams = function(markers)
+    local s, e = unpack(markers)
+    local f, radius, f2, radius2, length, slope, transf, m, vecES = solve(s, e)
+    local findPreviewsByMarker = findPreviewsByMarker(m, vecES:length())
+    local con = (f2 and radius2) and "utimate_station_double_curvature.con" or "utimate_station.con"
     return findPreviewsByMarker(con), con, f, radius, f2, radius2, length, slope, transf
 end
 
