@@ -6,6 +6,7 @@ local quat = require "ustation/quaternion"
 local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
 local ust = require "ustation"
+local ustp = require "ustation_planner"
 
 local dump = require "luadump"
 
@@ -33,7 +34,59 @@ local assembleSize = function(pos) return function(lc, rc)
 end
 end
 
+local prefixM = "ust/1990/"
+local models = ust.models(prefixM)
+
+local config = {
+    hPlatform = 1.2,
+    models = ust.models(prefixM),
+    roofLength = 0.8,
+    tW = 5,
+    size = {
+        lane = 1,
+        laneEdge = -0.5,
+        edge = -0.5,
+        surface = 0.3,
+        access = -4.25,
+        roof = {
+            edge = -0.5,
+            surface = 0.5
+        },
+        terrain = -0.5
+    },
+    width = {
+        edge = 0.8,
+        surface = 3.4,
+        roof = {
+            edge = 1,
+            surface = 3
+        }
+    }
+}
+
 local updateFn = function(params)
+    if (ustmo[params.platformId]) then
+        params = func.with(params, ustmo[params.platformId])
+    else
+        local lTrack = game.interface.getEntity(params.leftTrack)
+        local rTrack = game.interface.getEntity(params.rightTrack)
+        if (not ustmo[lTrack.params.trackId]) then game.interface.upgradeConstruction(params.leftTrack, lTrack.fileName, station.pureParams(lTrack.params)) end
+        if (not ustmo[rTrack.params.trackId]) then game.interface.upgradeConstruction(params.rightTrack, rTrack.fileName, station.pureParams(rTrack.params)) end
+        
+        local coords = ustp.profile(config).platform(ustmo[lTrack.params.trackId].coords, ustmo[rTrack.params.trackId].coords)
+        
+        ustmo[params.platformId] = {
+            tag = "platform",
+            coords = coords,
+            group = group,
+            config = config,
+            leftTrack = params.leftTrack,
+            rightTrack = params.rightTrack
+        }
+        
+        params = func.with(params, ustmo[params.platformId])
+    end
+
     local config = params.config
     
     local platformZ = config.hPlatform + 0.53
@@ -85,6 +138,15 @@ function data()
                 name = _("Group"),
                 values = {"1", "2", "3", "4", "5"},
                 defaultIndex = 0
+            },
+            
+            {
+                key = "code1",
+                name = "code1",
+                values = {"1", "2", "3", "4", "5"},
+                defaultIndex = 0,
+                yearFrom = 1840,
+                yearTo = 1840
             }
         },
         updateFn = updateFn

@@ -7,6 +7,8 @@ local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
 local livetext = require "ustation_livetext"
 
+ustmo = ustmo or {}
+
 local ust = {}
 
 local unpack = table.unpack

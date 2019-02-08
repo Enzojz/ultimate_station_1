@@ -159,8 +159,6 @@ ustr.generateModels = function(fitModel, config)
             arcs.platform.chair.c,
             1, 2 * arcs.platform.chair.c - 1)
         
-        dump()(newModels)
-        
         local newRoof = config.roofLength == 0
             and {}
             or pipe.new * pipe.mapn(

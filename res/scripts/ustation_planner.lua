@@ -23,6 +23,207 @@ local cos = ma.cos
 local sin = ma.sin
 local asin = ma.asin
 local min = ma.min
+local atan2 = ma.atan2
+
+
+ustp.arcPacker = function(length, slope, ratio)
+    return function(radiusA, oA, radiusB, oB)
+        local initRadA = (radiusA > 0 and pi or 0)
+        local initRadB = (radiusB > 0 and pi or 0)
+        return function(xDr0)
+            local xDr0 = xDr0 or 0
+            return function(z)
+                local z = z or 0
+                return function(lengthOverride)
+                    local l = lengthOverride and lengthOverride(length) or length
+                    return function(xDr)
+                        local dr = xDr0 + (xDr or 0)
+                        local arA = arc.byOR(oA + coor.xyz(0, 0, z), abs(radiusA - dr))
+                        local arB = arc.byOR(oB + coor.xyz(0, 0, z), abs(radiusB - dr))
+                        local radA = (radiusA > 0 and 1 or -1) * (l * ratio) / arA.r
+                        local radB = (radiusB > 0 and 1 or -1) * (l * (1 - ratio)) / arB.r
+                        return pipe.new
+                            / arA:withLimits({
+                                sup = initRadA - radA,
+                                inf = initRadA,
+                                slope = -slope
+                            })
+                            / arB:withLimits({
+                                inf = initRadB,
+                                sup = initRadB + radB,
+                                slope = slope
+                            })
+                    end
+                end
+            end
+        end
+    end
+end
+
+local arcGen = function(p, o, m)
+    local _, r, _ = coor.decomposite(m)
+    local dRad = atan2(r[5], r[1])
+    return {
+        l = p.l(-o),
+        r = p.r(o) * pipe.map(function(rx) return rx:withLimits({o = rx.o .. m, sup = rx.sup - dRad, inf = rx.inf - dRad}) end)
+    } 
+end
+
+local mc = function(lc, rc) return func.map2(lc, rc, function(l, r) return l:avg(r) end) end
+
+ustp.coordGen = {
+    track = function(config)
+        local refZ = config.hPlatform + 0.53
+        return function(arc)
+            local left = arc(0.5 * config.tW)
+            local right = arc(-0.5 * config.tW)
+            local general = {
+                l = left(refZ)(),
+                r = right(refZ)()
+            }
+            
+            local arcs = {
+                edge = arcGen(general, 0, coor.I())
+            }
+            local lcc, rcc, cc = ust.biLatCoords(5)(arcs.edge.l, arcs.edge.r)
+            
+            return {
+                [1] = arc,
+                left = left,
+                right = right,
+                edge = func.with(arcs.edge, {lc = lcc, rc = rcc, mc = mc(lcc, rcc), c = cc}),
+                isTrack = true
+            }
+        end
+    end,
+    platform = function(config)
+        local refZ = config.hPlatform + 0.53
+        return function(arcL, arcR, m, transf)
+            local lane = {
+                l = arcL(refZ)(function(l) return l - 3 end),
+                r = arcR(refZ)(function(l) return l - 3 end)
+            }
+            local general = {
+                l = arcL(refZ)(),
+                r = arcR(refZ)()
+            }
+            local roof = {
+                l = arcL(refZ)(function(l) return l * config.roofLength end),
+                r = arcR(refZ)(function(l) return l * config.roofLength end)
+            }
+            local terrain = {
+                l = arcL()(function(l) return l + 5 end),
+                r = arcR()(function(l) return l + 5 end)
+            }
+            
+            local arcs = {
+                platform = {
+                    lane = arcGen(lane, config.size.lane, m),
+                    laneEdge = arcGen(lane, config.size.laneEdge, m),
+                    edge = arcGen(general, config.size.edge, m),
+                    surface = arcGen(general, config.size.surface, m),
+                    access = arcGen(general, config.size.access, m),
+                },
+                roof = {
+                    edge = arcGen(roof, config.size.roof.edge, m),
+                    surface = arcGen(roof, config.size.roof.surface, m)
+                },
+                terrain = arcGen(terrain, config.size.terrain, m),
+                track = arcGen(general, -0.5 * config.tW, m)
+            }
+            
+            local lc, rc, lec, rec, c = ust.biLatCoords(5)(arcs.platform.lane.l, arcs.platform.lane.r, arcs.platform.laneEdge.l, arcs.platform.laneEdge.r)
+            local lsc, rsc, lac, rac, lsuc, rsuc, ltc, rtc, ltrc, rtrc, sc =
+                ust.biLatCoords(5)(
+                    arcs.platform.edge.l,
+                    arcs.platform.edge.r,
+                    arcs.platform.access.l,
+                    arcs.platform.access.r,
+                    arcs.platform.surface.l,
+                    arcs.platform.surface.r,
+                    arcs.terrain.l,
+                    arcs.terrain.r,
+                    arcs.track.l,
+                    arcs.track.r
+            )
+            local lcc, rcc, cc = ust.biLatCoords(10)(arcs.platform.edge.l, arcs.platform.edge.r)
+            local lpc, rpc, lpic, rpic, pc = ust.biLatCoords(5)(arcs.roof.edge.l, arcs.roof.edge.r, arcs.roof.surface.l, arcs.roof.surface.r)
+            local lppc, rppc, ppc = ust.biLatCoords(10)(arcs.roof.edge.l, arcs.roof.edge.r)
+            
+            local lpcc, rpcc, mpcc = table.unpack(
+                pipe.new
+                * pipe.mapn(lsuc, rsuc)(function(lc, rc)
+                    local vec = (rc - lc)
+                    local width = vec:length()
+                    vec = vec:normalized() * 0.5 * (width >= 3 and 2 or width >= 2 and (width - 1) or width >= 0.5 and 0.5 or false)
+                    local mc = lc:avg(rc)
+                    return vec and {mc - vec, mc + vec, mc} or {false, false, mc}
+                end
+                )
+                * pipe.fold({pipe.new, pipe.new, pipe.new}, function(r, c) return {r[1] / c[1], r[2] / c[2], r[3] / c[3]} end)
+            )
+            return {
+                [1] = arcL,
+                [2] = arcR,
+                transf = transf,
+                platform = {
+                    lane = func.with(arcs.platform.lane, {lc = lc, rc = rc, mc = mc(lc, rc), c = c}),
+                    laneEdge = func.with(arcs.platform.laneEdge, {lc = lec, rc = rec, mc = mc(lec, rec), c = c}),
+                    surface = func.with(arcs.platform.surface, {lc = lsuc, rc = rsuc, mc = mpcc, c = sc}),
+                    stair = func.with(arcs.platform.surface, {lc = lpcc, rc = rpcc, mc = mpcc, c = sc}),
+                    edge = func.with(arcs.platform.edge, {lc = lsc, rc = rsc, mc = mc(lsc, rsc), c = sc}),
+                    access = func.with(arcs.platform.access, {lc = lac, rc = rac, mc = mc(lac, rac), c = sc}),
+                    chair = func.with(arcs.platform.edge, {lc = lcc, rc = rcc, mc = mc(lcc, rcc), c = cc}),
+                },
+                roof = {
+                    edge = func.with(arcs.roof.edge, {lc = lpc, rc = rpc, mc = mc(lpc, rpc), c = pc}),
+                    surface = func.with(arcs.roof.surface, {lc = lpic, rc = rpic, mc = mc(lpic, rpic), c = pc}),
+                    pole = func.with(arcs.roof.edge, {lc = lppc, rc = rppc, mc = mc(lppc, rppc), c = ppc})
+                },
+                track = func.with(arcs.track, {lc = ltrc, rc = rtrc, mc = mc(ltrc, rtrc), c = pc}),
+                terrain = func.with(arcs.terrain, {lc = ltc, rc = rtc, mc = mc(ltc, rtc), c = sc}),
+                hasLower = (sc - 5 - floor(sc * 0.5) > 0) and (c - 5 - floor(c * 0.5) > 0),
+                hasUpper = (sc + 5 + floor(sc * 0.5) <= #lsc) and (c + 5 + floor(c * 0.5) <= #lc),
+                isPlatform = true
+            }
+        end
+    end
+}
+
+local cov = function(m)
+    return func.seqMap({0, 3}, function(r)
+        return func.seqMap({1, 4}, function(c)
+            return m[r * 4 + c]
+        end)
+    end)
+end
+
+ustp.profile = function(config)
+    return {
+        track = function(fm, tm, i)
+            local f, radius, f2, radius2, length, slope, transf = ustp.solve(fm, tm)
+            
+            local r1 = f * radius
+            local r2 = f2 and radius2 and f2 * radius2 or f * radius
+            
+            return func.with(ustp.coordGen.track(config)
+                (ustp.arcPacker(length, slope, 0.5)(r1, coor.xyz(r1, 0, 0), r2, coor.xyz(r2, 0, 0))),
+                {
+                    number = i,
+                    transf = transf,
+                    fm = fm,
+                    tm = tm
+                })
+        end,
+        platform = function(tl, tr)
+            local vecL, rotL, _ = coor.decomposite(tl.transf)
+            local vecR, rotR, _ = coor.decomposite(tr.transf)
+            local iRot = coor.inv(cov(rotL))
+            local m = iRot * rotR * coor.trans((vecR - vecL) .. iRot)
+            return ustp.coordGen.platform(config)(tl.right, tr.left, m, tl.transf)
+        end
+    }
+end
 
 ustp.findMarkers = function(group)
     return pipe.new

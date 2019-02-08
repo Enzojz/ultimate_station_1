@@ -6,6 +6,7 @@ local quat = require "ustation/quaternion"
 local station = require "ustation/stationlib"
 local pipe = require "ustation/pipe"
 local ust = require "ustation"
+local ustp = require "ustation_planner"
 local livetext = require "ustation_livetext"
 
 local dump = require "luadump"
@@ -33,8 +34,60 @@ local assembleSize = function(lc, rc)
     }
 end
 
+
+local prefixM = "ust/1990/"
+local models = ust.models(prefixM)
+
+local config = {
+    hPlatform = 1.2,
+    models = ust.models(prefixM),
+    roofLength = 0.8,
+    tW = 5,
+    size = {
+        lane = 1,
+        laneEdge = -0.5,
+        edge = -0.5,
+        surface = 0.3,
+        access = -4.25,
+        roof = {
+            edge = -0.5,
+            surface = 0.5
+        },
+        terrain = -0.5
+    },
+    width = {
+        edge = 0.8,
+        surface = 3.4,
+        roof = {
+            edge = 1,
+            surface = 3
+        }
+    }
+}
+
+
 local il = pipe.interlace({"s", "i"})
 local updateFn = function(params)
+    if (ustmo[params.trackId]) then
+        params = func.with(params, ustmo[params.trackId])
+    else
+        local coords = ustp.profile(config).track(
+            game.interface.getEntity(params.fm), 
+            game.interface.getEntity(params.tm), 
+            params.number
+        )
+        
+        ustmo[#ustmo + 1] = {
+            tag = "track",
+            coords = coords,
+            group = params.group,
+            config = config,
+            number = params.number,
+            fm = params.fm,
+            tm = params.tm
+        }
+        params = func.with(params, ustmo[params.trackId])
+    end
     
     local ground = pipe.new
         * pipe.mapn(il(params.coords.edge.lc), il(params.coords.edge.rc))
@@ -46,14 +99,14 @@ local updateFn = function(params)
     
     local fPos = function(w) return coor.transX(-0.5 * w) * coor.rotX(-pi * 0.5) * coor.rotZ(pi) * coor.transZ(3) end
     local ltext = livetext(7)(tostring(params.number))(fPos)
-
+    
     return pipe.new * {
         moduleTag = "track",
         models = ltext,
         terrainAlignmentLists = {{type = "EQUAL", faces = {}}},
-        groundFaces = ground * pipe.map(function(g) return 
+        groundFaces = ground * pipe.map(function(g) return
             {face = g, modes = {{type = "FILL", key = "fill_blue"}}}
-         end)
+        end)
     }
 end
 
