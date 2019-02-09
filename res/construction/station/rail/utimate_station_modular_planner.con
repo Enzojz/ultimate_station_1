@@ -33,20 +33,6 @@ local findMarkers = function(group)
         * pipe.filter(function(data) return data.fileName and string.match(data.fileName, "utimate_station_planner.con") and data.params and data.params.group == group end)
 end
 
-local findTrackDraft = function(group)
-    return pipe.new
-        * game.interface.getEntities({pos = game.gui.getTerrainPos(), radius = 1000})
-        * pipe.map(game.interface.getEntity)
-        * pipe.filter(function(data) return data.params and data.params.group == group and data.params.tag == "track" end)
-end
-
-local findPlatformDraft = function(group)
-    return pipe.new
-        * game.interface.getEntities({pos = game.gui.getTerrainPos(), radius = 1000})
-        * pipe.map(game.interface.getEntity)
-        * pipe.filter(function(data) return data.params and data.params.group == group and data.params.tag == "platform" end)
-end
-
 local prefixM = "ust/1990/"
 local models = ust.models(prefixM)
 
@@ -109,6 +95,8 @@ local buildDraft = function(markers, params)
             * pipe.sort(function(l, r) return l[3]:cross(r[2] - l[2]).z > 0 end)
             * pipe.map(pipe.select(1))
         
+        func.forEach((stm + sfm), function(m)game.interface.setPlayer(m.id, nil) end)
+        
         local tracks = pipe.mapn(sfm, stm, func.seq(1, #sfm))(ustp.profile(config).track)
         
         local function platformGen(result, tl, tr, ...)
@@ -128,40 +116,66 @@ local buildDraft = function(markers, params)
             end
         end
         
+        local exists = pipe.new
+            * game.interface.getEntities({pos = game.gui.getTerrainPos(), radius = 1000})
+            * pipe.map(game.interface.getEntity)
+            * pipe.fold({track = pipe.new * {}, platform = pipe.new * {}}, function(r, e)
+                if (e.params and e.params.group == params.group) then
+                    if (e.params.trackId) then return func.with(r, {track = r.track / e}) end
+                    if (e.params.platformId) then return func.with(r, {platform = r.platform / e}) end
+                end
+                return r
+            end)
+        
         local generatePlatform = function(coords, lTrack, rTrack)
-            ustmo[#ustmo + 1] = {
+            local profile = {
                 tag = "platform",
                 coords = coords,
                 group = group,
                 config = config,
-                leftTrack = lTrack and lTrack,
-                rightTrack = rTrack and rTrack
+                leftTrack = lTrack,
+                rightTrack = rTrack,
             }
+            
+            local existing = exists.platform * pipe.filter(function(t) return t.params.leftTrack == lTrack and t.params.rightTrack == rTrack end)
             local _ = pipe.new
                 * func.seq(1, 2 * (coords.platform.surface.c - 1))
                 * pipe.forEach(function(i)
                     local w1 = (coords.platform.edge.lc[i] - coords.platform.edge.rc[i]):length()
                     local w2 = (coords.platform.edge.lc[i + 1] - coords.platform.edge.rc[i + 1]):length()
-                    
+                    local existing = existing * pipe.filter(function(t) return t.params.pos == i end) * pipe.select(1)
                     if (w1 >= config.tW + 1 and w2 >= config.tW + 1) then
-                        
-                        local id = game.interface.buildConstruction(
-                            "station/rail/modular/utimate_station_modular_block.con",
-                            func.with(station.pureParams(params), {
-                                platformId = #ustmo,
-                                leftTrack = lTrack and lTrack,
-                                rightTrack = rTrack and rTrack,
-                                pos = i,
-                            }),
-                            coords.transf
-                        )
-                        game.interface.setPlayer(id, game.interface.getPlayer())
+                        if (existing) then
+                            ustmo[existing.params.platformId] = profile
+                            game.interface.upgradeConstruction(
+                                existing.id,
+                                existing.fileName,
+                                station.pureParams(existing.params)
+                            )
+                            return existing.id
+                        else
+                            ustmo[#ustmo + 1] = profile
+                            local id = game.interface.buildConstruction(
+                                "station/rail/modular/utimate_station_modular_block.con",
+                                func.with(station.pureParams(params), {
+                                    platformId = #ustmo,
+                                    leftTrack = lTrack,
+                                    rightTrack = rTrack,
+                                    pos = i,
+                                }),
+                                coords.transf
+                            )
+                            game.interface.setPlayer(id, game.interface.getPlayer())
+                            exists.platform = exists.platform / (game.interface.getEntity(id))
+                        end
+                    else
+                        if (existing) then game.interface.bulldoze(existing.id) end
                     end
                 end)
         end
         
         local generateTrack = function(track)
-            ustmo[#ustmo + 1] = {
+            local profile = {
                 tag = "track",
                 coords = track,
                 group = group,
@@ -170,20 +184,31 @@ local buildDraft = function(markers, params)
                 fm = track.fm.id,
                 tm = track.tm.id
             }
-            
-            local id = game.interface.buildConstruction(
-                "station/rail/modular/utimate_station_modular_track.con",
-                func.with(station.pureParams(params), {
-                    trackId = #ustmo,
-                    fm = track.fm.id,
-                    tm = track.tm.id,
-                    number = track.number
-                }),
-                track.transf
-            )
-            game.interface.setPlayer(id, game.interface.getPlayer())
-            
-            return id
+            local existing = exists.track * pipe.filter(function(t) return t.params.fm == track.fm.id and t.params.tm == track.tm.id end) * pipe.select(1)
+            if (existing) then
+                ustmo[existing.params.trackId] = profile
+                game.interface.upgradeConstruction(
+                    existing.id,
+                    existing.fileName,
+                    station.pureParams(existing.params)
+                )
+                return existing.id
+            else
+                ustmo[#ustmo + 1] = profile
+                local id = game.interface.buildConstruction(
+                    "station/rail/modular/utimate_station_modular_track.con",
+                    func.with(station.pureParams(params), {
+                        trackId = #ustmo,
+                        fm = track.fm.id,
+                        tm = track.tm.id,
+                        number = track.number
+                    }),
+                    track.transf
+                )
+                game.interface.setPlayer(id, game.interface.getPlayer())
+                exists.track = exists.track / game.interface.getEntity(id)
+                return id
+            end
         end
         
         local function build(gr, ...)
