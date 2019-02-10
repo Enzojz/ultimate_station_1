@@ -99,22 +99,6 @@ local buildDraft = function(markers, params)
         
         local tracks = pipe.mapn(sfm, stm, func.seq(1, #sfm))(ustp.profile(config).track)
         
-        local function platformGen(result, tl, tr, ...)
-            if (tr == nil) then return unpack(result / tl) end
-            local coords = ustp.profile(config).platform(tl, tr)
-            
-            local hasPlatform =
-                pipe.new
-                * func.map2(coords.track.lc, coords.track.rc, function(lc, rc) return (lc - rc):length() >= config.tW + 1 end)
-                * pipe.filter(pipe.noop())
-                * function(ls) return #ls >= 5 end
-            
-            if (hasPlatform) then
-                return platformGen(result / tl / coords, tr, ...)
-            else
-                return platformGen(result / tl, tr, ...)
-            end
-        end
         
         local exists = pipe.new
             * game.interface.getEntities({pos = game.gui.getTerrainPos(), radius = 1000})
@@ -211,42 +195,29 @@ local buildDraft = function(markers, params)
             end
         end
         
-        local function build(gr, ...)
-            if (gr == nil) then
-                return
-            elseif (#gr == 3 and gr[1].isTrack and gr[2].isPlatform and gr[3].isTrack) then
+        local function build(tl, tr, ...)
+            if (tr == nil) then return generateTrack(tl) end
+            local pl = ustp.profile(config).platform(tl, tr)
+            
+            local hasPlatform =
+                pipe.new
+                * func.map2(pl.track.lc, pl.track.rc, function(lc, rc) return (lc - rc):length() >= config.tW + 1 end)
+                * pipe.filter(pipe.noop())
+                * function(ls) return #ls >= 5 end
+            
+            if (hasPlatform) then
                 generatePlatform(
-                    gr[2],
-                    generateTrack(gr[1]),
-                    generateTrack(gr[3])
+                    pl,
+                    generateTrack(tl),
+                    generateTrack(tr)
                 )
-                build(...)
-            elseif (#gr == 2 and gr[1].isTrack and gr[2].isPlatform) then
-                generatePlatform(
-                    gr[2],
-                    generateTrack(gr[1])
-                )
-                build(...)
-            elseif (#gr == 2 and gr[1].isPlatform and gr[2].isTrack) then
-                generatePlatform(
-                    gr[1],
-                    false,
-                    generateTrack(gr[2])
-                )
-                build(...)
-            elseif (#gr == 1 and gr[1].isPlatform) then
-                generatePlatform(gr[1], false, false)
-                build(...)
-            -- elseif (#gr == 2 and gr[1].isPlatform and gr[2].isPlatform) then
-            -- elseif (#gr == 3 and gr[1].isPlatform and gr[2].isPlatform and gr[3].isTrack) then
-            -- elseif (#gr == 4 and gr[1].isTrack and gr[2].isPlatform and gr[3].isPlatform and gr[4].isTrack) then
             else
-                generateTrack(gr[1])
-                build(...)
+                generateTrack(tl)
             end
+            return build(tr, ...)
         end
         
-        build(ust.trackGrouping(pipe.new, platformGen(pipe.new, unpack(tracks))))
+        build(unpack(tracks))
         
         game.interface.upgradeConstruction(
             markers[1].id,

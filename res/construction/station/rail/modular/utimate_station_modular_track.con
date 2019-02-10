@@ -77,7 +77,7 @@ local updateFn = function(params)
             params.number
         )
         
-        ustmo[#ustmo + 1] = {
+        ustmo[params.trackId] = {
             tag = "track",
             coords = coords,
             group = params.group,
