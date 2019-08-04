@@ -1911,7 +1911,9 @@ ust.entryConfig = function(config, allArcs, arcCoords, ignoreMain)
             or config.entries.main.pos + 2 ~= i
     end
     return {
-        main = (not config.isTerminal and isLeftTrack) and {pos = false, model = false} or config.entries.main,
+        main =  (
+            not config.isTerminal and 
+            ((isLeftTrack and config.entries.main.isLeft) or (isRightTrack and not config.entries.main.isLeft))) and {pos = false, model = false} or config.entries.main,
         street = {
             func.mapi(config.entries.street[1], function(t, i) return t and withoutMainLeft(i) and not isLeftTrack end),
             func.mapi(config.entries.street[2], function(t, i) return t and withoutMainRight(i) and not isRightTrack end),
